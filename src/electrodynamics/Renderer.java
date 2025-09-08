@@ -1,359 +1,744 @@
 package electrodynamics;
-import com.jogamp.common.nio.Buffers;
-import com.jogamp.opengl.*;
-import com.jogamp.opengl.awt.GLCanvas;
-import com.jogamp.opengl.glu.GLU;
-import com.jogamp.opengl.util.FPSAnimator;
+
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferInt;
+import java.util.ArrayList;
+import java.util.Random;
+
+import javax.swing.JPanel;
+
 import com.jogamp.opengl.util.awt.TextRenderer;
 
-import electrodynamics.Electrodynamics.Brush;
-import electrodynamics.Electrodynamics.RenderingMode;
+import electrodynamics.Electrodynamics.RenderMode;
+import electrodynamics.Electrodynamics.ScalarView;
 import electrodynamics.Electrodynamics.VectorMode;
 import electrodynamics.Electrodynamics.VectorView;
+import electrodynamics.util.Utils;
 
-import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
-
-import javax.swing.*;
-
-public class Renderer implements GLEventListener {
-
+public class Renderer {
 	Electrodynamics e;
-	GLCanvas canvas;
-	IntBuffer selectBuf;
-	GLU glu;
-	IntBuffer viewport;
 	
-	Vector g = new Vector(0, 0, 0);
+
+	JPanel imgpanel;
+	RenderCanvas r;
+	/* 3D graphics */
+	Renderer3D renderer_left_eye;
+	Renderer3D renderer_right_eye;
+
+	
+	/* Graphics */
+
+	float[][][] image_r;
+	float[][][] image_g;
+	float[][][] image_b;
+	boolean[][][] solid;
+	float col_r = 0;
+	float col_g = 0;
+	float col_b = 0;
+	double alphaBG = 0;
+	double alphaFG = 0;
+	boolean slice_x = false;
+	boolean slice_y = false;
+	boolean slice_z = true;
+	Random rand = new Random();
+
+	ArrayList<Text> texts = new ArrayList<>();
+	Font bigfont = new Font(Font.SANS_SERIF, Font.PLAIN, 15);
+	Font regularfont = new Font(Font.SANS_SERIF, Font.PLAIN, 12);
+	int scalefactor;
+	int imgwidth = 0;
+	int imgheight = 0;
+	int targetframerate = 60;
+	int frameduration = 1000/targetframerate;
+	
+	
+	
+	
+
 	float pitch = (float)Math.PI/6;
 	float yaw = (float)Math.PI/4;
 	float pitch_start = 0;
 	float yaw_start = 0;
-
-    float aspect = 1;
     float scale = 24f;
-    int width;
-    int height;
-    
-    TextRenderer renderer;
-    FPSAnimator animator;
-	
+	boolean threeD_mode = true;
+
 	public Renderer(Electrodynamics e) {
 		this.e = e;
-        GLProfile profile = GLProfile.get(GLProfile.GL2);
-        GLCapabilities capabilities = new GLCapabilities(profile);
 
-        // Create canvas
-        canvas = new GLCanvas(capabilities);
-        canvas.addGLEventListener(this);
-        canvas.setSize(e.imgwidth, e.imgheight);
+		r = new RenderCanvas(e);
+		r.setFocusable(true);
+	}
+	
+	public void create3dCanvas() {
+		renderer_left_eye = new Renderer3D(e);
+		renderer_left_eye.isMainCanvas = true;
+		renderer_right_eye = new Renderer3D(e);
+	}
+	
+	public void initializeGrid(double ds, int x_resolution, int y_resolution, int z_resolution) {
+		image_r = new float[e.nx][e.ny][e.nz];
+		image_g = new float[e.nx][e.ny][e.nz];
+		image_b = new float[e.nx][e.ny][e.nz];
+		solid = new boolean[e.nx][e.ny][e.nz];
+		scalefactor = (int)(768.0/Math.max(Math.max(e.nx, e.ny), e.nz));
+		generateCanvas();
+	}
+	
+	public void set3Dmode() {
+		RenderMode mode = (RenderMode) e.opts.gui_3d_view.getSelectedItem();
+		threeD_mode = RenderMode.is3d(mode);
 
-        animator = new FPSAnimator(canvas, e.targetframerate);
+		e.opts.gui_slice.setVisible(!threeD_mode);
+		e.opts.gui_slicelabel.setVisible(!threeD_mode);
+		slice_x = (mode == RenderMode.SLICE_X);
+		slice_y = (mode == RenderMode.SLICE_Y);
+		slice_z = (mode == RenderMode.SLICE_Z);
+		generateCanvas();
+		e.opts.pack();
+		int tmp = e.opts.gui_slice.getValue();
+		e.opts.gui_slice.setValue(0);
+		e.opts.gui_slice.setValue(1);
+		e.opts.gui_slice.setValue(tmp);
+
+
+		imgpanel.remove(r);
+		imgpanel.remove(renderer_left_eye.canvas);
+		imgpanel.remove(renderer_right_eye.canvas);
+
+		renderer_left_eye.animator.stop();
+		renderer_right_eye.animator.stop();
+
+		if (threeD_mode) {
+			imgpanel.add(renderer_left_eye.canvas);
+			renderer_left_eye.animator.start();
+
+			if (RenderMode.isStereoscopic(mode)) {
+				e.opts.gui_parallax.setVisible(true);
+				e.opts.gui_parallaxlabel.setVisible(true);
+				renderer_right_eye.animator.start();
+				imgpanel.add(renderer_right_eye.canvas);
+			} else {
+				e.opts.gui_parallax.setVisible(false);
+				e.opts.gui_parallaxlabel.setVisible(false);
+			}
+
+			updateParallax();
+			e.opts.pack();
+		} else {
+			imgpanel.add(r);
+			e.opts.pack();
+		}
+	}
+	
+	public void updateParallax() {
+		if (RenderMode.isStereoscopic((RenderMode)e.opts.gui_3d_view.getSelectedItem())) {
+			if ((RenderMode)e.opts.gui_3d_view.getSelectedItem() == RenderMode.THREED_STEREO) {
+				renderer_left_eye.eye_offset = e.opts.gui_parallax.getValue()/2f;
+				renderer_right_eye.eye_offset = -e.opts.gui_parallax.getValue()/2f;
+			} else {
+				renderer_left_eye.eye_offset = -e.opts.gui_parallax.getValue()/2f;
+				renderer_right_eye.eye_offset = e.opts.gui_parallax.getValue()/2f;
+			}
+		} else {
+			renderer_left_eye.eye_offset = 0;
+			renderer_right_eye.eye_offset = 0;
+		}
+
+		e.opts.gui_parallaxlabel.setText("Parallax = " + e.opts.gui_parallax.getValue() + " deg");
+	}
+	
+	public void generateCanvas() {
+		if (slice_x) {
+			imgwidth = (int)Math.ceil(scalefactor*e.ny);
+			imgheight = (int)Math.ceil(scalefactor*e.nz);
+			e.opts.gui_slice.setMaximum(e.opts.gui_slice.getVisibleAmount() + e.nx - 1);
+		} else if (slice_y) {
+			imgwidth = (int)Math.ceil(scalefactor*e.nx);
+			imgheight = (int)Math.ceil(scalefactor*e.nz);
+			e.opts.gui_slice.setMaximum(e.opts.gui_slice.getVisibleAmount() + e.ny - 1);
+		} else if (slice_z) {
+			imgwidth = (int)Math.ceil(scalefactor*e.nx);
+			imgheight = (int)Math.ceil(scalefactor*e.ny);
+			e.opts.gui_slice.setMaximum(e.opts.gui_slice.getVisibleAmount() + e.nz - 1);
+		}
+
+		r.setPreferredSize(new Dimension(imgwidth, imgheight));
+		e.screen = (BufferedImage) e.opts.createImage(imgwidth, imgheight);
 	}
 
-    @Override
-    public void init(GLAutoDrawable drawable) {
-    	glu = GLU.createGLU();
-        GL2 gl = drawable.getGL().getGL2();
-        gl.glClearColor(0f, 0f, 0f, 1f);  // Black background
-        gl.glEnable(GL2.GL_DEPTH_TEST);
-        selectBuf = Buffers.newDirectIntBuffer(256);
-        viewport = Buffers.newDirectIntBuffer(4);
-        gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport);
-        renderer = new TextRenderer(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 6));
-    }
+	
+	public void drawPixelRectangle(int x, int y, int z, int wx, int wy, int wz) {
+		for (int i = x; i < x+wx; i++) {
+			for (int j = y; j < y+wy; j++) {
+				for (int k = z; k < z+wz; k++) {
+					solid[i][j][k] |= true;
+					setPixel(i, j, k);
+				}
+			}
+		}
+	}
 
-    @Override
-    public void dispose(GLAutoDrawable drawable) {
-        // Called when the canvas is destroyed
-    }
+	public void setPixel(int i, int j, int k) {
+		if (i < 0 || j < 0  || k < 0 || i >= e.nx || j >= e.ny || k > e.nz)
+			return;
 
-    @Override
-    public void display(GLAutoDrawable drawable) {
-    	if (!e.threeD_mode)
-    		return;
-    	
-        GL2 gl = drawable.getGL().getGL2();
+		image_r[i][j][k] = (float)(image_r[i][j][k]*alphaBG + col_r*alphaFG);
+		image_g[i][j][k] = (float)(image_g[i][j][k]*alphaBG + col_g*alphaFG);
+		image_b[i][j][k] = (float)(image_b[i][j][k]*alphaBG + col_b*alphaFG);
+	}
 
-        gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
+	public void stampPixelData() {
+		e.t9.start();
+		int[] imgData = ((DataBufferInt)e.screen.getRaster().getDataBuffer()).getData();
 
-        gl.glMatrixMode(GL2.GL_PROJECTION);
-        gl.glLoadIdentity();
-        setupProjectionMat(gl);
-        
-        gl.glMatrixMode(GL2.GL_MODELVIEW);
-        gl.glLoadIdentity();
-        setupModelMat(gl);
-        
-        drawThings(gl);
+		if (slice_z) {
+			int scansize = e.nx*scalefactor;
+			int k_slice = e.opts.gui_slice.getValue();
+			for (int x = 0; x < e.nx*scalefactor; x++) {
+				for (int y = 0; y < e.ny*scalefactor; y++) {
+					int i = x/scalefactor;
+					int j = e.ny-1-y/scalefactor;
+					double scale = 1f/max(image_r[i][j][k_slice], image_g[i][j][k_slice], image_b[i][j][k_slice], 1f);
+					int rgb = clamp((int)(256*image_r[i][j][k_slice]*scale), 0, 255) << 16
+					| clamp((int)(256*image_g[i][j][k_slice]*scale), 0, 255) << 8
+					| clamp((int)(256*image_b[i][j][k_slice]*scale), 0, 255);
+					imgData[x + y*scansize] = rgb;
+				}
+			}
+		}
+		if (slice_x) {
+			int scansize = e.ny*scalefactor;
+			int i_slice = e.opts.gui_slice.getValue();
+			for (int x = 0; x < e.ny*scalefactor; x++) {
+				for (int y = 0; y < e.nz*scalefactor; y++) {
+					int j = x/scalefactor;
+					int k = e.nz-1-y/scalefactor;
+					double scale = 1f/max(image_r[i_slice][j][k], image_g[i_slice][j][k], image_b[i_slice][j][k], 1f);
+					int rgb = clamp((int)(256*image_r[i_slice][j][k]*scale), 0, 255) << 16
+					| clamp((int)(256*image_g[i_slice][j][k]*scale), 0, 255) << 8
+					| clamp((int)(256*image_b[i_slice][j][k]*scale), 0, 255);
+					imgData[x + y*scansize] = rgb;
+				}
+			}
+		}
 
+		if (slice_y) {
+			int scansize = e.nx*scalefactor;
+			int j_slice = e.opts.gui_slice.getValue();
+			for (int x = 0; x < e.nx*scalefactor; x++) {
+				for (int y = 0; y < e.nz*scalefactor; y++) {
+					int i = x/scalefactor;
+					int k = e.nz-1-y/scalefactor;
+					double scale = 1f/max(image_r[i][j_slice][k], image_g[i][j_slice][k], image_b[i][j_slice][k], 1f);
+					int rgb = clamp((int)(256*image_r[i][j_slice][k]*scale), 0, 255) << 16
+					| clamp((int)(256*image_g[i][j_slice][k]*scale), 0, 255) << 8
+					| clamp((int)(256*image_b[i][j_slice][k]*scale), 0, 255);
+					imgData[x + y*scansize] = rgb;
+				}
+			}
+		}
 
-        renderer.beginRendering(canvas.getWidth(), canvas.getHeight());
-        
-        e.renderText(null, renderer);
-        
-        renderer.endRendering();
-        
-        gl.glMatrixMode(GL2.GL_PROJECTION);
-        gl.glLoadIdentity();
-        glu.gluPickMatrix(((float)e.mx_3d/canvas.getWidth())*e.imgwidth*width/canvas.getWidth(), (1f-(float)e.my_3d/canvas.getHeight())*e.imgheight*height/canvas.getHeight(), 1, 1, viewport);
-        setupProjectionMat(gl);
+		e.t9.stop();
+	}
 
-        gl.glMatrixMode(GL2.GL_MODELVIEW);
-        gl.glLoadIdentity();
-        setupModelMat(gl);
-        
-        gl.glSelectBuffer(selectBuf.capacity()*Integer.SIZE, selectBuf);
-        gl.glRenderMode(GL2.GL_SELECT);
-        gl.glInitNames();
-        gl.glPushName(-1);
-        drawHitboxes(gl);
-        int hits = gl.glRenderMode(GL2.GL_RENDER);
-        if (hits > 0 && e.update3dCursor) {
-        	//System.out.println(hits + " hits");
-        	
-        	long maxdepth = Long.MAX_VALUE;
-        	int m_nearest = 0;
-        	for (int m = 0; m < hits; m++) {
-            	long depth = Integer.toUnsignedLong(selectBuf.get(4*m+2));
-            	//System.out.println(depth + " depth");
-            	if (depth < maxdepth) {
-            		maxdepth = depth;
-            		m_nearest = m;
-            	}
-        	}
-        	
-        	
-        	
-        	int index = selectBuf.get(4*m_nearest+3);
-        	this.unpackCoords(index);
-        	e.update3dCursor = false;
-        }
-        
-        gl.glFlush();
-    }
+	public void drawLine(int x0, int y0, int x1, int y1, boolean draw_starting_point) {
+		y0 = imgheight - 1 - y0;
+		y1 = imgheight - 1 - y1;
+		try {
+			int[] imgData = ((DataBufferInt)e.screen.getRaster().getDataBuffer()).getData();
+			int scansize = scalefactor*e.nx;
 
-    public void setupProjectionMat(GL2 gl) {
-        RenderingMode mode = (RenderingMode) e.opts.gui_3d_view.getSelectedItem();
-        
-        if (RenderingMode.isOrthographic(mode))
-        	gl.glOrtho(-scale * aspect, scale * aspect, -scale, scale, 0, 128);
-        else if (RenderingMode.isPerspective(mode))
-        	gl.glFrustum(-0.01*scale * aspect, 0.01*scale * aspect, -0.01*scale, 0.01*scale, 0.01*64, 4*64);
-        
-        gl.glRotatef(90f, 0.0f, 0.0f, 1.0f);
-        gl.glRotatef(90f, 0.0f, 1.0f, 0.0f);
-    }
-    
-    public void setupModelMat(GL2 gl) {
+			int dy = y1 - y0;
+			int dx = x1 - x0;
+			float t = (float) 0.5;
 
-    	g.x = Math.cos(yaw)*Math.cos(pitch);
-    	g.y = Math.sin(yaw)*Math.cos(pitch);
-    	g.z = -Math.sin(pitch);
-    	
-        gl.glTranslatef(48, 0, 0);
-        gl.glRotatef(-pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
-        gl.glRotatef(-yaw*(float)(180/Math.PI), 0.0f, 0.0f, 1.0f);
-        gl.glTranslatef(-16, -16, -16);
-    }
-    
-    public void drawThings(GL2 gl) {
-        gl.glEnable(GL2.GL_BLEND);
-        gl.glDepthMask(true);
-        gl.glBlendFuncSeparate(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA, GL2.GL_ONE, GL2.GL_ONE);
-        
-        // Draw a triangle
+			int rgb;
+			int r;
+			int g;
+			int b;
 
-        //System.out.println("Here3");
-        
-        RenderingMode mode = (RenderingMode) e.opts.gui_3d_view.getSelectedItem();
-
-        if (mode != RenderingMode.THREED_FIELDS_ONLY && mode != RenderingMode.THREED_PERSPECTIVE_FIELDS_ONLY) {
-            float alpha = 1f;
-            
-        	if (mode == RenderingMode.THREED_TRANSLUCENT || mode == RenderingMode.THREED_PERSPECTIVE_TRANSLUCENT) {
-        		alpha = 0.3f;
-                gl.glDepthMask(false);
-                //gl.glBlendEquationSeparate(GL2.GL_ADD, GL2.GL_ADD);
-                gl.glBlendFuncSeparate(GL2.GL_SRC_ALPHA, GL2.GL_ONE, GL2.GL_ZERO, GL2.GL_ONE);
-                //gl.glBlendFunc(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA);
-        	}
-
-            gl.glBegin(GL2.GL_TRIANGLES);
-        	
-        	for (int i = 0; i < e.nx; i++) for (int j = 0; j < e.ny; j++) for (int k = 0; k < e.nz; k++) {
-        		for (int di = -1; di <= 1; di++) for (int dj = -1; dj <= 1; dj++) for (int dk = -1; dk <= 1; dk++) {
-        			if (Math.abs(di)+Math.abs(dj)+Math.abs(dk) == 1
-        			&& i+di >= 0 && i + di < e.nx
-        			&& j+dj >= 0 && j + dj < e.ny
-        			&& k+dk >= 0 && k + dk < e.nz) {
-        				if (e.materials[i][j][k].type == MaterialType.ABSORBER  && di*g.x + dj*g.y + dk*g.z > 0)
-        					continue;
-
-        				if (e.materials[i][j][k].type != MaterialType.VACUUM && e.materials[i+di][j+dj][k+dk].type == MaterialType.VACUUM) {
-        					//float r = e.materials[i][j][k].type.color_r/255f;
-        					//float g = e.materials[i][j][k].type.color_g/255f;
-        					//float b = e.materials[i][j][k].type.color_b/255f;
-        					float r = e.image_r[i][j][k];
-        					float g = e.image_g[i][j][k];
-        					float b = e.image_b[i][j][k];
-        					float light = (float)(0.8+0.2*di+0.1*dj+0.05*dk);
-        					gl.glColor4f(r*light, g*light, b*light, alpha);
-        					if (di == -1) {
-        						gl.glVertex3f(i, j, k);
-        						gl.glVertex3f(i, j+1, k);
-        						gl.glVertex3f(i, j+1, k+1);
-        						gl.glVertex3f(i, j, k);
-        						gl.glVertex3f(i, j, k+1);
-        						gl.glVertex3f(i, j+1, k+1);
-        					} else if (di == 1) {
-        						gl.glVertex3f(i+1, j, k);
-        						gl.glVertex3f(i+1, j+1, k);
-        						gl.glVertex3f(i+1, j+1, k+1);
-        						gl.glVertex3f(i+1, j, k);
-        						gl.glVertex3f(i+1, j, k+1);
-        						gl.glVertex3f(i+1, j+1, k+1);
-        					} else if (dj == -1) {
-        						gl.glVertex3f(i, j, k);
-        						gl.glVertex3f(i+1, j, k);
-        						gl.glVertex3f(i+1, j, k+1);
-        						gl.glVertex3f(i, j, k);
-        						gl.glVertex3f(i, j, k+1);
-        						gl.glVertex3f(i+1, j, k+1);
-        					} else if (dj == 1) {
-        						gl.glVertex3f(i, j+1, k);
-        						gl.glVertex3f(i+1, j+1, k);
-        						gl.glVertex3f(i+1, j+1, k+1);
-        						gl.glVertex3f(i, j+1, k);
-        						gl.glVertex3f(i, j+1, k+1);
-        						gl.glVertex3f(i+1, j+1, k+1);
-        					} else if (dk == -1) {
-        						gl.glVertex3f(i, j, k);
-        						gl.glVertex3f(i, j+1, k);
-        						gl.glVertex3f(i+1, j+1, k);
-        						gl.glVertex3f(i, j, k);
-        						gl.glVertex3f(i+1, j, k);
-        						gl.glVertex3f(i+1, j+1, k);
-        					} else if (dk == 1) {
-        						gl.glVertex3f(i, j, k+1);
-        						gl.glVertex3f(i, j+1, k+1);
-        						gl.glVertex3f(i+1, j+1, k+1);
-        						gl.glVertex3f(i, j, k+1);
-        						gl.glVertex3f(i+1, j, k+1);
-        						gl.glVertex3f(i+1, j+1, k+1);
-        					}
-        				}
-        			}
-        		}
-        	}
+			if (draw_starting_point) {
+				rgb = imgData[x0+y0*scansize];
+				r = ((int)(((rgb>>16)&255)*alphaBG + 255*col_r*alphaFG));
+				g = ((int)(((rgb>>8)&255)*alphaBG + 255*col_g*alphaFG));
+				b = ((int)(((rgb)&255)*alphaBG + 255*col_b*alphaFG));
+				if (r > 255)
+					r = 255;
+				if (g > 255)
+					g = 255;
+				if (b > 255)
+					b = 255;
+				imgData[x0+y0*scansize] =  255<<24 | r << 16 | g << 8 | b;
+			}
 
 
-        	Brush brush = (Brush) e.opts.gui_brush.getSelectedItem();
-        	boolean highlight = (e.opts.gui_brush_highlight.isSelected() && Brush.isBrushShapeImportant(brush));
-        	if (highlight) {
-        		for (int i = 0; i < e.nx; i++) for (int j = 0; j < e.ny; j++) for (int k = 0; k < e.nz; k++) {
-        			for (int di = -1; di <= 1; di++) for (int dj = -1; dj <= 1; dj++) for (int dk = -1; dk <= 1; dk++) {
-        				if (Math.abs(di)+Math.abs(dj)+Math.abs(dk) == 1
-        				&& i+di >= 0 && i + di < e.nx
-        				&& j+dj >= 0 && j + dj < e.ny
-        				&& k+dk >= 0 && k + dk < e.nz) {
-        					if (di*g.x + dj*g.y + dk*g.z > 0)
-        						continue;
+			if (Math.abs(dx) > Math.abs(dy)) {
+				float m = (float) dy / (float) dx;
+				t += y0;
+				dx = (dx < 0) ? -1 : 1;
+				m *= dx;
+				while (x0 != x1) {
+					x0 += dx;
+					t += m;
 
-        					if (e.under_brush[i][j][k] && !e.under_brush[i+di][j+dj][k+dk]) {
-            					float light = (float)(0.8+0.2*di+0.1*dj+0.05*dk);
-            					
-        						gl.glColor4f(light, light, light, 0.4f);
-        						float eps = 0.01f;
-        						if (di == -1) {
-        							gl.glVertex3f(i-eps, j-eps, k-eps);
-        							gl.glVertex3f(i-eps, j+1+eps, k-eps);
-        							gl.glVertex3f(i-eps, j+1+eps, k+1+eps);
-        							gl.glVertex3f(i-eps, j-eps, k-eps);
-        							gl.glVertex3f(i-eps, j-eps, k+1+eps);
-        							gl.glVertex3f(i-eps, j+1+eps, k+1+eps);
-        						} else if (di == 1) {
-        							gl.glVertex3f(i+1+eps, j-eps, k-eps);
-        							gl.glVertex3f(i+1+eps, j+1+eps, k-eps);
-        							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
-        							gl.glVertex3f(i+1+eps, j-eps, k-eps);
-        							gl.glVertex3f(i+1+eps, j-eps, k+1+eps);
-        							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
-        						} else if (dj == -1) {
-        							gl.glVertex3f(i-eps, j-eps, k-eps);
-        							gl.glVertex3f(i+1+eps, j-eps, k-eps);
-        							gl.glVertex3f(i+1+eps, j-eps, k+1+eps);
-        							gl.glVertex3f(i-eps, j-eps, k-eps);
-        							gl.glVertex3f(i-eps, j-eps, k+1+eps);
-        							gl.glVertex3f(i+1+eps, j-eps, k+1+eps);
-        						} else if (dj == 1) {
-        							gl.glVertex3f(i-eps, j+1+eps, k-eps);
-        							gl.glVertex3f(i+1+eps, j+1+eps, k-eps);
-        							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
-        							gl.glVertex3f(i-eps, j+1+eps, k-eps);
-        							gl.glVertex3f(i-eps, j+1+eps, k+1+eps);
-        							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
-        						} else if (dk == -1) {
-        							gl.glVertex3f(i-eps, j-eps, k-eps);
-        							gl.glVertex3f(i-eps, j+1+eps, k-eps);
-        							gl.glVertex3f(i+1+eps, j+1+eps, k-eps);
-        							gl.glVertex3f(i-eps, j-eps, k-eps);
-        							gl.glVertex3f(i+1+eps, j-eps, k-eps);
-        							gl.glVertex3f(i+1+eps, j+1+eps, k-eps);
-        						} else if (dk == 1) {
-        							gl.glVertex3f(i-eps, j-eps, k+1+eps);
-        							gl.glVertex3f(i-eps, j+1+eps, k+1+eps);
-        							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
-        							gl.glVertex3f(i-eps, j-eps, k+1+eps);
-        							gl.glVertex3f(i+1+eps, j-eps, k+1+eps);
-        							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
-        						}
-        					}
-        				}
-        			}
-        		}
-        	}
-        	
-            gl.glEnd();
-        }
-        
+					rgb =  imgData[x0+((int)t)*scansize];
+					r = ((int)(((rgb>>16)&255)*alphaBG + 255*col_r*alphaFG));
+					g = ((int)(((rgb>>8)&255)*alphaBG + 255*col_g*alphaFG));
+					b = ((int)(((rgb)&255)*alphaBG + 255*col_b*alphaFG));
+					if (r > 255)
+						r = 255;
+					if (g > 255)
+						g = 255;
+					if (b > 255)
+						b = 255;
+					imgData[x0+((int)t)*scansize] = 255<<24 | r << 16 | g << 8 | b;
 
-        gl.glDepthMask(false);
-        gl.glBlendFuncSeparate(GL2.GL_SRC_ALPHA, GL2.GL_ONE, GL2.GL_ZERO, GL2.GL_ONE);
-        gl.glLineWidth(3f);
-        gl.glBegin(GL2.GL_LINES);
-        
+				}
+			} else {
+				float m = (float) dx / (float) dy;
+				t += x0;
+				dy = (dy < 0) ? -1 : 1;
+				m *= dy;
+				while (y0 != y1) {
+					y0 += dy;
+					t += m;
 
-        if ((VectorView) e.opts.gui_view_vec.getSelectedItem() != VectorView.NONE) {
+					rgb =  imgData[((int)t)+y0*scansize];
+					r = ((int)(((rgb>>16)&255)*alphaBG + 255*col_r*alphaFG));
+					g = ((int)(((rgb>>8)&255)*alphaBG + 255*col_g*alphaFG));
+					b = ((int)(((rgb)&255)*alphaBG + 255*col_b*alphaFG));
+					if (r > 255)
+						r = 255;
+					if (g > 255)
+						g = 255;
+					if (b > 255)
+						b = 255;
+					imgData[((int)t)+y0*scansize] = 255<<24 | r << 16 | g << 8 | b;
+				}
+			}
+		} catch (ArrayIndexOutOfBoundsException e) {
+			return;
+		}
+	}
 
-        	double arrowlength = 30.0/e.scalefactor;
+	public void drawPixelLine(int x0, int y0, int z0, int x1, int y1, int z1) {
+		int dx = Math.abs(x1-x0), sx = x0<x1 ? 1 : -1;
+		int dy = Math.abs(y1-y0), sy = y0<y1 ? 1 : -1;
+		int dz = Math.abs(z1-z0), sz = z0<z1 ? 1 : -1;
+		int dm = Math.max(Math.max(dx,dy),dz), i = dm;
+		x1 = y1 = z1 = dm/2;
 
-        	double vectorscalingconstant = 0.01*Math.pow(10.0, e.opts.gui_brightness_vec.getValue()/5.0);
+		while (true) {
+			solid[x0][y0][z0] |= true;
+			setPixel(x0,y0,z0);
+			if (i == 0) break;
+			i--;
+			x1 -= dx; if (x1 < 0) { x1 += dm; x0 += sx; }
+			y1 -= dy; if (y1 < 0) { y1 += dm; y0 += sy; }
+			z1 -= dz; if (z1 < 0) { z1 += dm; z0 += sz; }
+		}
+	}
 
-        	VectorMode vector_display_mode = (VectorMode)e.opts.gui_view_vec_mode.getSelectedItem();
+	public void setColor(int r, int g, int b) {
+		col_r = r/255f;
+		col_g = g/255f;
+		col_b = b/255f;
+	}
 
-        	e.rand.setSeed(4);
+	public void setColorFloat(float r, float g, float b) {
+		if (!(r+b+g < Float.MAX_VALUE)) {
+			col_r = 0;
+			col_g = 0;
+			col_b = 0;
+			return;
+		}
+		float scale = 1f/max(r, g, b, 1f);
+		col_r = Math.max(r*scale, 0);
+		col_g = Math.max(g*scale, 0);
+		col_b = Math.max(b*scale, 0);
+	}
 
-        	int density = 10;
+	public float max(float x, float y, float z) {
+		return Math.max(Math.max(x, y), z);
+	}
 
-        	double randomness = 0;
+	public float max(float x, float y, float z, float w) {
+		return Math.max(Math.max(Math.max(x, y), z), w);
+	}
 
-        	if (vector_display_mode == VectorMode.ARROWS) {
-        		randomness = 0.75;
-        	} else if (vector_display_mode == VectorMode.LINES) {
-        		randomness = 0.75;
-        	}
+	public float min(float x, float y, float z) {
+		return Math.min(Math.min(x, y), z);
+	}
 
-        	double[][][] vf_x = null;
-        	double[][][] vf_y = null;
-        	double[][][] vf_z = null;
-        	
+	public float min(float x, float y, float z, float w) {
+		return Math.min(Math.min(Math.min(x, y), z), w);
+	}
+
+	public int clamp(int val, int min, int max) {
+		if (val < min) return min;
+		if (val > max) return max;
+		return val;
+	}
+
+	public double clamp(double val, double min, double max) {
+		if ((val != val) || (val < min)) return min;
+		if (val > max) return max;
+		return val;
+	}
+
+	public void setalphaBG(double alpha) {
+		alphaBG = alpha;
+	}
+
+	public void setalphaFG(double alpha) {
+		alphaFG = alpha;
+	}
+
+	public void render() {
+
+		e.t5.start();
+		Graphics2D g = (Graphics2D) e.screen.getGraphics();
+
+		for (int i = 0; i < e.nx; i++) {
+			for (int j = 0; j < e.ny; j++) {
+				for (int k = 0; k < e.nz; k++) {
+					image_r[i][j][k] = 0;
+					image_g[i][j][k] = 0;
+					image_b[i][j][k] = 0;
+					solid[i][j][k] = false;
+				}
+			}
+		}
+
+		clearStrings();
+
+		/* Draw pixels */
+
+		setalphaBG(0);
+		setalphaFG(1);
+
+		Brush brush = (Brush) e.opts.gui_brush.getSelectedItem();
+
+		if (e.opts.gui_elem_colors.isSelected()) {
+			for (int i = 0; i < e.nx; i++) {
+				for (int j = 0; j < e.ny; j++) {
+					for (int k = 0; k < e.nz; k++) {
+						setColor(e.materials[i][j][k].type.color_r, e.materials[i][j][k].type.color_g, e.materials[i][j][k].type.color_b);
+
+						setPixel(i, j, k);
+
+						solid[i][j][k] = e.materials[i][j][k].type != MaterialType.VACUUM;
+					}
+				}
+			}
+		} else {
+			for (int i = 0; i < e.nx; i++) {
+				for (int j = 0; j < e.ny; j++) {
+					for (int k = 0; k < e.nz; k++) {
+						setColor(e.materials[i][j][k].type.color_grayscale, e.materials[i][j][k].type.color_grayscale, e.materials[i][j][k].type.color_grayscale);
+						setPixel(i, j, k);
+
+						solid[i][j][k] = e.materials[i][j][k].type != MaterialType.VACUUM;
+					}
+				}
+			}
+		}
+
+		if (e.controls.moving_selection) {
+			if (e.opts.gui_elem_colors.isSelected()) {
+				for (int i = 0; i < e.nx; i++) {
+					for (int j = 0; j < e.ny; j++) {
+						for (int k = 0; k < e.nz; k++) {
+							int si = i-e.controls.delta_mx_index;
+							int sj = j-e.controls.delta_my_index;
+							int sk = k-e.controls.delta_mz_index;
+							if (si >= 0 && sj >= 0 && sk >= 0 && si < e.nx && sj < e.ny && sk < e.nz && e.controls.selection[si][sj][sk].type != MaterialType.VACUUM) {
+								setColor(e.controls.selection[si][sj][sk].type.color_r, e.controls.selection[si][sj][sk].type.color_g, e.controls.selection[si][sj][sk].type.color_b);
+								setPixel(i, j, k);
+
+								solid[i][j][k] |= e.controls.selection[si][sj][sk].type != MaterialType.VACUUM;
+							}
+						}
+					}
+				}
+			}else {
+				for (int i = 0; i < e.nx; i++) {
+					for (int j = 0; j < e.ny; j++) {
+						for (int k = 0; k < e.nz; k++) {
+							int si = i-e.controls.delta_mx_index;
+							int sj = j-e.controls.delta_my_index;
+							int sk = k-e.controls.delta_mz_index;
+							if (si >= 0 && sj >= 0 && sk >= 0 && si < e.nx && sj < e.ny && sk < e.nz && e.controls.selection[si][sj][sk].type != MaterialType.VACUUM) {
+								setColor(e.controls.selection[si][sj][sk].type.color_grayscale, e.controls.selection[si][sj][sk].type.color_grayscale, e.controls.selection[si][sj][sk].type.color_grayscale);
+								setPixel(i, j, k);
+
+								solid[i][j][k] |= e.controls.selection[si][sj][sk].type != MaterialType.VACUUM;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		double scalingconstant = 0.1*Math.pow(10.0, e.opts.gui_brightness.getValue()/10.0)/((ScalarView) e.opts.gui_view.getSelectedItem()).scale;
+		if ((ScalarView) e.opts.gui_view.getSelectedItem() != ScalarView.NONE) {
+			setalphaBG(1.0);
+			setalphaFG(1.0);
+			for (int i = e.absorber_width; i < e.nx-e.absorber_width; i++) {
+				for (int j = e.absorber_width; j < e.ny-e.absorber_width; j++) {
+					for (int k = e.absorber_width; k < e.nz-e.absorber_width; k++) {
+						float v = 0;
+						double vx = 0;
+						double vy = 0;
+						double vz = 0;
+						switch ((ScalarView) e.opts.gui_view.getSelectedItem()) {
+						case NONE:
+							setColorFloat(0, 0, 0);
+							break;
+						case E_FIELD:
+							vx = 0.5*(e.Ex[i][j][k]+e.Ex[i-1][j][k]);
+							vy = 0.5*(e.Ey[i][j][k]+e.Ey[i][j-1][k]);
+							vz = 0.5*(e.Ez[i][j][k]+e.Ez[i][j][k-1]);
+							setColorFloat(0, (float)(length(vx, vy, vz)*scalingconstant), 0);
+							break;
+						case D_FIELD:
+							vx = 0.5*(e.Dx[i][j][k]+e.Dx[i-1][j][k]);
+							vy = 0.5*(e.Dy[i][j][k]+e.Dy[i][j-1][k]);
+							vz = 0.5*(e.Dz[i][j][k]+e.Dz[i][j][k-1]);
+							setColorFloat(0, (float)(length(vx, vy, vz)*scalingconstant), 0);
+							break;
+						case B_FIELD:
+							vx = 0.25*(e.Bx[i][j+1][k+1]+e.Bx[i][j][k+1]+e.Bx[i][j+1][k]+e.Bx[i][j][k]);
+							vy = 0.25*(e.By[i+1][j][k+1]+e.By[i][j][k+1]+e.By[i+1][j][k]+e.By[i][j][k]);
+							vz = 0.25*(e.Bz[i+1][j+1][k]+e.Bz[i][j+1][k]+e.Bz[i+1][j][k]+e.Bz[i][j][k]);
+							setColorFloat(0, (float)(length(vx, vy, vz)*scalingconstant), 0);
+							break;
+						case H_FIELD:
+							vx = 0.25*(e.Hx[i][j][k]+e.Hx[i][j-1][k]+e.Hx[i][j][k-1]+e.Hx[i][j-1][k-1]);
+							vy = 0.25*(e.Hy[i][j][k]+e.Hy[i-1][j][k]+e.Hy[i][j][k-1]+e.Hy[i-1][j][k-1]);
+							vz = 0.25*(e.Hz[i][j][k]+e.Hz[i-1][j][k]+e.Hz[i][j-1][k]+e.Hz[i-1][j-1][k]);
+							setColorFloat(0, (float)(length(vx, vy, vz)*scalingconstant), 0);
+							break;
+						case CURRENT:
+							vx = 0.5*(e.Jx_free[i][j][k]+e.Jx_free[i-1][j][k]);
+							vy = 0.5*(e.Jy_free[i][j][k]+e.Jy_free[i][j-1][k]);
+							vz = 0.5*(e.Jz_free[i][j][k]+e.Jz_free[i][j][k-1]);
+							setColorFloat(0, (float)(length(vx, vy, vz)*scalingconstant), 0);
+							break;
+						case POTENTIAL:
+							v = (float)(e.phi[i][j][k]*scalingconstant);
+							setColorFloat(v, 0, -v);
+							break;
+						case CHARGE:
+							v = (float)(e.rho_free[i][j][k]*scalingconstant);
+							float rc = Math.min(Math.max(v, 0), 1);
+							float bc = Math.min(Math.max(-v, 0), 1);
+							float gc = Math.min(rc, bc);
+
+							setalphaBG(1-0.5*gc);
+							//setalphaFG(gc);
+							setColorFloat(rc, gc, bc);
+							break;
+						case BACKGROUND_CHARGE:
+							v = (float)(e.rho_back[i][j][k]*scalingconstant);
+							setColorFloat(v, 0, -v);
+							break;
+						case ELECTRON_CHARGE:
+							v = (float)(e.rho_n[i][j][k]*scalingconstant);
+							setColorFloat(v, 0, -v);
+							break;
+						case HOLE_CHARGE:
+							v = (float)(e.rho_p[i][j][k]*scalingconstant);
+							setColorFloat(v, 0, -v);
+							break;
+						case COMBINED_CHARGE:
+							rc = (float)(clamp(0.2*Math.log(e.rho_p[i][j][k]*scalingconstant), 0, 1));
+							bc = (float)(clamp(0.2*Math.log(-e.rho_n[i][j][k]*scalingconstant), 0, 1));
+							gc = Math.min(rc, bc);
+							double it = Math.max(rc, bc);
+							setalphaBG(1-0.5*gc);
+							setalphaFG(0.6*it);
+							setColorFloat(rc, gc, bc);
+							break;
+						case ENERGY:
+							v = (float)(e.u[i][j][k]*scalingconstant);
+							setColorFloat(0, v, 0);
+							break;
+						case ENTROPY:
+							v = (float)(e.S[i][j][k]*scalingconstant);
+							setColorFloat(v, Math.abs(v), -v);
+							break;
+						case HEAT:
+							v = (float)(e.Q[i][j][k]*scalingconstant);
+							setColorFloat(v, Math.abs(v), -v);
+							break;
+						case ELECTRON_POTENTIAL:
+							v = (float)(e.conducting[i][j][k]*(e.F_n[i][j][k]/e.q_n+e.phi[i][j][k]-e.W_semi/e.eVtoJ)*scalingconstant);
+							setColorFloat(v, Math.abs(v), -v);
+							break;
+						case HOLE_POTENTIAL:
+							v = (float)(e.conducting[i][j][k]*(e.F_p[i][j][k]/e.q_p+e.phi[i][j][k]-e.W_semi/e.eVtoJ)*scalingconstant);
+							setColorFloat(v, Math.abs(v), -v);
+							break;
+						case DEBUG:
+							v = (float)(e.debug[i][j][k]*scalingconstant);
+							setColorFloat(v, 0, -v);
+							break;
+						case DEBUG2:
+							v = (float)(e.debug2[i][j][k]*scalingconstant);
+							setColorFloat(v, 0, -v);
+							break;
+						case RECOMBINATION:
+							v = (float)(-e.G[i][j][k]*scalingconstant);
+							setColorFloat(v, Math.abs(v), -v);
+							break;
+						case AVERAGE_POTENTIAL:
+							v = (float)(e.F[i][j][k]*scalingconstant);
+							setColorFloat(v, Math.abs(v), -v);
+							break;
+						case LIGHT:
+							v = (float)(-e.materials[i][j][k].semiconducting*e.G[i][j][k]*scalingconstant);
+							setColorFloat(v, v, v);
+							break;
+						}
+						setPixel(i, j, k);
+					}
+				}
+			}
+		}
+
+		boolean highlight = (e.opts.gui_brush_highlight.isSelected() && Brush.isBrushShapeImportant(brush));
+		for (int i = 0; i < e.nx; i++) {
+			for (int j = 0; j < e.ny; j++) {
+				for (int k = 0; k < e.nz; k++) {
+					if (e.materials[i][j][k].type == MaterialType.EMF && i > 0 && j > 0 && i < e.nx-1 && j < e.ny-1) {
+						setalphaBG(0.25);
+						setalphaFG(0.75);
+
+						int offset = 0;
+						if (e.controls.selected_EMF[i][j][k])
+							offset = 60*(2*((i+j+k)%2)-1);
+
+						if (!threeD_mode && (e.materials[i+1][j][k].type != MaterialType.EMF
+						|| e.materials[i-1][j][k].type != MaterialType.EMF
+						|| e.materials[i][j+1][k].type != MaterialType.EMF
+						|| e.materials[i][j-1][k].type != MaterialType.EMF))
+						{
+							offset = -30;
+						}
+
+						int delta_r = MaterialType.EMF.color_r+offset;
+						int delta_g = MaterialType.EMF.color_g+offset;
+						int delta_b = MaterialType.EMF.color_b+offset;
+						setColor(delta_r, delta_g, delta_b);
+
+						setPixel(i, j, k);
+					} else if (!(e.materials[i][j][k].activated == 1)) {
+						setalphaBG(0.25);
+						setalphaFG(0.75);
+						setColor(0, 0, 0);
+						setPixel(i, j, k);
+					}
+
+					if (e.controls.selected[i][j][k] || (highlight && e.controls.under_brush[i][j][k]))
+					{
+						setalphaBG(0.75);
+						setalphaFG(0.25);
+
+						int s = e.controls.selected[i][j][k]? 1:0;
+						int h = (highlight && e.controls.under_brush[i][j][k])? 1:0;
+						int delta_r = 256*s + 256*h;
+						int delta_g = 100*s + 256*h;
+						int delta_b = 256*s + 256*h;
+
+						setColor(delta_r, delta_g, delta_b);
+
+						setPixel(i, j, k);
+					}
+				}
+
+			}
+		}
+
+
+		setalphaBG(1);
+		setalphaFG(1);
+		setColorFloat(0.7f, 0.7f, 0.7f);
+
+		if (brush == Brush.LINE && e.controls.mouse_pressed) {
+			drawPixelLine(e.controls.mx_start_index, e.controls.my_start_index, e.controls.mz_start_index, e.controls.mx_index, e.controls.my_index, e.controls.mz_index);
+		}
+
+
+		setalphaFG(1.0);
+		setColorFloat(0.5f, 1.0f, 1.0f);
+
+		for (VoltageProbe p: e.voltageprobes) {
+			drawPixelRectangle(p.x, p.y, p.z, 1, 1, 1);
+		}
+
+		for (CurrentProbe p: e.currentprobes) {
+			drawPixelRectangle(Math.min(p.x1, p.x2), Math.min(p.y1, p.y2), Math.min(p.z1, p.z2), Math.abs(p.x1-p.x2)+1, Math.abs(p.y1-p.y2)+1, Math.abs(p.z1-p.z2)+1);
+		}
+
+		if (e.ground != null) {
+			drawPixelRectangle(e.ground.x-1, e.ground.y-1, e.ground.z-1, 1, 1, 1);
+		}
+
+		/*setalphaFG(0.8);
+		setColorFloat(1.0f, 1.0f, 1.0f);
+
+		if (texting) {
+			drawPixelLine(text_x, text_y, text_x, text_y+7);
+		}*/
+
+		if (threeD_mode)
+			return;
+
+		stampPixelData();
+
+		/* Draw vectors */
+
+		if ((VectorView) e.opts.gui_view_vec.getSelectedItem() != VectorView.NONE) {
+			setalphaBG(1.0);
+
+			double arrowlength = 25.0/scalefactor;
+
+			double vectorscalingconstant = Math.pow(10.0, e.opts.gui_brightness_vec.getValue()/5.0)/((VectorView) e.opts.gui_view_vec.getSelectedItem()).scale;
+
+			VectorMode vector_display_mode = (VectorMode)e.opts.gui_view_vec_mode.getSelectedItem();
+
+			rand.setSeed(4);
+
+			int density = 25;
+
+			double randomness = 0;
+
+			if (vector_display_mode == VectorMode.ARROWS) {
+				randomness = 0.5;
+			} else if (vector_display_mode == VectorMode.LINES) {
+				randomness = 0.75;
+			}
+
+			double[][][] vf_x = null;
+			double[][][] vf_y = null;
+			double[][][] vf_z = null;
+
+			double[][][] vf_px = null;
+			double[][][] vf_py = null;
+
         	double grid_offset = -0.5;
         	double dual_offset = 0;
-        	
-        	switch ((VectorView) e.opts.gui_view_vec.getSelectedItem()) {
-        	case NONE:
-        		break;
+
+			switch ((VectorView) e.opts.gui_view_vec.getSelectedItem()) {
+			case NONE:
+				break;
         	case B_FIELD:
         		vf_x = e.Bx;
         		vf_y = e.By;
@@ -361,265 +746,432 @@ public class Renderer implements GLEventListener {
         		grid_offset = 0;
         		dual_offset = 0.5;
         		break;
-        	case H_FIELD:
-        		vf_x = e.Hx;
-        		vf_y = e.Hy;
-        		vf_z = e.Hz;
+			case H_FIELD:
+				vf_x = e.Hx;
+				vf_y = e.Hy;
+				vf_z = e.Hz;
         		grid_offset = 0;
         		dual_offset = -0.5;
-        		break;
-        	case E_FIELD:
-        		vf_x = e.Ex;
-        		vf_y = e.Ey;
-        		vf_z = e.Ez;
-        		break;
-        	case ELECTRON_CURRENT:
-        		vf_x = e.Jx_n;
-        		vf_y = e.Jy_n;
-        		vf_z = e.Jz_n;
-        		break;
-        	case HOLE_CURRENT:
-        		vf_x = e.Jx_p;
-        		vf_y = e.Jy_p;
-        		vf_z = e.Jz_p;
-        		break;
-        	case TOTAL_CURRENT:
-        		vf_x = e.Jx_free;
-        		vf_y = e.Jy_free;
-        		vf_z = e.Jz_free;
-        		break;
-        	case POYNTING:
-        		vf_x = e.Sx;
-        		vf_y = e.Sy;
-        		vf_z = e.Sz;
-        		break;
-        	case EMF:
-        		vf_x = e.emfx;
-        		vf_y = e.emfy;
-        		vf_z = e.emfz;
-        		break;
-        	}
+				break;
+			case E_FIELD:
+				vf_x = e.Ex;
+				vf_y = e.Ey;
+				vf_z = e.Ez;
+				break;
+			case D_FIELD:
+				vf_x = e.Dx;
+				vf_y = e.Dy;
+				vf_z = e.Dz;
+				break;
+			case ELECTRON_CURRENT:
+				vf_x = e.Jx_n;
+				vf_y = e.Jy_n;
+				vf_z = e.Jz_n;
+				break;
+			case HOLE_CURRENT:
+				vf_x = e.Jx_p;
+				vf_y = e.Jy_p;
+				vf_z = e.Jz_p;
+				break;
+			case TOTAL_CURRENT:
+				vf_x = e.Jx_free;
+				vf_y = e.Jy_free;
+				vf_z = e.Jz_free;
+				break;
+			case POYNTING:
+				vf_x = e.Sx;
+				vf_y = e.Sy;
+				vf_z = e.Sz;
+				break;
+			case EMF:
+				vf_x = e.emfx;
+				vf_y = e.emfy;
+				vf_z = e.emfz;
+				break;
+			}
+
+			int npx = 0;
+			int npy = 0;
+
+			if (slice_x) {
+				vf_px = vf_y;
+				vf_py = vf_z;
+				npx = e.ny;
+				npy = e.nz;
+			} else if (slice_y) {
+				vf_px = vf_x;
+				vf_py = vf_z;
+				npx = e.nx;
+				npy = e.nz;
+			} else if (slice_z) {
+				vf_px = vf_x;
+				vf_py = vf_y;
+				npx = e.nx;
+				npy = e.ny;
+			}
+
+			int slice = e.opts.gui_slice.getValue();
 
 
-        	Vector ctr = new Vector(0,0,0);
-        	Vector arrow = new Vector(0,0,0);
-        	Vector tip1 = new Vector(0,0,0);
-        	Vector tip2 = new Vector(0,0,0);
-        	Vector body1 = new Vector(0,0,0);
-        	Vector body2 = new Vector(0,0,0);
-        	Vector o = new Vector(-e.nx/2.0,-e.ny/2.0,-e.nz/2.0);
+			Vector ctr = new Vector(0,0,0);
+			Vector arrow = new Vector(0,0,0);
+			Vector tip1 = new Vector(0,0,0);
+			Vector tip2 = new Vector(0,0,0);
+			Vector body1 = new Vector(0,0,0);
+			Vector body2 = new Vector(0,0,0);
 
-        	for (int i = 0; i <= density; i++) {
-        		for (int j = 0; j <= density; j++) {
-        			for (int k = 0; k <= density; k++) {
+			for (int pi = 0; pi < density; pi++) {
+				for (int pj = 0; pj < density; pj++) {
 
-        				//double x = (nx-1)*(i+0.5)/50;
-        				//double y = (ny-1)*(j+0.5)/50;
-        				double x = (e.nx-1)*(i+randomness*(e.rand.nextFloat()-0.5))/density;
-        				double y = (e.ny-1)*(j+randomness*(e.rand.nextFloat()-0.5))/density;
-        				double z = (e.nz-1)*(k+randomness*(e.rand.nextFloat()-0.5))/density;
-        				
+					//double x = (nx-1)*(i+0.5)/50;
+					//double y = (ny-1)*(j+0.5)/50;
+					double px = npx*(pi+randomness*(rand.nextFloat()-0.5))/density;
+					double py = npy*(pj+randomness*(rand.nextFloat()-0.5))/density;
 
-    					
-    					if (vector_display_mode == VectorMode.LINES && vf_x != null) {
-    						for (int sign = -1; sign <= 1; sign += 2) {
-    							
-    							double prevx = x;
-    							double prevy = y;
-    							double prevz = z;
-    							double dx = 0;
-    							double dy = 0;
-    							double dz = 0;
-    							
-    							int steps = 20;
-    							
-    							for (int m = 0; m < steps; m++) {
-    								dx = e.bilinearinterp(vf_x, prevx+grid_offset, prevy+dual_offset, prevz+dual_offset);
-    								dy = e.bilinearinterp(vf_y, prevx+dual_offset, prevy+grid_offset, prevz+dual_offset);
-    								dz = e.bilinearinterp(vf_z, prevx+dual_offset, prevy+dual_offset, prevz+grid_offset);
 
-    								double fieldmagnitude = Math.sqrt(dx*dx+dy*dy+dz*dz);
-    								double w = Math.min(vectorscalingconstant*fieldmagnitude, 1);
-    								float alpha = (float)((1.0/steps)*(steps-m)*w);
-    								
-    								if (fieldmagnitude != 0) {
-    									dx /= fieldmagnitude;
-    									dy /= fieldmagnitude;
-    									dz /= fieldmagnitude;
-    								}
-    								
+					if (vector_display_mode == VectorMode.LINES && vf_px != null) {
+						for (int sign = -1; sign <= 1; sign += 2) {
 
-    								double nextx = prevx + dx*arrowlength*0.25*sign;
-    								double nexty = prevy + dy*arrowlength*0.25*sign;
-    								double nextz = prevz + dz*arrowlength*0.25*sign;
+							double prevpx = px;
+							double prevpy = py;
+							double dpx = 0;
+							double dpy = 0;
 
-    								if (nextx < 1 || nexty < 1 || nextz < 1 || nextx > e.nx-2 || nexty > e.ny-2 || nextz > e.nz-2)
-    									break;
-    								
-    	        					gl.glColor4f(1f, 1f, 1f, alpha);
-    	        					gl.glVertex3f((float)prevx + 0.5f, (float)prevy + 0.5f, (float)prevz + 0.5f);
-    	        					gl.glVertex3f((float)nextx + 0.5f, (float)nexty + 0.5f, (float)nextz + 0.5f);
-    	        					
-    								prevx = nextx;
-    								prevy = nexty;
-    								prevz = nextz;
-    							}
-    						}
-    					} else if (vector_display_mode == VectorMode.ARROWS && vf_x != null) {
-        					ctr.x = x+0.5;
-        					ctr.y = y+0.5;
-        					ctr.z = z+0.5;
+							for (int m = 0; m < 10; m++) {
+								if (slice_x) {
+									dpx = Utils.bilinearinterp(vf_px, slice+dual_offset, prevpx+grid_offset, prevpy+dual_offset);
+									dpy = Utils.bilinearinterp(vf_py, slice+dual_offset, prevpx+dual_offset, prevpy+grid_offset);
+								} else if (slice_y) {
+									dpx = Utils.bilinearinterp(vf_px, prevpx+grid_offset, slice+dual_offset, prevpy+dual_offset);
+									dpy = Utils.bilinearinterp(vf_py, prevpx+dual_offset, slice+dual_offset, prevpy+grid_offset);
+								} else if (slice_z) {
+									dpx = Utils.bilinearinterp(vf_px, prevpx+grid_offset, prevpy+dual_offset, slice+dual_offset);
+									dpy = Utils.bilinearinterp(vf_py, prevpx+dual_offset, prevpy+grid_offset, slice+dual_offset);
+								}
 
-        					arrow.x = e.bilinearinterp(vf_x, x+grid_offset, y+dual_offset, z+dual_offset);
-        					arrow.y = e.bilinearinterp(vf_y, x+dual_offset, y+grid_offset, z+dual_offset);
-        					arrow.z = e.bilinearinterp(vf_z, x+dual_offset, y+dual_offset, z+grid_offset);
+								double fieldmagnitude = Math.sqrt(dpx*dpx+dpy*dpy);
+								setalphaFG(0.1*Math.sqrt(1/(0.1*m*m+1.0)*vectorscalingconstant*fieldmagnitude));
 
-        					double fieldmagnitude = Math.max(0.1, vectorscalingconstant*Math.sqrt(arrow.dot(arrow)));
-        					arrow.normalize();
+								if (fieldmagnitude != 0) {
+									dpx /= fieldmagnitude;
+									dpy /= fieldmagnitude;
+								}
 
-    						tip1.copy(arrow);
-    						tip1.cross(g);
-    						tip1.normalize();
-    						tip2.copy(tip1);
-    						tip2.scalarmult(-1);
-    						
-    						tip1.addmult(arrow, -2);
-    						tip2.addmult(arrow, -2);
-    						
-        					body1.copy(ctr);
-        					body1.addmult(arrow, -0.5*arrowlength);
-        					body2.copy(ctr);
-        					body2.addmult(arrow, 0.5*arrowlength);
-        					
-    						tip1.scalarmult(0.1*arrowlength);
-    						tip1.add(body2);
-    						tip2.scalarmult(0.1*arrowlength);
-    						tip2.add(body2);
+								//setcol(fieldmagnitude, fieldmagnitude, fieldmagnitude, 30);
+								setColorFloat(1.0f, 1.0f, 1.0f);
 
-        					ctr.add(o);
-        					double depth = ctr.dot(g);
-        					float gray = 0.5f*(float)Math.exp(-depth/16.0);
-    						float alpha = (float)(0.1*Math.sqrt(fieldmagnitude));
+								double nextx = prevpx + dpx*arrowlength*0.25*sign;
+								double nexty = prevpy + dpy*arrowlength*0.25*sign;
 
-        					gl.glColor4f(gray, gray, gray, alpha);
+								drawLine((int)((prevpx+0.5)*scalefactor), (int)((prevpy+0.5)*scalefactor), (int)((nextx+0.5)*scalefactor), (int)((nexty+0.5)*scalefactor), m == 0 && sign == 1);
 
-        					gl.glVertex3f((float)body1.x, (float)body1.y, (float)body1.z);
-        					gl.glVertex3f((float)body2.x, (float)body2.y, (float)body2.z);
+								prevpx = nextx;
+								prevpy = nexty;
+							}
+						}
+					} else if (vector_display_mode == VectorMode.ARROWS && vf_px != null) {
+						ctr.x = px+0.5;
+						ctr.y = py+0.5;
 
-        					gl.glVertex3f((float)body2.x, (float)body2.y, (float)body2.z);
-        					gl.glVertex3f((float)tip1.x, (float)tip1.y, (float)tip1.z);
-        					
-        					gl.glVertex3f((float)body2.x, (float)body2.y, (float)body2.z);
-        					gl.glVertex3f((float)tip2.x, (float)tip2.y, (float)tip2.z);
-        				}
-        			}
-        		}
-        	}
+						if (slice_x) {
+							arrow.x = Utils.bilinearinterp(vf_px, slice+dual_offset, px+grid_offset, py+dual_offset);
+							arrow.y = Utils.bilinearinterp(vf_py, slice+dual_offset, px+dual_offset, py+grid_offset);
+						} else if (slice_y) {
+							arrow.x = Utils.bilinearinterp(vf_px,px+grid_offset, slice+dual_offset, py+dual_offset);
+							arrow.y = Utils.bilinearinterp(vf_py,px+dual_offset, slice+dual_offset, py+grid_offset);
+						} else if (slice_z) {
+							arrow.x = Utils.bilinearinterp(vf_px,px+grid_offset, py+dual_offset, slice+dual_offset);
+							arrow.y = Utils.bilinearinterp(vf_py,px+dual_offset, py+grid_offset, slice+dual_offset);
+						}
+
+						double fieldmagnitude = Math.max(0.1, vectorscalingconstant*Math.sqrt(arrow.dot(arrow)));
+						arrow.normalize();
+						tip1.copy(arrow);
+						tip2.copy(arrow);
+						tip1.rotate_z(Math.PI*5.0/6.0);
+						tip2.rotate_z(Math.PI*7.0/6.0);
+
+						body1.copy(ctr);
+						body1.addmult(arrow, -0.5*arrowlength);
+						body2.copy(ctr);
+						body2.addmult(arrow, 0.5*arrowlength);
+						tip1.scalarmult(0.35*arrowlength);
+						tip1.add(body2);
+						tip2.scalarmult(0.35*arrowlength);
+						tip2.add(body2);
+						setColorFloat((float)fieldmagnitude, (float)fieldmagnitude, (float)fieldmagnitude);
+						setalphaFG(0.1*Math.sqrt(fieldmagnitude));
+						drawLine((int)(body1.x*scalefactor), (int)(body1.y*scalefactor), (int)(body2.x*scalefactor), (int)(body2.y*scalefactor), true);
+						drawLine((int)(body2.x*scalefactor), (int)(body2.y*scalefactor), (int)(tip1.x*scalefactor), (int)(tip1.y*scalefactor), false);
+						drawLine((int)(body2.x*scalefactor), (int)(body2.y*scalefactor), (int)(tip2.x*scalefactor), (int)(tip2.y*scalefactor), false);
+					}
+				}
+			}
 		}
-        
-        gl.glEnd();
-        
 
-        gl.glDepthMask(true);
-    }
-    
-    public int packCoords(int i, int j, int k, int di, int dj, int dk) {
-    	int di_tmp = (di+1);
-    	int dj_tmp = (dj+1);
-    	int dk_tmp = (dk+1);
-    	
-    	return ((((i * e.ny + j) * e.nz + k) * 3 + di_tmp) * 3 + dj_tmp) * 3 + dk_tmp;
-    }
-    
+		g.setRenderingHint(
+		RenderingHints.KEY_TEXT_ANTIALIASING,
+		RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
-    public void unpackCoords(int c) {
-    	int dk_tmp = c%3; c /= 3;
-    	int dj_tmp = c%3; c /= 3;
-    	int di_tmp = c%3; c /= 3;
-    	int k = c%e.nz; c /= e.nz;
-    	int j = c%e.ny; c /= e.ny;
-    	int i = c%e.nx; c /= e.nx;
-    	
-    	e.mx = e.indexToCoord(i);
-    	e.my = e.indexToCoord(j);
-    	e.mz = e.indexToCoord(k);
+		renderText(g, null);
 
-    	e.mx_normal = di_tmp-1;
-    	e.my_normal = dj_tmp-1;
-    	e.mz_normal = dk_tmp-1;
-    }
-    
-    public void drawHitboxes(GL2 gl) {
-        for (int i = 0; i < e.nx; i++) for (int j = 0; j < e.ny; j++) for (int k = 0; k < e.nz; k++) {
-        	for (int di = -1; di <= 1; di++) for (int dj = -1; dj <= 1; dj++) for (int dk = -1; dk <= 1; dk++) {
-        		if (Math.abs(di)+Math.abs(dj)+Math.abs(dk) == 1
-        			&& i+di >= 0 && i + di < e.nx
-        			&& j+dj >= 0 && j + dj < e.ny
-        			&& k+dk >= 0 && k + dk < e.nz) {
-    				if (di*g.x + dj*g.y + dk*g.z > 0)
-    					continue;
-    				
-        			if (e.materials[i][j][k].type != MaterialType.VACUUM && e.materials[i+di][j+dj][k+dk].type == MaterialType.VACUUM) {
-    					gl.glLoadName(packCoords(i, j, k, di, dj, dk));
-    			        gl.glBegin(GL2.GL_TRIANGLES);
-        				if (di == -1) {
-        					gl.glVertex3f(i, j, k);
-        					gl.glVertex3f(i, j+1, k);
-        					gl.glVertex3f(i, j+1, k+1);
-        					gl.glVertex3f(i, j, k);
-        					gl.glVertex3f(i, j, k+1);
-        					gl.glVertex3f(i, j+1, k+1);
-        				} else if (di == 1) {
-        					gl.glVertex3f(i+1, j, k);
-        					gl.glVertex3f(i+1, j+1, k);
-        					gl.glVertex3f(i+1, j+1, k+1);
-        					gl.glVertex3f(i+1, j, k);
-        					gl.glVertex3f(i+1, j, k+1);
-        					gl.glVertex3f(i+1, j+1, k+1);
-        				} else if (dj == -1) {
-        					gl.glVertex3f(i, j, k);
-        					gl.glVertex3f(i+1, j, k);
-        					gl.glVertex3f(i+1, j, k+1);
-        					gl.glVertex3f(i, j, k);
-        					gl.glVertex3f(i, j, k+1);
-        					gl.glVertex3f(i+1, j, k+1);
-        				} else if (dj == 1) {
-        					gl.glVertex3f(i, j+1, k);
-        					gl.glVertex3f(i+1, j+1, k);
-        					gl.glVertex3f(i+1, j+1, k+1);
-        					gl.glVertex3f(i, j+1, k);
-        					gl.glVertex3f(i, j+1, k+1);
-        					gl.glVertex3f(i+1, j+1, k+1);
-        				} else if (dk == -1) {
-        					gl.glVertex3f(i, j, k);
-        					gl.glVertex3f(i, j+1, k);
-        					gl.glVertex3f(i+1, j+1, k);
-        					gl.glVertex3f(i, j, k);
-        					gl.glVertex3f(i+1, j, k);
-        					gl.glVertex3f(i+1, j+1, k);
-        				} else if (dk == 1) {
-        					gl.glVertex3f(i, j, k+1);
-        					gl.glVertex3f(i, j+1, k+1);
-        					gl.glVertex3f(i+1, j+1, k+1);
-        					gl.glVertex3f(i, j, k+1);
-        					gl.glVertex3f(i+1, j, k+1);
-        					gl.glVertex3f(i+1, j+1, k+1);
-        				}
-        		        gl.glEnd();
-        			}
-        		}
-        	}
-        }
-    }
-    
-    @Override
-    public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
-        this.width = width;
-        this.height = height;
-        if (height <= 0) height = 1;
+		clearStrings();
 
-        aspect = (float) width / height;
-        
-        //System.out.println(this.width + " " + this.height + " " + canvas.getWidth() + " " + canvas.getHeight() + " " + e.imgwidth + " " + e.imgheight) ;
-    }
+		e.t5.stop();
+	}
+
+
+	public void renderText(Graphics g, TextRenderer t) {
+		/* Draw text */
+
+		for (VoltageProbe p: e.voltageprobes) {
+			if (e.ground != null)
+				draw3DStringWithBackground("V = " + getSI(p.potential - e.ground.potential, "V"), p.x, p.y, p.z, true, false);
+			else
+				draw3DStringWithBackground("V = " + getSI(p.potential, "V"), p.x, p.y, p.z, true, false);
+		}
+
+		if (e.ground != null)
+			draw3DStringWithBackground("Ground = " + getSI(e.ground.potential - e.ground.potential, "V"), e.ground.x, e.ground.y, e.ground.z, true, false);
+
+		for (CurrentProbe p: e.currentprobes) {
+			draw3DStringWithBackground("I = " + getSI(p.current*e.depth, "A"), (p.x1+p.x2)/2, (p.y1+p.y2)/2, (p.z1+p.z2)/2, true, false);
+		}
+
+		{
+			double mx_t = e.controls.mx_index;
+			double my_t = e.controls.my_index;
+			double mz_t = e.controls.mz_index;
+			//double mx_t = (mouseX/(double)scalefactor);
+			//double my_t = (mouseY/(double)scalefactor);
+			int mi = e.controls.mx_index;
+			int mj = e.controls.my_index;
+			int mk = e.controls.mz_index;
+
+			if (mi < 0)
+				mi = 0;
+			if (mi >= e.nx-1)
+				mi = e.nx-2;
+			if (mj < 0)
+				mj = 0;
+			if (mj >= e.ny-1)
+				mj = e.ny-2;
+			if (mk < 0)
+				mk = 0;
+			if (mk >= e.nz-1)
+				mk = e.nz-2;
+
+			Material mat = e.materials[mi][mj][mk];
+
+			int vspacing = 12;
+			int voffset = 1 + e.controls.my_3d;
+			int hoffset = 5 + e.controls.mx_3d+15;
+
+			if (e.opts.gui_tooltip.isSelected()) {
+				if (voffset + 22*vspacing > imgheight) {
+					voffset = voffset - ((voffset + 22*vspacing) - imgheight);
+				}
+				if (hoffset + 120 > imgwidth) {
+					hoffset = hoffset - ((hoffset + 120) - imgwidth);
+				}
+			}
+
+			String name = "Material: " + mat.type.name + (mat.modified? " (Modified)" : "");
+
+			draw2DStringWithBackground(name, hoffset, voffset + 1*vspacing, true, true);
+			if (e.opts.gui_tooltip.isSelected()) {
+				voffset = voffset+3;
+				int line = 2;
+				drawTwoColumnString("E" , 							getSI(getFieldMagnitude(e.Ex, e.Ey, e.Ez, mx_t, my_t, mz_t), "V/m"), hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("D" , 							getSI(getFieldMagnitude(e.Dx, e.Dy, e.Dz, mx_t, my_t, mz_t), "C/m^2"), hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("B" , 							getSI(getDualFieldMagnitude(e.Bx, e.By, e.Bz, mx_t, my_t, mz_t), "T"),	hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("H" , 							getSI(getDualFieldMagnitude(e.Hx, e.Hy, e.Hz, mx_t, my_t, mz_t), "A/m"),	hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("\u03d5" , 						getSI(Utils.bilinearinterp(e.phi,mx_t, my_t, mz_t), "V"),					hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("\u2130" , 						getSI(mat.emf, "V/m"),										hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("\u03b5/\u03b5\u2080" , 		getSI(mat.eps_r, ""),										hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("\u03bc/\u03bc\u2080" , 		getSI(mat.mu_r, ""),											hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("\u03c1\u2099" , 				getSI(Utils.bilinearinterp(e.rho_n,mx_t, my_t, mz_t), "C/m^3"),			hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("\u03c1\u209A" , 				getSI(Utils.bilinearinterp(e.rho_p,mx_t, my_t, mz_t), "C/m^3"),			hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("\u03c1\u2080",					getSI(Utils.bilinearinterp(e.rho_back,mx_t, my_t, mz_t), "C/m^3"),		hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("\u03c1" , 						getSI(Utils.bilinearinterp(e.rho_free,mx_t, my_t, mz_t), "C/m^3"),		hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("J\u2099" ,						getSI(getFieldMagnitude(e.Jx_n, e.Jy_n, e.Jz_n, mx_t, my_t, mz_t), "A/m^2"),			hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("J\u209A" , 					getSI(getFieldMagnitude(e.Jx_p, e.Jy_p, e.Jz_p, mx_t, my_t, mz_t), "A/m^2"),			hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("J" , 							getSI(getFieldMagnitude(e.Jx_free, e.Jy_free, e.Jz_free, mx_t, my_t, mz_t), "A/m^2"),	hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("F\u2099" , 					getSI(Utils.bilinearinterp(e.F_n,mx_t, my_t, mz_t)/e.q_n+Utils.bilinearinterp(e.phi,mx_t, my_t, mz_t)-e.W_semi/e.eVtoJ, "V"),	hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("F\u209a" , 					getSI(Utils.bilinearinterp(e.F_p,mx_t, my_t, mz_t)/e.q_p+Utils.bilinearinterp(e.phi,mx_t, my_t, mz_t)-e.W_semi/e.eVtoJ, "V"),	hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("x" , 							getSI(mx_t*e.ds, "m"),								hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("y" , 							getSI(my_t*e.ds, "m"),								hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("z" , 							getSI(mz_t*e.ds, "m"),								hoffset, voffset + line*vspacing); line++;
+			}
+		}
+
+		int vspacing = 13;
+		int voffset = 3;
+		int hoffset = 5;
+		int line = 1;
+		draw2DStringWithBackground("Time: " + getSI(e.time, "s"), hoffset, voffset + line*vspacing, true, false); line++;
+		if (e.opts.gui_paused.isSelected())
+		{
+			draw2DStringWithBackground("Paused", hoffset, voffset + line*vspacing, true, false); line++;
+		}
+		if (e.sign_violation) {
+			draw2DStringWithBackground("Warning: Numerical instability detected. Please decrease timestep.", hoffset, voffset + line*vspacing, true, false); line++;
+		}
+		if (e.controls.debugging) {
+			long total = Runtime.getRuntime().totalMemory();
+			long used  = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+			draw2DStringWithBackground("Used memory " + getSI(used, "B"), hoffset, voffset + line*vspacing, true, false); line++;
+			draw2DStringWithBackground("Total memory " + getSI(total, "B"), hoffset, voffset + line*vspacing, true, false); line++;
+			draw2DStringWithBackground(e.t4.name + " " + getSI(e.t4.time, "s"), hoffset, voffset + line*vspacing, true, false); line++;
+			draw2DStringWithBackground(e.t5.name + " " + getSI(e.t5.avgtime, "s"), hoffset, voffset + line*vspacing, true, false); line++;
+			draw2DStringWithBackground(e.t6.name + " " + getSI(e.t6.avgtime*e.opts.gui_simspeed_2.getValue(), "s"), hoffset, voffset + line*vspacing, true, false); line++;
+			draw2DStringWithBackground(e.t7.name + " " + getSI(e.t7.avgtime, "s"), hoffset, voffset + line*vspacing, true, false); line++;
+			draw2DStringWithBackground(e.t8.name + " " + getSI(e.t8.avgtime, "s"), hoffset, voffset + line*vspacing, true, false); line++;
+		}
+
+		drawStrings(g, t);
+	}
+
+	double getFieldMagnitude(double[][][] vx, double[][][] vy, double[][][] vz, double x, double y, double z) {
+		return length(Utils.bilinearinterp(vx, x-0.5 , y, z), Utils.bilinearinterp(vy, x, y-0.5, z), Utils.bilinearinterp(vz, x, y, z-0.5));
+	}
+
+	double getDualFieldMagnitude(double[][][] vx, double[][][] vy, double[][][] vz, double x, double y, double z) {
+		return length(Utils.bilinearinterp(vx, x, y-0.5, z-0.5), Utils.bilinearinterp(vy, x-0.5, y, z-0.5), Utils.bilinearinterp(vz, x-0.5, y-0.5, z));
+	}
+
+	public void clearStrings() {
+		texts.clear();
+	}
+
+	public void drawStrings(Graphics g, TextRenderer t) {
+		if (g != null) {
+			if (e.opts.gui_text_bg.isSelected())
+			{
+				for (Text text : texts) {
+					if (text.hasBackground) {
+						if (text.big)
+							g.setFont(bigfont);
+						else
+							g.setFont(regularfont);
+
+						int width = Math.max(text.minwidth, g.getFontMetrics().stringWidth(text.text)+8);
+						int height = g.getFontMetrics().getHeight()+4;
+						int x = text.x-3;
+						int y = text.y-height+6;
+
+						g.setColor(Color.GRAY);
+						g.fillRect(x-2, y-2, width+4, height+4);
+					}
+				}
+
+				for (Text text : texts) {
+					if (text.hasBackground) {
+						if (text.big)
+							g.setFont(bigfont);
+						else
+							g.setFont(regularfont);
+
+						int width = Math.max(text.minwidth, g.getFontMetrics().stringWidth(text.text)+8);
+						int height = g.getFontMetrics().getHeight()+4;
+						int x = text.x-3;
+						int y = text.y-height+6;
+
+						g.setColor(Color.BLACK);
+						g.fillRect(x, y, width, height);
+					}
+				}
+			}
+
+			for (Text text : texts) {
+				if (text.big)
+					g.setFont(bigfont);
+				else
+					g.setFont(regularfont);
+
+				g.setColor(Color.DARK_GRAY);
+				g.drawString(text.text, text.x+1, text.y+1);
+				g.setColor(Color.WHITE);
+				g.drawString(text.text, text.x, text.y);
+			}
+		}
+	}
+
+	public void draw2DStringWithBackground(String str1, int x, int y, boolean hasBackground, boolean isBig) {
+		texts.add(new Text(str1, x, y, 0, isBig, hasBackground, false));
+	}
+
+
+	public void draw3DStringWithBackground(String str1, int x, int y, int z, boolean hasBackground, boolean isBig) {
+		texts.add(new Text(str1, x, y, z, hasBackground, isBig, true));
+	}
+
+	public void drawTwoColumnString(String str1, String str2, int x, int y) {
+		texts.add(new Text(String.format("%-10s", str1), x, y, 0, false, true, false));
+		texts.add(new Text(str2, x+40, y, 0, false, true, false));
+		texts.get(texts.size()-2).minwidth = 80;
+		texts.get(texts.size()-1).minwidth = 80;
+	}
+
+	public double length(double x, double y) {
+		return Math.sqrt(x*x+y*y);
+	}
+
+	public double length(double x, double y, double z) {
+		return Math.sqrt(x*x+y*y+z*z);
+	}
+
+	public static String getSI(double quantity, String unit) {
+		if (!Double.isFinite(quantity))
+			return Double.toString(quantity) + " " + unit;
+
+		double mag = Math.abs(quantity);
+		String precision = "%.2f";
+		if (mag < 1E-18)
+			return "0 " + unit;
+		else if (mag < 1E-15)
+			return String.format("%.2f", quantity*1e15) + " f" + unit;
+		else if (mag < 1E-12)
+			return String.format(precision, quantity*1e15) + " f" + unit;
+		else if (mag < 1E-9)
+			return String.format(precision, quantity*1e12) + " p" + unit;
+		else if (mag < 1E-6)
+			return String.format(precision, quantity*1e9) + " n" + unit;
+		else if (mag < 1E-3)
+			return String.format(precision, quantity*1e6) + " \u00b5" + unit;
+		else if (mag < 1)
+			return String.format(precision, quantity*1e3) + " m" + unit;
+		else if (mag < 1E3)
+			return String.format(precision, quantity) + " " + unit;
+		else if (mag < 1E6)
+			return String.format(precision, quantity*1e-3) + " k" + unit;
+		else if (mag < 1E9)
+			return String.format(precision, quantity*1e-6) + " M" + unit;
+		else if (mag < 1E12)
+			return String.format(precision, quantity*1e-9) + " G" + unit;
+		else
+			return String.format(precision, quantity*1e-12) + " T" + unit;
+	}
+}
+
+class Text {
+	String text;
+	int x;
+	int y;
+	int z;
+	int minwidth;
+	boolean big;
+	boolean hasBackground;
+	boolean is3D;
+
+	public Text(String text, int x, int y, int z, boolean big, boolean hasBackground, boolean is3D) {
+		this.text = text;
+		this.x = x;
+		this.y = y;
+		this.z = z;
+		this.big = big;
+		this.hasBackground = hasBackground;
+		this.is3D = is3D;
+		minwidth = 0;
+	}
 }

@@ -30,13 +30,11 @@ import javax.swing.JTextArea;
 import javax.swing.ScrollPaneConstants;
 import java.awt.Insets;
 import java.awt.Font;
-import electrodynamics.Electrodynamics.Brush;
 import electrodynamics.Electrodynamics.ScalarView;
 import electrodynamics.Electrodynamics.VectorView;
-import electrodynamics.Electrodynamics.BrushShape;
 import electrodynamics.Electrodynamics.VectorMode;
 import electrodynamics.Electrodynamics.BoundaryCondition;
-import electrodynamics.Electrodynamics.RenderingMode;
+import electrodynamics.Electrodynamics.RenderMode;
 
 public class MainWindow extends JFrame {
 
@@ -84,6 +82,9 @@ public class MainWindow extends JFrame {
 	public JLabel lblBrushSize;
 	public JLabel gui_slicelabel;
 	public JComboBox gui_3d_view;
+	public JCheckBox gui_rotate;
+	public JScrollBar gui_parallax;
+	public JLabel gui_parallaxlabel;
 
 	/**
 	 * Create the frame.
@@ -150,7 +151,7 @@ public class MainWindow extends JFrame {
 		gui_brush.setMaximumRowCount(16);
 		gui_brush.setModel(new DefaultComboBoxModel(Brush.values()));
 		gui_brush.setSelectedIndex(0);
-		gui_brush.setBounds(201, 151, 171, 22);
+		gui_brush.setBounds(201, 185, 171, 22);
 		panel.add(gui_brush);
 		addTooltips(gui_brush);
 		
@@ -227,7 +228,7 @@ public class MainWindow extends JFrame {
 		gui_brush_1.setMaximumRowCount(16);
 		gui_brush_1.setModel(new DefaultComboBoxModel(BrushShape.values()));
 		gui_brush_1.setSelectedIndex(1);
-		gui_brush_1.setBounds(201, 219, 171, 22);
+		gui_brush_1.setBounds(201, 253, 171, 22);
 		panel.add(gui_brush_1);
 		addTooltips(gui_brush_1);
 		
@@ -263,7 +264,7 @@ public class MainWindow extends JFrame {
 		
 		scrollPane = new JScrollPane();
 		scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-		scrollPane.setBounds(27, 581, 345, 127);
+		scrollPane.setBounds(27, 625, 345, 83);
 		panel.add(scrollPane);
 		
 		textPane = new JTextArea();
@@ -292,7 +293,7 @@ public class MainWindow extends JFrame {
 		
 		gui_brush_highlight = new JCheckBox("Brush highlight");
 		gui_brush_highlight.setSelected(true);
-		gui_brush_highlight.setBounds(205, 307, 160, 23);
+		gui_brush_highlight.setBounds(201, 307, 160, 23);
 		panel.add(gui_brush_highlight);
 		
 		gui_elem_colors = new JCheckBox("Show material colors");
@@ -304,7 +305,7 @@ public class MainWindow extends JFrame {
 		gui_material.setMaximumRowCount(16);
 		gui_material.setModel(new DefaultComboBoxModel(electrodynamics.MaterialType.values()));
 		gui_material.setSelectedIndex(0);
-		gui_material.setBounds(201, 185, 171, 22);
+		gui_material.setBounds(201, 219, 171, 22);
 		panel.add(gui_material);
 		addTooltips(gui_material);
 		
@@ -322,7 +323,7 @@ public class MainWindow extends JFrame {
 		
 		gui_3d_view = new JComboBox();
 		gui_3d_view.setToolTipText("");
-		gui_3d_view.setModel(new DefaultComboBoxModel(RenderingMode.values()));
+		gui_3d_view.setModel(new DefaultComboBoxModel(RenderMode.values()));
 		gui_3d_view.setSelectedIndex(3);
 		gui_3d_view.setMaximumRowCount(16);
 		gui_3d_view.setBounds(10, 255, 171, 22);
@@ -332,6 +333,21 @@ public class MainWindow extends JFrame {
 		gui_slicelabel = new JLabel("Slice");
 		gui_slicelabel.setBounds(211, 513, 150, 14);
 		panel.add(gui_slicelabel);
+		
+		gui_rotate = new JCheckBox("Rotate view");
+		gui_rotate.setBounds(203, 149, 171, 23);
+		panel.add(gui_rotate);
+		
+		gui_parallax = new JScrollBar();
+		gui_parallax.setMaximum(55);
+		gui_parallax.setValue(7);
+		gui_parallax.setOrientation(JScrollBar.HORIZONTAL);
+		gui_parallax.setBounds(10, 588, 171, 17);
+		panel.add(gui_parallax);
+		
+		gui_parallaxlabel = new JLabel("Parallax");
+		gui_parallaxlabel.setBounds(20, 562, 150, 14);
+		panel.add(gui_parallaxlabel);
 	}
 	
 	public void addTooltips(JComboBox box) {
