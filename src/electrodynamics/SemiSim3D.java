@@ -6,7 +6,9 @@ import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Timer;
+import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import javax.swing.JOptionPane;
@@ -16,21 +18,27 @@ import javax.swing.UnsupportedLookAndFeelException;
 
 import electrodynamics.Electrodynamics.SimulationThread;
 
-public class SemiSim {
+public class SemiSim3D {
 	
-	public static SemiSim instance;
+	public static SemiSim3D instance;
 	public static int n_threads = Runtime.getRuntime().availableProcessors();
 
 	ArrayList<SimulationThread> sim_threads = new ArrayList<>();
 	Timer master_timer = new Timer();
 	Timer graphics_timer = new Timer();
 	Timer misc_timer = new Timer();
-	ScheduledThreadPoolExecutor threadPool = new ScheduledThreadPoolExecutor(3);
+	ScheduledThreadPoolExecutor threadPool = new ScheduledThreadPoolExecutor(3, new LoggingRejectionHandler());
 	Electrodynamics sim;
 	
-	public SemiSim() {
+	public SemiSim3D() {
 		sim = new Electrodynamics();
 		
+		//master_timer.schedule(sim, 0, sim.renderer.frameduration);
+		//graphics_timer.schedule(sim.renderer, 0, sim.renderer.frameduration);
+		//misc_timer.schedule(sim.potentialSolver, 0, sim.renderer.frameduration);
+	}
+	
+	public void startThreads() {
 		for (int i = 0; i < n_threads; i++) {
 			sim_threads.add(sim.new SimulationThread(i, n_threads, sim.nx));
 		}
@@ -42,10 +50,18 @@ public class SemiSim {
 		threadPool.schedule(sim, 0, TimeUnit.MILLISECONDS);
 		threadPool.schedule(sim.renderer, 0, TimeUnit.MILLISECONDS);
 		threadPool.schedule(sim.potentialSolver, 0, TimeUnit.MILLISECONDS);
-		//master_timer.schedule(sim, 0, sim.renderer.frameduration);
-		//graphics_timer.schedule(sim.renderer, 0, sim.renderer.frameduration);
-		//misc_timer.schedule(sim.potentialSolver, 0, sim.renderer.frameduration);
 	}
+	
+	
+    static class LoggingRejectionHandler implements RejectedExecutionHandler {
+        public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+            System.err.println("[ERROR] Task rejected: " + r + 
+                               " | Pool size=" + executor.getPoolSize() + 
+                               " | Active count=" + executor.getActiveCount() + 
+                               " | Queue size=" + executor.getQueue().size());
+        }
+    }
+	
 	
 	public static void displayErrorMessage(Exception e) {
 		if (instance == null) return;
@@ -88,8 +104,15 @@ public class SemiSim {
 			e.printStackTrace();
 		}
 		
-		SwingUtilities.invokeLater(() -> {
-			instance = new SemiSim();
-		});
+		try {
+			SwingUtilities.invokeAndWait(() -> {
+				instance = new SemiSim3D();
+			});
+		} catch (InvocationTargetException | InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		instance.startThreads();
 	}
 }

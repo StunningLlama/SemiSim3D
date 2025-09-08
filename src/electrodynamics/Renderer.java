@@ -82,7 +82,6 @@ public class Renderer extends PeriodicTask {
 	
 	@Override
 	public void run() {
-		//System.out.println("Hi");
 		if (!threeD_mode) {
 			e.rwLock.readLock().lock();
 			try {
@@ -94,14 +93,14 @@ public class Renderer extends PeriodicTask {
 				FPStimer.stop();
 				FPStimer.start();
 			} catch (Exception e1) {
-				SemiSim.displayErrorMessage(e1);
+				SemiSim3D.displayErrorMessage(e1);
 			}
 			finally {
 				e.rwLock.readLock().unlock();
 			}
 		}
-
-        SemiSim.instance.threadPool.schedule(this, nextDelay(frameduration), TimeUnit.MILLISECONDS);
+		
+        SemiSim3D.instance.threadPool.schedule(this, nextDelay(frameduration), TimeUnit.MILLISECONDS);
 	}
 	
 	public void create3dCanvas() {

@@ -49,6 +49,8 @@ public class Electrodynamics extends PeriodicTask {
 	// Inductor
 	// Capacitor
 	// Transformer
+	
+	// Fix view saving
 
 
 	/* Dynamical simulation variables */
@@ -279,9 +281,9 @@ public class Electrodynamics extends PeriodicTask {
 	ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
 	ReentrantLock poissonLock = new ReentrantLock(true);
 	
-	CyclicBarrier start_barrier = new CyclicBarrier(SemiSim.n_threads + 1);
-	CyclicBarrier stop_barrier = new CyclicBarrier(SemiSim.n_threads + 1);
-	CyclicBarrier mid_barrier = new CyclicBarrier(SemiSim.n_threads);
+	CyclicBarrier start_barrier = new CyclicBarrier(SemiSim3D.n_threads + 1);
+	CyclicBarrier stop_barrier = new CyclicBarrier(SemiSim3D.n_threads + 1);
+	CyclicBarrier mid_barrier = new CyclicBarrier(SemiSim3D.n_threads);
 
 
 
@@ -311,7 +313,7 @@ public class Electrodynamics extends PeriodicTask {
 		savemanager = new SaveManager(this);
 		opts = new MainWindow();
 
-		SemiSim.detect64Bit();
+		SemiSim3D.detect64Bit();
 		
 		initializeGrid(0.1e-6, 32, 32, 32);
 
@@ -357,6 +359,8 @@ public class Electrodynamics extends PeriodicTask {
 		opts.gui_slicelabel.setVisible(false);
 
 		opts.gui_material.removeItem(MaterialType.ABSORBER);
+		opts.gui_view.removeItem(ScalarView.DEBUG);
+		opts.gui_view.removeItem(ScalarView.DEBUG2);
 
 		if (disable_semiconductors) {
 			opts.gui_material.removeItem(MaterialType.SEMI);
@@ -368,6 +372,19 @@ public class Electrodynamics extends PeriodicTask {
 			opts.gui_material.removeItem(MaterialType.SEMI_HEAVY_P_TYPE);
 			opts.gui_material.removeItem(MaterialType.METAL_HIGH_W);
 			opts.gui_material.removeItem(MaterialType.METAL_LOW_W);
+			
+			opts.gui_view.removeItem(ScalarView.BACKGROUND_CHARGE);
+			opts.gui_view.removeItem(ScalarView.COMBINED_CHARGE);
+			opts.gui_view.removeItem(ScalarView.ELECTRON_CHARGE);
+			opts.gui_view.removeItem(ScalarView.ELECTRON_POTENTIAL);
+			opts.gui_view.removeItem(ScalarView.HOLE_CHARGE);
+			opts.gui_view.removeItem(ScalarView.HOLE_POTENTIAL);
+			opts.gui_view.removeItem(ScalarView.RECOMBINATION);
+			opts.gui_view.removeItem(ScalarView.LIGHT);
+			opts.gui_view.removeItem(ScalarView.AVERAGE_POTENTIAL);
+			
+			opts.gui_view_vec.removeItem(VectorView.ELECTRON_CURRENT);
+			opts.gui_view_vec.removeItem(VectorView.HOLE_CURRENT);
 		}
 
 		opts.pack();
@@ -449,13 +466,13 @@ public class Electrodynamics extends PeriodicTask {
 				simFPStimer.start();
 
 			} catch (Exception e) {
-				SemiSim.displayErrorMessage(e);
+				SemiSim3D.displayErrorMessage(e);
 			}
 		} finally {
 			rwLock.readLock().unlock();
 		}
 
-        SemiSim.instance.threadPool.schedule(this, nextDelay(renderer.frameduration), TimeUnit.MILLISECONDS);
+        SemiSim3D.instance.threadPool.schedule(this, nextDelay(renderer.frameduration), TimeUnit.MILLISECONDS);
 	}
 	
 
@@ -469,11 +486,11 @@ public class Electrodynamics extends PeriodicTask {
 					//calcMiscFields(true);
 				}
 	        } catch( Exception e) {
-	        	SemiSim.displayErrorMessage(e);
+	        	SemiSim3D.displayErrorMessage(e);
 	        } finally {
 	            rwLock.readLock().unlock();
 	        }
-	        SemiSim.instance.threadPool.schedule(this, nextDelay(renderer.frameduration), TimeUnit.MILLISECONDS);
+	        SemiSim3D.instance.threadPool.schedule(this, nextDelay(renderer.frameduration), TimeUnit.MILLISECONDS);
 		}
 	};
 

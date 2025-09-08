@@ -148,40 +148,21 @@ td:first-child, th:first-child {
 
 
 <h1>Introduction</h1>
-Brandon's semiconductor simulator (SemiSim) is an educational tool made with the original purpose of helping its creator understand semiconductor devices.
-It is fully interactive, letting users draw circuits and create their own devices in a manner similar to painting software.
-There is a wide variety of different materials to choose from and many ways to visualize the electromagnetic phenomena associated with semiconductors.
-Users can either load one of the many premade simulations or create their own.
+Brandon's electromagnetic simulation simulates simple circuits in three dimensions. Like <a href="https://brandonli.net/semisim">SemiSim</a>, it allows users to create their own circuits with a simple interface.
+There is a variety of materials to choose from and a variety of premade examples to look at.
 
 <h2>Physics</h2>
-The simulation is set on a two-dimensional grid over which it solves the 2D Maxwell equations. The electric field lies in the same plane as the surface of the screen whereas the magnetic field is perpendicular to it.
-On top of this, there are two types of charge carriers, electrons and holes, which feel electric and chemical forces that determine their dynamics.
-The simulation uses a FDTD (finite-difference time domain) scheme obtained by discretizing the Maxwell equations and the drift-diffusion equations and coupling the two together.
-This results in a simulation that demonstrates many of the important properties of semiconductors and semiconductor devices, such as:
+The simulation takes place on a three-dimensional cubic grid. It uses an FDTD method to compute the dynamics of the E and B fields. This simulation demonstrates the following concepts:
 <ul>
-<li>PN junctions</li>
-<li>Metal-semiconductor junctions</li>
-<li>Field effect transistors</li>
-<li>Galvani potential</li>
-<li>Thermoelectricity</li>
+<li>Electromagnetic fields</li>
+<li>Charges</li>
+<li>Current and voltage</li>
+<li>Capacitance and inductance</li>
+<li>Basic electrical circuits</li>
 </ul>
-
-<h2>Limitations</h2>
-Because the simulation uses a very simplified model of how semiconductors work, it is not able capture some phenomena that show up in real systems. Things that the simulation cannot handle include:
-<ul>
-<li>Metal band structures</li>
-<li>Electrical breakdown</li>
-<li>Kinetic effects</li>
-<li>Quantum tunelling</li>
-<li>Velocity saturation</li>
-<li>Fermi level pinning</li>
-<li>Different recombination mechanisms</li>
-<li>Surface effects</li>
-</ul>
-Finally, certain properties of materials differ from their real life counterparts (for example, the charge carrier mobility of the semiconductor material is about 1500x greater than that of Silicon).
 
 <h1>Simulation features</h1>
-The interface consists of the simulation area which the user can interact with and the settings panel containing all the simulation controls. <figure><img src="images/app.png" alt="Application" style="max-width:60%"><figcaption>Simulation area (purple, left) and settings (blue, right).</figcaption></figure>
+The interface consists of the simulation area which the user can interact with and the settings panel containing all the simulation controls. <figure><img src="images/app.png" alt="Application" style="max-width:60%"><figcaption>Simulation area (left) and settings (right).</figcaption></figure>
 The main way to interact with circuits is to change the strength of voltage sources and turn switches on and off. The quickest way to get started is to load one of the examples and start changing the voltages.
 <h2>Simulation variables</h2>
 Listed below are the most important variables that capture the state of the simulation at a given time:
@@ -189,31 +170,39 @@ Listed below are the most important variables that capture the state of the simu
 <ul>
   <tr><td>\(\vec{E} = (E_x, E_y, 0)\)</td><td>Electric field [V/m]</td></tr>
   <tr><td>\(\vec{B} = (0, 0, B_z)\)</td><td>Magnetic field [T]</td></tr>
-  <tr><td>\(\rho_n\)</td><td>Charge density of electrons [C/m^3]</td></tr>
-  <tr><td>\(\rho_p\)</td><td>Charge density of holes [C/m^3]</td></tr>
-  <tr><td>\(\rho = \rho_n + \rho_p\)</td><td>Net charge density [C/m^3]</td></tr>
-  <tr><td>\(\vec{J}_n = (J_{nx}, J_{ny}, 0)\)</td><td>Electron current density [A/m^2]</td></tr>
-  <tr><td>\(\vec{J}_p = (J_{px}, J_{py}, 0)\)</td><td>Hole current density [A/m^2]</td></tr>
-  <tr><td>\(\vec{J} = \vec{J}_n + \vec{J}_p\)</td><td>Total current density [A/m^2]</td></tr>
+  <tr><td>\(\rho\)</td><td>Charge density [C/m^3]</td></tr>
+  <tr><td>\(\vec{J}\)</td><td>Current density [A/m^2]</td></tr>
   <tr><td>\(\vec{D} = \epsilon \vec{E}\)</td><td>Electric displacement field [C/m^2]</td></tr>
   <tr><td>\(\vec{H} = \frac{1}{\mu} \vec{B}\)</td><td>Magnetic field [A/m]</td></tr>
   <tr><td>\(\vec{S} = \vec{E}\times \vec{H}\)</td><td>Poynting vector [W/m^2]</td></tr>
   <tr><td>\(u = \frac{1}{2}(\vec{E}\cdot \vec{D} + \vec{B} \cdot \vec{H})\)</td><td>Electromagnetic energy density [J/m^3]</td></tr>
   <tr><td>\(\phi\)</td><td>Electric scalar potential [V]</td></tr>
-  <tr><td>\(G\)</td><td>Charge carrier generation rate [1/(m^3 s)]</td></tr>
-  <tr><td>\(R\)</td><td>Charge carrier recombination rate [1/(m^3 s)]</td></tr>
-  <tr><td>\(F_n\)</td><td>Electron quasi-Fermi level (free energy) [V]*</td></tr>
-  <tr><td>\(F_p\)</td><td>Hole quasi-Fermi level (free energy) [V]*</td></tr>
-  <tr><td>\(F\)</td><td>Average free energy [V]</td></tr>
   <tr><td>\(Q\)</td><td>Heat dissipation [J/(s m^3)]</td></tr>
   <tr><td>\(S\)</td><td>Entropy generation [J/ (K s m^3)]</td></tr>
 </ul>
 </table>
-* Here free energy is measured per unit of charge instead of per particle, hence the units used are [V] and not [eV].
 <h2>Vector view modes</h2>
   <p><strong>Arrows:</strong> The direction and brightness of arrows corresponds to the direction and magnitude of the vector field. <figure><img src="images/arrows.png" alt="Arrows"></figure></p>
   <p><strong>Lines:</strong> 
 The brightness and density of lines indicates the magnitude of the field. <figure><img src="images/lines.png" alt="Field lines"></figure></p>
+
+
+
+<h2>Rendering modes</h2>
+<table>
+  <tr><td>2D x cross-section</td><td>Displays a cross-section in the y and z directions along a slice of constant x, controlled by the "Slice" slider.</td></tr>
+  <tr><td>2D y cross-section</td><td>Displays a cross-section along a slice of constant y.</td></tr>
+  <tr><td>2D z cross-section</td><td>Displays a cross-section along a slice of constant z.<figure><img src="images/2d_1.png" alt="Band plot" style="max-width:40%"></figure></td></tr>
+  <tr><td>3D orthographic</td><td>Displays an orthographic three-dimensional view of the scene (viewer infinitely far away).<figure><img src="images/3d_1.png" alt="Band plot" style="max-width:40%"></figure></td></tr>
+  <tr><td>3D orthographic (fields only)</td><td>Render only the field lines/vectors.<figure><img src="images/3d_2.png" alt="Band plot" style="max-width:40%"></figure></td></tr>
+  <tr><td>3D orthographic (transparent)</td><td>Makes solid objects semi-transparent.<figure><img src="images/3d_3.png" alt="Band plot" style="max-width:40%"></figure></td></tr>
+  <tr><td>3D perspective</td><td>Displays a persepective view of the scene (viewer at finite distance).</td></tr>
+  <tr><td>3D perspective (fields only)</td><td>Render only the field lines/vectors.</td></tr>
+  <tr><td>3D perspective (transparent)</td><td>Makes solid objects semi-transparent.</td></tr>
+  <tr><td>3D stereoscopic (cross-eye)</td><td>Renders a binocular image that allows the viewer to see depth by <a href="https://en.wikipedia.org/wiki/Stereoscopy">crossing their eyes.<figure><img src="images/3d_4.png" alt="Band plot" style="max-width:40%"></figure></a></td></tr>
+  <tr><td>3D stereoscopic (parallel)</td><td>Left and right eyes are flipped with respect to cross-eye.</a></td></tr>
+</table>
+
 <h2>Options</h2>
 <table>
   <tr><td>Pause</td><td>Pauses and unpauses the simulation.</td></tr>
@@ -223,17 +212,19 @@ The brightness and density of lines indicates the magnitude of the field. <figur
   <tr><td>Boundary condition</td><td>Choose between a boundary that absorbs outgoing radiation or a perfectly conductive boundary that reflects it.</td></tr>
   <tr><td>Scalar view</td><td>Choose which field to display as a color scale over the simulation field.</td></tr>
   <tr><td>Vector view</td><td>Choose which vector field to visualize (only works for 2D vectors, see "Vector view modes").</td></tr>
+  <tr><td>3D mode</td><td>Choose between different two and three-dimensional persectives.</td></tr>
   <tr><td>Show material colors</td><td>If checked, gives each material a different color, making them easier to tell apart.</td></tr>
   <tr><td>Timestep</td><td>Sets the simulation timestep. The maximum timestep is determined by the CFL condition for the wave equation and diffusion equations for each charge carrier.</td></tr>
   <tr><td>Sim steps/frame</td><td>Sets the number of iterations performed during each frame. Most of the examples require at least 10 steps/frame to run responsively.
     The maximum number depends on how good the user's computer is.</td></tr>
   <tr><td>Scalar brightness</td><td>Sets the brightness of the scalar field.</td></tr>
   <tr><td>Vector brightness</td><td>Sets the brightness of the vector field.</td></tr>
+  <tr><td>Parallax</td><td>Determines the angle between the two eyes in stereoscopic mode (adjust for comfort).</td></tr>
   <tr><td>Save scenario</td><td>Saves the current simulation to a file.</td></tr>
   <tr><td>Load scenario</td><td>Loads a simulation from a file. SemiSim comes with a variety of pre-made simulations located in the "examples" folder.</td></tr>
   <tr><td>Clear all</td><td>Removes all materials and resets all fields.</td></tr>
   <tr><td>Set fields to zero</td><td>Sets all fields to their default values, leaving the materials unchanged.</td></tr>
-  <tr><td>Advanced settings <br><small>[desktop]</small> </td><td>Opens advanced simulation settings window, for advanced users only.</td></tr>
+  <tr><td>Rotate view<br> </td><td>Makes the 3D scene spin around.</td></tr>
   <tr><td>Tool</td><td>Selects one of the tools.</td></tr>
   </table>
 
@@ -280,7 +271,6 @@ The brightness and density of lines indicates the magnitude of the field. <figur
 <h2>Materials</h2>
 <table>
     <tr><td>Voltage source</td><td>Generates a voltage that can be used to power circuits.</td></tr>
-    <tr><td>AC voltage source <small>[desktop]</small></td><td>Voltage source that oscillates sinusoidally at a fixed frequency.</td></tr>
     <tr><td>Switch</td><td>Conductivity can be switched on and off by the user.</td></tr>
     <tr><td>Metal</td><td>Material that conducts electricity very well.</td></tr>
     <tr><td>Conductive metal</td><td>More conductive than regular metal.</td></tr>
@@ -292,7 +282,6 @@ The brightness and density of lines indicates the magnitude of the field. <figur
     <tr><td>Decoration</td><td>Used for text or circuit symbols, has no effect otherwise.</td></tr>
     <tr><td>Vacuum</td><td>Empty space.</td></tr>
 </table>
-<figure><img src="images/palette.png" alt="Palette"><figcaption>Colors of all the materials.</figcaption></figure>
 
 <!--
 <h1>Technical details</h1>
@@ -306,8 +295,7 @@ The simulation runs on a staggered grid with B and rho...
 -->
 
 <h1>Miscellaneous questions and answers</h1>
-<h2>Why does this simulation exist?</h2>
-<div TODO=""></div>
+
 <h2>What do the colors mean?</h2>
 In general, the color red is associated with either holes or a positive charge. Blue represents electrons or negative charge. White means both electrons and holes exist a location.
 In the rest of the cases, yellow represents a positve quantity (eg. chemical potential or magnetic field), while cyan is negative. Finally, green is used for quantites that are always positive (eg. energy density).
