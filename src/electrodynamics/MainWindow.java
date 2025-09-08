@@ -30,11 +30,6 @@ import javax.swing.JTextArea;
 import javax.swing.ScrollPaneConstants;
 import java.awt.Insets;
 import java.awt.Font;
-import electrodynamics.Electrodynamics.ScalarView;
-import electrodynamics.Electrodynamics.VectorView;
-import electrodynamics.Electrodynamics.VectorMode;
-import electrodynamics.Electrodynamics.BoundaryCondition;
-import electrodynamics.Electrodynamics.RenderMode;
 
 public class MainWindow extends JFrame {
 

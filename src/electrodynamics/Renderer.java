@@ -15,11 +15,9 @@ import javax.swing.JPanel;
 
 import com.jogamp.opengl.util.awt.TextRenderer;
 
-import electrodynamics.Electrodynamics.RenderMode;
-import electrodynamics.Electrodynamics.ScalarView;
-import electrodynamics.Electrodynamics.VectorMode;
-import electrodynamics.Electrodynamics.VectorView;
+import electrodynamics.util.Timer;
 import electrodynamics.util.Utils;
+import electrodynamics.util.Vector3;
 
 public class Renderer {
 	Electrodynamics e;
@@ -67,6 +65,11 @@ public class Renderer {
 	float yaw_start = 0;
     float scale = 24f;
 	boolean threeD_mode = true;
+	
+
+	Timer FPStimer = new Timer("Graphics FPS", 10, true);
+	Timer t5 = new Timer("Graphics", 20, true);
+	
 
 	public Renderer(Electrodynamics e) {
 		this.e = e;
@@ -402,7 +405,10 @@ public class Renderer {
 
 	public void render() {
 
-		e.t5.start();
+		FPStimer.stop();
+		FPStimer.start();
+		
+		t5.start();
 		Graphics2D g = (Graphics2D) e.screen.getGraphics();
 
 		for (int i = 0; i < e.nx; i++) {
@@ -415,8 +421,6 @@ public class Renderer {
 				}
 			}
 		}
-
-		clearStrings();
 
 		/* Draw pixels */
 
@@ -813,12 +817,12 @@ public class Renderer {
 			int slice = e.opts.gui_slice.getValue();
 
 
-			Vector ctr = new Vector(0,0,0);
-			Vector arrow = new Vector(0,0,0);
-			Vector tip1 = new Vector(0,0,0);
-			Vector tip2 = new Vector(0,0,0);
-			Vector body1 = new Vector(0,0,0);
-			Vector body2 = new Vector(0,0,0);
+			Vector3 ctr = new Vector3(0,0,0);
+			Vector3 arrow = new Vector3(0,0,0);
+			Vector3 tip1 = new Vector3(0,0,0);
+			Vector3 tip2 = new Vector3(0,0,0);
+			Vector3 body1 = new Vector3(0,0,0);
+			Vector3 body2 = new Vector3(0,0,0);
 
 			for (int pi = 0; pi < density; pi++) {
 				for (int pj = 0; pj < density; pj++) {
@@ -913,29 +917,29 @@ public class Renderer {
 		RenderingHints.KEY_TEXT_ANTIALIASING,
 		RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
-		renderText(g, null);
+		texts.clear();
+		generateText(g, texts);
+		drawStrings(g);
 
-		clearStrings();
-
-		e.t5.stop();
+		t5.stop();
 	}
 
 
-	public void renderText(Graphics g, TextRenderer t) {
+	public void generateText(Graphics g, ArrayList<Text> texts) {
 		/* Draw text */
 
 		for (VoltageProbe p: e.voltageprobes) {
 			if (e.ground != null)
-				draw3DStringWithBackground("V = " + getSI(p.potential - e.ground.potential, "V"), p.x, p.y, p.z, true, false);
+				draw3DStringWithBackground("V = " + getSI(p.potential - e.ground.potential, "V"), p.x, p.y, p.z, true, false, texts);
 			else
-				draw3DStringWithBackground("V = " + getSI(p.potential, "V"), p.x, p.y, p.z, true, false);
+				draw3DStringWithBackground("V = " + getSI(p.potential, "V"), p.x, p.y, p.z, true, false, texts);
 		}
 
 		if (e.ground != null)
-			draw3DStringWithBackground("Ground = " + getSI(e.ground.potential - e.ground.potential, "V"), e.ground.x, e.ground.y, e.ground.z, true, false);
+			draw3DStringWithBackground("Ground = " + getSI(e.ground.potential - e.ground.potential, "V"), e.ground.x, e.ground.y, e.ground.z, true, false, texts);
 
 		for (CurrentProbe p: e.currentprobes) {
-			draw3DStringWithBackground("I = " + getSI(p.current*e.depth, "A"), (p.x1+p.x2)/2, (p.y1+p.y2)/2, (p.z1+p.z2)/2, true, false);
+			draw3DStringWithBackground("I = " + getSI(p.current*e.depth, "A"), (p.x1+p.x2)/2, (p.y1+p.y2)/2, (p.z1+p.z2)/2, true, false, texts);
 		}
 
 		{
@@ -978,30 +982,30 @@ public class Renderer {
 
 			String name = "Material: " + mat.type.name + (mat.modified? " (Modified)" : "");
 
-			draw2DStringWithBackground(name, hoffset, voffset + 1*vspacing, true, true);
+			drawBig2DStringWithBackground(name, hoffset, voffset + 1*vspacing, texts);
 			if (e.opts.gui_tooltip.isSelected()) {
 				voffset = voffset+3;
 				int line = 2;
-				drawTwoColumnString("E" , 							getSI(getFieldMagnitude(e.Ex, e.Ey, e.Ez, mx_t, my_t, mz_t), "V/m"), hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("D" , 							getSI(getFieldMagnitude(e.Dx, e.Dy, e.Dz, mx_t, my_t, mz_t), "C/m^2"), hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("B" , 							getSI(getDualFieldMagnitude(e.Bx, e.By, e.Bz, mx_t, my_t, mz_t), "T"),	hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("H" , 							getSI(getDualFieldMagnitude(e.Hx, e.Hy, e.Hz, mx_t, my_t, mz_t), "A/m"),	hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("\u03d5" , 						getSI(Utils.bilinearinterp(e.phi,mx_t, my_t, mz_t), "V"),					hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("\u2130" , 						getSI(mat.emf, "V/m"),										hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("\u03b5/\u03b5\u2080" , 		getSI(mat.eps_r, ""),										hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("\u03bc/\u03bc\u2080" , 		getSI(mat.mu_r, ""),											hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("\u03c1\u2099" , 				getSI(Utils.bilinearinterp(e.rho_n,mx_t, my_t, mz_t), "C/m^3"),			hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("\u03c1\u209A" , 				getSI(Utils.bilinearinterp(e.rho_p,mx_t, my_t, mz_t), "C/m^3"),			hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("\u03c1\u2080",					getSI(Utils.bilinearinterp(e.rho_back,mx_t, my_t, mz_t), "C/m^3"),		hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("\u03c1" , 						getSI(Utils.bilinearinterp(e.rho_free,mx_t, my_t, mz_t), "C/m^3"),		hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("J\u2099" ,						getSI(getFieldMagnitude(e.Jx_n, e.Jy_n, e.Jz_n, mx_t, my_t, mz_t), "A/m^2"),			hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("J\u209A" , 					getSI(getFieldMagnitude(e.Jx_p, e.Jy_p, e.Jz_p, mx_t, my_t, mz_t), "A/m^2"),			hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("J" , 							getSI(getFieldMagnitude(e.Jx_free, e.Jy_free, e.Jz_free, mx_t, my_t, mz_t), "A/m^2"),	hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("F\u2099" , 					getSI(Utils.bilinearinterp(e.F_n,mx_t, my_t, mz_t)/e.q_n+Utils.bilinearinterp(e.phi,mx_t, my_t, mz_t)-e.W_semi/e.eVtoJ, "V"),	hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("F\u209a" , 					getSI(Utils.bilinearinterp(e.F_p,mx_t, my_t, mz_t)/e.q_p+Utils.bilinearinterp(e.phi,mx_t, my_t, mz_t)-e.W_semi/e.eVtoJ, "V"),	hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("x" , 							getSI(mx_t*e.ds, "m"),								hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("y" , 							getSI(my_t*e.ds, "m"),								hoffset, voffset + line*vspacing); line++;
-				drawTwoColumnString("z" , 							getSI(mz_t*e.ds, "m"),								hoffset, voffset + line*vspacing); line++;
+				drawTwoColumnString("E" , 							getSI(getFieldMagnitude(e.Ex, e.Ey, e.Ez, mx_t, my_t, mz_t), "V/m"), hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("D" , 							getSI(getFieldMagnitude(e.Dx, e.Dy, e.Dz, mx_t, my_t, mz_t), "C/m^2"), hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("B" , 							getSI(getDualFieldMagnitude(e.Bx, e.By, e.Bz, mx_t, my_t, mz_t), "T"),	hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("H" , 							getSI(getDualFieldMagnitude(e.Hx, e.Hy, e.Hz, mx_t, my_t, mz_t), "A/m"),	hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("\u03d5" , 						getSI(Utils.bilinearinterp(e.phi,mx_t, my_t, mz_t), "V"),					hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("\u2130" , 						getSI(mat.emf, "V/m"),										hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("\u03b5/\u03b5\u2080" , 		getSI(mat.eps_r, ""),										hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("\u03bc/\u03bc\u2080" , 		getSI(mat.mu_r, ""),											hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("\u03c1\u2099" , 				getSI(Utils.bilinearinterp(e.rho_n,mx_t, my_t, mz_t), "C/m^3"),			hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("\u03c1\u209A" , 				getSI(Utils.bilinearinterp(e.rho_p,mx_t, my_t, mz_t), "C/m^3"),			hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("\u03c1\u2080",					getSI(Utils.bilinearinterp(e.rho_back,mx_t, my_t, mz_t), "C/m^3"),		hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("\u03c1" , 						getSI(Utils.bilinearinterp(e.rho_free,mx_t, my_t, mz_t), "C/m^3"),		hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("J\u2099" ,						getSI(getFieldMagnitude(e.Jx_n, e.Jy_n, e.Jz_n, mx_t, my_t, mz_t), "A/m^2"),			hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("J\u209A" , 					getSI(getFieldMagnitude(e.Jx_p, e.Jy_p, e.Jz_p, mx_t, my_t, mz_t), "A/m^2"),			hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("J" , 							getSI(getFieldMagnitude(e.Jx_free, e.Jy_free, e.Jz_free, mx_t, my_t, mz_t), "A/m^2"),	hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("F\u2099" , 					getSI(Utils.bilinearinterp(e.F_n,mx_t, my_t, mz_t)/e.q_n+Utils.bilinearinterp(e.phi,mx_t, my_t, mz_t)-e.W_semi/e.eVtoJ, "V"),	hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("F\u209a" , 					getSI(Utils.bilinearinterp(e.F_p,mx_t, my_t, mz_t)/e.q_p+Utils.bilinearinterp(e.phi,mx_t, my_t, mz_t)-e.W_semi/e.eVtoJ, "V"),	hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("x" , 							getSI(mx_t*e.ds, "m"),								hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("y" , 							getSI(my_t*e.ds, "m"),								hoffset, voffset + line*vspacing, texts); line++;
+				drawTwoColumnString("z" , 							getSI(mz_t*e.ds, "m"),								hoffset, voffset + line*vspacing, texts); line++;
 			}
 		}
 
@@ -1009,27 +1013,27 @@ public class Renderer {
 		int voffset = 3;
 		int hoffset = 5;
 		int line = 1;
-		draw2DStringWithBackground("Time: " + getSI(e.time, "s"), hoffset, voffset + line*vspacing, true, false); line++;
+		draw2DStringWithBackground("Time: " + getSI(e.time, "s"), hoffset, voffset + line*vspacing, texts); line++;
 		if (e.opts.gui_paused.isSelected())
 		{
-			draw2DStringWithBackground("Paused", hoffset, voffset + line*vspacing, true, false); line++;
+			draw2DStringWithBackground("Paused", hoffset, voffset + line*vspacing, texts); line++;
 		}
 		if (e.sign_violation) {
-			draw2DStringWithBackground("Warning: Numerical instability detected. Please decrease timestep.", hoffset, voffset + line*vspacing, true, false); line++;
+			draw2DStringWithBackground("Warning: Numerical instability detected. Please decrease timestep.", hoffset, voffset + line*vspacing, texts); line++;
 		}
 		if (e.controls.debugging) {
 			long total = Runtime.getRuntime().totalMemory();
 			long used  = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
-			draw2DStringWithBackground("Used memory " + getSI(used, "B"), hoffset, voffset + line*vspacing, true, false); line++;
-			draw2DStringWithBackground("Total memory " + getSI(total, "B"), hoffset, voffset + line*vspacing, true, false); line++;
-			draw2DStringWithBackground(e.t4.name + " " + getSI(e.t4.time, "s"), hoffset, voffset + line*vspacing, true, false); line++;
-			draw2DStringWithBackground(e.t5.name + " " + getSI(e.t5.avgtime, "s"), hoffset, voffset + line*vspacing, true, false); line++;
-			draw2DStringWithBackground(e.t6.name + " " + getSI(e.t6.avgtime*e.opts.gui_simspeed_2.getValue(), "s"), hoffset, voffset + line*vspacing, true, false); line++;
-			draw2DStringWithBackground(e.t7.name + " " + getSI(e.t7.avgtime, "s"), hoffset, voffset + line*vspacing, true, false); line++;
-			draw2DStringWithBackground(e.t8.name + " " + getSI(e.t8.avgtime, "s"), hoffset, voffset + line*vspacing, true, false); line++;
+			draw2DStringWithBackground("Used memory " + Utils.getSI(used, "B"), hoffset, voffset + line*vspacing, texts); line++;
+			draw2DStringWithBackground("Total memory " + Utils.getSI(total, "B"), hoffset, voffset + line*vspacing, texts); line++;
+			draw2DStringWithBackground(e.t4.getName() + " " + Utils.getSI(e.t4.getAverageTime(), "s"), hoffset, voffset + line*vspacing, texts); line++;
+			draw2DStringWithBackground(t5.getName() + " " + Utils.getSI(t5.getAverageTime(), "s"), hoffset, voffset + line*vspacing, texts); line++;
+			draw2DStringWithBackground(e.t6.getName() + " " + Utils.getSI(e.t6.getAverageTime()*e.opts.gui_simspeed_2.getValue(), "s"), hoffset, voffset + line*vspacing, texts); line++;
+			draw2DStringWithBackground(e.t7.getName() + " " + Utils.getSI(e.t7.getAverageTime(), "s"), hoffset, voffset + line*vspacing, texts); line++;
+			draw2DStringWithBackground(e.t8.getName() + " " + Utils.getSI(e.t8.getAverageTime(), "s"), hoffset, voffset + line*vspacing, texts); line++;
+			draw2DStringWithBackground(FPStimer.getName() + " " + Utils.getSI(1/FPStimer.getAverageTime(), "Hz"), hoffset, voffset + line*vspacing, texts); line++;
+			draw2DStringWithBackground(e.simFPStimer.getName() + " " + Utils.getSI(1/e.simFPStimer.getAverageTime(), "Hz"), hoffset, voffset + line*vspacing, texts); line++;
 		}
-
-		drawStrings(g, t);
 	}
 
 	double getFieldMagnitude(double[][][] vx, double[][][] vy, double[][][] vz, double x, double y, double z) {
@@ -1040,11 +1044,7 @@ public class Renderer {
 		return length(Utils.bilinearinterp(vx, x, y-0.5, z-0.5), Utils.bilinearinterp(vy, x-0.5, y, z-0.5), Utils.bilinearinterp(vz, x-0.5, y-0.5, z));
 	}
 
-	public void clearStrings() {
-		texts.clear();
-	}
-
-	public void drawStrings(Graphics g, TextRenderer t) {
+	public void drawStrings(Graphics g) {
 		if (g != null) {
 			if (e.opts.gui_text_bg.isSelected())
 			{
@@ -1097,16 +1097,20 @@ public class Renderer {
 		}
 	}
 
-	public void draw2DStringWithBackground(String str1, int x, int y, boolean hasBackground, boolean isBig) {
-		texts.add(new Text(str1, x, y, 0, isBig, hasBackground, false));
+	public void draw2DStringWithBackground(String str1, int x, int y, ArrayList<Text> texts) {
+		texts.add(new Text(str1, x, y, 0, true, false, false));
+	}
+
+	public void drawBig2DStringWithBackground(String str1, int x, int y, ArrayList<Text> texts) {
+		texts.add(new Text(str1, x, y, 0, true, true, false));
 	}
 
 
-	public void draw3DStringWithBackground(String str1, int x, int y, int z, boolean hasBackground, boolean isBig) {
+	public void draw3DStringWithBackground(String str1, int x, int y, int z, boolean hasBackground, boolean isBig, ArrayList<Text> texts) {
 		texts.add(new Text(str1, x, y, z, hasBackground, isBig, true));
 	}
 
-	public void drawTwoColumnString(String str1, String str2, int x, int y) {
+	public void drawTwoColumnString(String str1, String str2, int x, int y, ArrayList<Text> texts) {
 		texts.add(new Text(String.format("%-10s", str1), x, y, 0, false, true, false));
 		texts.add(new Text(str2, x+40, y, 0, false, true, false));
 		texts.get(texts.size()-2).minwidth = 80;
@@ -1151,6 +1155,132 @@ public class Renderer {
 			return String.format(precision, quantity*1e-9) + " G" + unit;
 		else
 			return String.format(precision, quantity*1e-12) + " T" + unit;
+	}
+}
+
+enum ScalarView {
+	NONE("No scalar overlay", 0),
+	E_FIELD("View E field magnitude", 1e4),
+	D_FIELD("View D field magnitude", 1e4*8.85e-12),
+	B_FIELD("View B field magnitude", 1e-5),
+	H_FIELD("View H field magnitude", 1e-5/1.26e-6),
+	CHARGE("View \u03c1: Net charge density", 1),
+	CURRENT("View J: Total current magnitude", 1e8),
+	POTENTIAL("View \u03d5: Electric scalar potential", 0.1),
+	ENERGY("View u: Electromagnetic energy density", 1),
+	ELECTRON_CHARGE("View \u03c1\u2099: Electron charge density", 1),
+	HOLE_CHARGE("View \u03c1\u209A: Hole charge density", 1),
+	COMBINED_CHARGE("View: Combined electron+hole charge density", 1),
+	BACKGROUND_CHARGE("View \u03c1\u2080: Background charge density", 1),
+	HEAT("View Q: Heat dissipation", 1),
+	ENTROPY("View s: Entropy generation (Free energy dissipation)", 1),
+	ELECTRON_POTENTIAL("View F\u2099: Electron chemical potential (quasi Fermi level)", 0.1),
+	HOLE_POTENTIAL("View F\u209A: Hole chemical potential (quasi Fermi level)", 0.1),
+	AVERAGE_POTENTIAL("View F: Average electrochemical potential", 0.1),
+	RECOMBINATION("View R: Recombination rate", 1e-30),
+	LIGHT("View: Emitted light", 1e-30),
+	DEBUG("Debug", 1),
+	DEBUG2("Debug 2", 1);
+
+	String name;
+	double scale; //Typical order of magnitude of the quantity
+
+	ScalarView(String name, double scale)
+	{
+		this.name = name;
+		this.scale = scale;
+	}
+
+	@Override
+	public String toString() {
+		return name;
+	}
+}
+
+enum VectorView {
+	NONE("No vector overlay", 0),
+	E_FIELD("View E field", 1e4),
+	D_FIELD("View D field", 1e4*8.85e-12),
+	B_FIELD("View B field", 1e-5),
+	H_FIELD("View H field", 1e-5/1.26e-6),
+	ELECTRON_CURRENT("View J\u2099: Electron current", 1e8),
+	HOLE_CURRENT("View J\u209A: Hole current", 1e8),
+	TOTAL_CURRENT("View J: Total current", 1e8),
+	EMF("View \u2130: External electromotive force", 1e4),
+	POYNTING("View S: Poynting vector", 1);
+
+	String name;
+	double scale;
+
+	VectorView(String name, double scale)
+	{
+		this.name = name;
+		this.scale = scale;
+	}
+
+	@Override
+	public String toString() {
+		return name;
+	}
+}
+
+enum VectorMode {
+	ARROWS("Show vectors"),
+	LINES("Show lines");
+
+	String name;
+	VectorMode(String name)
+	{
+		this.name = name;
+	}
+
+	@Override
+	public String toString() {
+		return name;
+	}
+}
+
+enum RenderMode {
+	SLICE_X("2D x cross-section"),
+	SLICE_Y("2D y cross-section"),
+	SLICE_Z("2D z cross-section"),
+	THREED("3D orthographic"),
+	THREED_FIELDS_ONLY("3D orthographic (fields only)"),
+	THREED_TRANSLUCENT("3D orthographic (transparent)"),
+	THREED_PERSPECTIVE("3D perspective"),
+	THREED_PERSPECTIVE_FIELDS_ONLY("3D perspective (fields only)"),
+	THREED_PERSPECTIVE_TRANSLUCENT("3D perspective (transparent)"),
+	THREED_STEREO("3D stereoscopic (cross-eye)"),
+	THREED_STEREO_INV("3D stereoscopic (parallel)");
+
+	String name;
+	RenderMode(String name)
+	{
+		this.name = name;
+	}
+
+	@Override
+	public String toString() {
+		return name;
+	}
+
+	public static boolean is3d(RenderMode mode) {
+		return (mode == THREED || mode == THREED_FIELDS_ONLY || mode == THREED_TRANSLUCENT
+		|| mode == THREED_PERSPECTIVE || mode == THREED_PERSPECTIVE_FIELDS_ONLY || mode == THREED_PERSPECTIVE_TRANSLUCENT
+		|| mode == THREED_STEREO || mode == THREED_STEREO_INV);
+	}
+
+	public static boolean isOrthographic(RenderMode mode) {
+		return (mode == THREED || mode == THREED_FIELDS_ONLY || mode == THREED_TRANSLUCENT);
+	}
+
+	public static boolean isPerspective(RenderMode mode) {
+		return (mode == THREED_PERSPECTIVE || mode == THREED_PERSPECTIVE_FIELDS_ONLY || mode == THREED_PERSPECTIVE_TRANSLUCENT
+		|| mode == THREED_STEREO || mode == THREED_STEREO_INV);
+	}
+
+	public static boolean isStereoscopic(RenderMode mode) {
+		return (mode == THREED_STEREO || mode == THREED_STEREO_INV);
 	}
 }
 

@@ -25,11 +25,8 @@ import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.KeyStroke;
 
-import electrodynamics.Electrodynamics.BoundaryCondition;
-import electrodynamics.Electrodynamics.RenderMode;
-import electrodynamics.Electrodynamics.ScalarView;
-import electrodynamics.Electrodynamics.VectorView;
 import electrodynamics.util.Utils;
+import electrodynamics.util.Vector3;
 
 public class Controls implements MouseListener, MouseMotionListener, MouseWheelListener, KeyListener, ActionListener, AdjustmentListener {
 	Electrodynamics e;
@@ -772,10 +769,10 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 	}
 
 	public void drawMaterialLine(double x1, double y1, double z1, double x2, double y2, double z2, Brush brush, BrushShape brushshape, MaterialType mat, double brushsize, double EMF_angle) {
-		Vector a = new Vector(0, 0, 0);
-		Vector b = new Vector(0, 0, 0);
-		Vector p = new Vector(0, 0, 0);
-		Vector ab = new Vector(0, 0, 0);
+		Vector3 a = new Vector3(0, 0, 0);
+		Vector3 b = new Vector3(0, 0, 0);
+		Vector3 p = new Vector3(0, 0, 0);
+		Vector3 ab = new Vector3(0, 0, 0);
 		for (int i = 0; i < e.nx; i++)
 		{
 			for (int j = 0; j < e.ny; j++)
@@ -1048,7 +1045,8 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 		else if (ev.getSource() == e.opts.gui_open)
 			this.load = true;
 		else if (ev.getSource() == e.opts.gui_help)
-			e.help.setVisible(true);
+			//e.help.setVisible(true);
+		{} //TODO
 		else if (ev.getSource() == e.opts.gui_editdesc) {
 			e.opts.textPane.setEditable(!e.opts.textPane.isEditable());
 		} else if (ev.getSource() == e.opts.gui_view) {
@@ -1168,7 +1166,6 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 		public void actionPerformed(ActionEvent ev) {
 			if (texting) return;
 			debugging = !debugging;
-			Timer.allEnabled = debugging;
 		}
 	};
 

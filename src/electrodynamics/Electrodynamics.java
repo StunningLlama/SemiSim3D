@@ -22,6 +22,7 @@ import javax.swing.KeyStroke;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 
+import electrodynamics.util.Timer;
 import electrodynamics.util.Utils;
 
 public class Electrodynamics extends TimerTask {
@@ -282,46 +283,20 @@ public class Electrodynamics extends TimerTask {
 
 	/* Performance profiling */
 
-	Timer t4 = new Timer("Poisson constraint solver", true);
-	Timer t7 = new Timer("Poisson potential solver", true);
-	Timer t5 = new Timer("Graphics", true);
-	Timer t6 = new Timer("Iterate simulation", true);
-	Timer t8 = new Timer("Calc misc fields", true);
-	Timer t9 = new Timer("Debug", false);
+	Timer t4 = new Timer("Poisson constraint solver", 20, true);
+	Timer t7 = new Timer("Poisson potential solver", 20, true);
+	Timer t6 = new Timer("Iterate simulation", 20, true);
+	Timer t8 = new Timer("Calc misc fields", 20, true);
+	Timer t9 = new Timer("Debug", 20, false);
+	Timer simFPStimer = new Timer("Simulation FPS", 10, true);
 
 
 	String sim_name = "Brandon's Electromagnetics 3D";
 	Renderer renderer;
 	Controls controls;
 	MainWindow opts;
-	HelpDialog help;
 	BufferedImage screen;
 	SaveManager savemanager;
-
-
-	public static void main(String[] args) {
-		try {
-			UIManager.setLookAndFeel(
-			UIManager.getSystemLookAndFeelClassName());
-		} catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) {
-			e.printStackTrace();
-		}
-		Electrodynamics w = new Electrodynamics();
-		//java.util.Timer t = new java.util.Timer();
-		javax.swing.Timer t = new javax.swing.Timer(w.renderer.frameduration, w.controls);
-		for (int i = 0; i < w.n_threads; i++) {
-			w.sim_threads.add(w.new SimulationThread(i, w.n_threads, w.nx));
-		}
-
-		for (int i = 0; i < w.n_threads; i++) {
-			w.sim_threads.get(i).start();
-		}
-
-		//t.schedule(w, 0, w.frameduration);
-		w.renderer.set3Dmode();
-		t.start();
-
-	}
 
 	public Electrodynamics() {
 
@@ -331,7 +306,7 @@ public class Electrodynamics extends TimerTask {
 		renderer = new Renderer(this);
 		savemanager = new SaveManager(this);
 
-		detect64Bit();
+		SemiSim.detect64Bit(opts);
 
 		initializeGrid(0.1e-6, 32, 32, 32);
 
@@ -402,17 +377,6 @@ public class Electrodynamics extends TimerTask {
 		//help.setVisible(false);
 	}
 
-	public void detect64Bit() {
-		if (!System.getProperty("sun.arch.data.model").equals("64"))
-		{
-			int result = JOptionPane.showConfirmDialog(opts, "Running this application on a 32-bit platform may cause some issues. Do you still wish to proceed?", "Warning", JOptionPane.YES_NO_OPTION);
-			if (result != JOptionPane.OK_OPTION)
-			{
-				System.exit(0);
-			}
-		}
-	}
-
 	@Override
 	public void run() {
 		try {
@@ -468,6 +432,10 @@ public class Electrodynamics extends TimerTask {
 				savemanager.readFile();
 				controls.load = false;
 			}
+			
+
+			simFPStimer.stop();
+			simFPStimer.start();
 
 			if (!renderer.threeD_mode)
 				renderer.r.repaint();
@@ -982,8 +950,8 @@ public class Electrodynamics extends TimerTask {
 									double mf = Math.min(mobility_factor[i+1][j][k], mobility_factor[i][j][k]);
 									//double mobility_factor = Math.min(1, E_sat/Math.abs(Ex[i][j][k]));
 
-									double sigma_n = conducting_x[i][j][k]*mf*mu_electron*logmean(-rho_n[i+1][j][k],-rho_n[i][j][k]);
-									double sigma_p = conducting_x[i][j][k]*mf*mu_hole*logmean(rho_p[i+1][j][k], rho_p[i][j][k]);
+									double sigma_n = conducting_x[i][j][k]*mf*mu_electron*Utils.logmean(-rho_n[i+1][j][k],-rho_n[i][j][k]);
+									double sigma_p = conducting_x[i][j][k]*mf*mu_hole*Utils.logmean(rho_p[i+1][j][k], rho_p[i][j][k]);
 
 									Jx_abs[i][j][k] = 0;
 
@@ -1019,8 +987,8 @@ public class Electrodynamics extends TimerTask {
 									double mf = Math.min(mobility_factor[i][j+1][k], mobility_factor[i][j][k]);
 									//double mobility_factor = Math.min(1, E_sat/Math.abs(Ey[i][j][k]));
 
-									double sigma_n = conducting_y[i][j][k]*mf*mu_electron*logmean(-rho_n[i][j+1][k],-rho_n[i][j][k]);
-									double sigma_p = conducting_y[i][j][k]*mf*mu_hole*logmean(rho_p[i][j+1][k], rho_p[i][j][k]);
+									double sigma_n = conducting_y[i][j][k]*mf*mu_electron*Utils.logmean(-rho_n[i][j+1][k],-rho_n[i][j][k]);
+									double sigma_p = conducting_y[i][j][k]*mf*mu_hole*Utils.logmean(rho_p[i][j+1][k], rho_p[i][j][k]);
 
 									Jy_abs[i][j][k] = 0;
 
@@ -1056,8 +1024,8 @@ public class Electrodynamics extends TimerTask {
 									double mf = Math.min(mobility_factor[i][j][k+1], mobility_factor[i][j][k]);
 									//double mobility_factor = Math.min(1, E_sat/Math.abs(Ey[i][j][k]));
 
-									double sigma_n = conducting_z[i][j][k]*mf*mu_electron*logmean(-rho_n[i][j][k+1],-rho_n[i][j][k]);
-									double sigma_p = conducting_z[i][j][k]*mf*mu_hole*logmean(rho_p[i][j][k+1], rho_p[i][j][k]);
+									double sigma_n = conducting_z[i][j][k]*mf*mu_electron*Utils.logmean(-rho_n[i][j][k+1],-rho_n[i][j][k]);
+									double sigma_p = conducting_z[i][j][k]*mf*mu_hole*Utils.logmean(rho_p[i][j][k+1], rho_p[i][j][k]);
 
 									Jz_abs[i][j][k] = 0;
 
@@ -1142,54 +1110,6 @@ public class Electrodynamics extends TimerTask {
 			} catch (InterruptedException | BrokenBarrierException e) {
 				e.printStackTrace();
 			}
-		}
-	}
-
-	public double logmean(double x, double y)
-	{
-		if (x <= 0 || y <= 0)
-			return 0;
-
-		//My approximation
-		if (Math.abs((x-y)/(x+y)) <  1e-3)
-			return (2/3.0)*Math.sqrt(x*y) + (1/6.0)*(x+y);
-
-		//return (x-y)/lut.log(x/y);
-		return (x-y)/Math.log(x/y);
-	}
-
-	LogLUT lut = new LogLUT();
-
-	// Quick and dirty way to calculate log precisely (relative error < 10^-9)
-	class LogLUT {
-		//int min_exponent = -1022;
-		//int orders = 2045;
-		int min_exponent = -100;
-		int orders = 200;
-		//int divisions = 4;
-		int length;
-		long A = (long)0b1111111111 << 52;
-
-		double[] x;
-		double[] log_x;
-
-		public LogLUT() {
-			length = orders*4;
-			x = new double[length];
-			log_x = new double[length];
-
-			for (int i = 0; i < length; i++) {
-				x[i] = Math.pow(2, min_exponent+i/4)*(1+(i%4)/4.0);
-				log_x[i] = Math.log(x[i]);
-			}
-		}
-
-		public double log(double y) {
-			int exp = Math.getExponent(y);
-			double mantissa = Double.longBitsToDouble(A|Double.doubleToRawLongBits(y)&(~0x7ff0000000000000l));
-			int i = (int)(((exp-min_exponent)<<2) + 4*mantissa - 3.5);
-			double w = y/x[i];
-			return (w-1)/(0.66666666666666667*Math.sqrt(w) + 0.16666666666666667*(w+1)) + log_x[i];
 		}
 	}
 
@@ -2399,148 +2319,21 @@ public class Electrodynamics extends TimerTask {
 			}
 		}
 	}
+}
 
+enum BoundaryCondition {
+	DISSIPATIVE("Absorbing boundary"),
+	CONDUCTING("Conducting boundary");
 
-	enum ScalarView {
-		NONE("No scalar overlay", 0),
-		E_FIELD("View E field magnitude", 1e4),
-		D_FIELD("View D field magnitude", 1e4*8.85e-12),
-		B_FIELD("View B field magnitude", 1e-5),
-		H_FIELD("View H field magnitude", 1e-5/1.26e-6),
-		CHARGE("View \u03c1: Net charge density", 1),
-		CURRENT("View J: Total current magnitude", 1e8),
-		POTENTIAL("View \u03d5: Electric scalar potential", 0.1),
-		ENERGY("View u: Electromagnetic energy density", 1),
-		ELECTRON_CHARGE("View \u03c1\u2099: Electron charge density", 1),
-		HOLE_CHARGE("View \u03c1\u209A: Hole charge density", 1),
-		COMBINED_CHARGE("View: Combined electron+hole charge density", 1),
-		BACKGROUND_CHARGE("View \u03c1\u2080: Background charge density", 1),
-		HEAT("View Q: Heat dissipation", 1),
-		ENTROPY("View s: Entropy generation (Free energy dissipation)", 1),
-		ELECTRON_POTENTIAL("View F\u2099: Electron chemical potential (quasi Fermi level)", 0.1),
-		HOLE_POTENTIAL("View F\u209A: Hole chemical potential (quasi Fermi level)", 0.1),
-		AVERAGE_POTENTIAL("View F: Average electrochemical potential", 0.1),
-		RECOMBINATION("View R: Recombination rate", 1e-30),
-		LIGHT("View: Emitted light", 1e-30),
-		DEBUG("Debug", 1),
-		DEBUG2("Debug 2", 1);
-
-		String name;
-		double scale; //Typical order of magnitude of the quantity
-
-		ScalarView(String name, double scale)
-		{
-			this.name = name;
-			this.scale = scale;
-		}
-
-		@Override
-		public String toString() {
-			return name;
-		}
+	String name;
+	BoundaryCondition(String name)
+	{
+		this.name = name;
 	}
 
-	enum VectorView {
-		NONE("No vector overlay", 0),
-		E_FIELD("View E field", 1e4),
-		D_FIELD("View D field", 1e4*8.85e-12),
-		B_FIELD("View B field", 1e-5),
-		H_FIELD("View H field", 1e-5/1.26e-6),
-		ELECTRON_CURRENT("View J\u2099: Electron current", 1e8),
-		HOLE_CURRENT("View J\u209A: Hole current", 1e8),
-		TOTAL_CURRENT("View J: Total current", 1e8),
-		EMF("View \u2130: External electromotive force", 1e4),
-		POYNTING("View S: Poynting vector", 1);
-
-		String name;
-		double scale;
-
-		VectorView(String name, double scale)
-		{
-			this.name = name;
-			this.scale = scale;
-		}
-
-		@Override
-		public String toString() {
-			return name;
-		}
-	}
-
-	enum VectorMode {
-		ARROWS("Show vectors"),
-		LINES("Show lines");
-
-		String name;
-		VectorMode(String name)
-		{
-			this.name = name;
-		}
-
-		@Override
-		public String toString() {
-			return name;
-		}
-	}
-
-	enum BoundaryCondition {
-		DISSIPATIVE("Absorbing boundary"),
-		CONDUCTING("Conducting boundary");
-
-		String name;
-		BoundaryCondition(String name)
-		{
-			this.name = name;
-		}
-
-		@Override
-		public String toString() {
-			return name;
-		}
-	}
-
-	enum RenderMode {
-		SLICE_X("2D x cross-section"),
-		SLICE_Y("2D y cross-section"),
-		SLICE_Z("2D z cross-section"),
-		THREED("3D orthographic"),
-		THREED_FIELDS_ONLY("3D orthographic (fields only)"),
-		THREED_TRANSLUCENT("3D orthographic (transparent)"),
-		THREED_PERSPECTIVE("3D perspective"),
-		THREED_PERSPECTIVE_FIELDS_ONLY("3D perspective (fields only)"),
-		THREED_PERSPECTIVE_TRANSLUCENT("3D perspective (transparent)"),
-		THREED_STEREO("3D stereoscopic (cross-eye)"),
-		THREED_STEREO_INV("3D stereoscopic (parallel)");
-
-		String name;
-		RenderMode(String name)
-		{
-			this.name = name;
-		}
-
-		@Override
-		public String toString() {
-			return name;
-		}
-
-		public static boolean is3d(RenderMode mode) {
-			return (mode == THREED || mode == THREED_FIELDS_ONLY || mode == THREED_TRANSLUCENT
-			|| mode == THREED_PERSPECTIVE || mode == THREED_PERSPECTIVE_FIELDS_ONLY || mode == THREED_PERSPECTIVE_TRANSLUCENT
-			|| mode == THREED_STEREO || mode == THREED_STEREO_INV);
-		}
-
-		public static boolean isOrthographic(RenderMode mode) {
-			return (mode == THREED || mode == THREED_FIELDS_ONLY || mode == THREED_TRANSLUCENT);
-		}
-
-		public static boolean isPerspective(RenderMode mode) {
-			return (mode == THREED_PERSPECTIVE || mode == THREED_PERSPECTIVE_FIELDS_ONLY || mode == THREED_PERSPECTIVE_TRANSLUCENT
-			|| mode == THREED_STEREO || mode == THREED_STEREO_INV);
-		}
-
-		public static boolean isStereoscopic(RenderMode mode) {
-			return (mode == THREED_STEREO || mode == THREED_STEREO_INV);
-		}
+	@Override
+	public String toString() {
+		return name;
 	}
 }
 
@@ -2584,127 +2377,6 @@ class RenderCanvas extends JPanel {
 	}
 }
 
-class Timer {
-	long tstart = 0;
-	String name;
-	boolean enabled = true;
-	boolean outputavg = false;
-	double avgtime = 0;
-	double time = 0;
-	static boolean allEnabled = false;
-
-	public Timer(String name, boolean enabled) {
-		this.name = name;
-		this.enabled = enabled;
-	}
-
-	void start() {
-		if (enabled) {
-			tstart = System.nanoTime();
-		}
-	}
-
-	void disableOutput() {
-		enabled = false;
-	}
-	void enableOutput() {
-		enabled = true;
-	}
-
-	void stop() {
-		if (allEnabled && enabled) {
-			long tend = System.nanoTime();
-			long diff = tend - tstart;
-			time = diff/1e9;
-			avgtime = avgtime*0.99+time*0.01;
-		}
-	}
-
-	void stop(String msg) {
-		if (allEnabled && enabled) {
-			long tend = System.nanoTime();
-			long diff = tend - tstart;
-			time = diff/1e9;
-			avgtime = avgtime*0.95+time*0.05;
-		}
-	}
-}
-
-class Vector {
-	double x;
-	double y;
-	double z;
-
-	public Vector(double x, double y, double z) {
-		this.x = x;
-		this.y = y;
-		this.z = z;
-	}
-
-	public Vector copy() {
-		return new Vector(x, y, z);
-	}
-
-	public void copy(Vector b) {
-		x = b.x;
-		y = b.y;
-		z = b.z;
-	}
-
-	public void initialize(double x, double y, double z) {
-		this.x = x;
-		this.y = y;
-		this.z = z;
-	}
-
-	public void add(Vector b) {
-		x += b.x;
-		y += b.y;
-		z += b.z;
-	}
-
-	public void scalarmult(double c) {
-		x *= c;
-		y *= c;
-		z *= c;
-	}
-
-	public void addmult(Vector b, double c) {
-		x += b.x * c;
-		y += b.y * c;
-		z += b.z * c;
-	}
-
-	public void rotate_z(double theta) {
-		double xf = x*Math.cos(theta) + y*Math.sin(theta);
-		double yf = -x*Math.sin(theta) + y*Math.cos(theta);
-		x = xf;
-		y = yf;
-	}
-
-	public void normalize() {
-		double magnitude = Math.sqrt(x*x+y*y+z*z);
-		if (magnitude != 0) {
-			x /= magnitude;
-			y /= magnitude;
-			z /= magnitude;
-		}
-	}
-
-	public double dot(Vector b) {
-		return x * b.x + y * b.y + z * b.z;
-	}
-
-	public void cross(Vector b) {
-		double ax = x;
-		double ay = y;
-		double az = z;
-
-		x = ay*b.z - az*b.y;
-		y = az*b.x - ax*b.z;
-		z = ax*b.y - ay*b.x;
-	}
-}
 
 enum MaterialType
 {

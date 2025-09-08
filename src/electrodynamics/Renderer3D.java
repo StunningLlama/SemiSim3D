@@ -6,14 +6,13 @@ import com.jogamp.opengl.glu.GLU;
 import com.jogamp.opengl.util.FPSAnimator;
 import com.jogamp.opengl.util.awt.TextRenderer;
 
-import electrodynamics.Electrodynamics.RenderMode;
-import electrodynamics.Electrodynamics.VectorMode;
-import electrodynamics.Electrodynamics.VectorView;
 import electrodynamics.util.Utils;
+import electrodynamics.util.Vector3;
 
 import java.awt.Color;
 import java.awt.geom.Rectangle2D;
 import java.nio.IntBuffer;
+import java.util.ArrayList;
 
 public class Renderer3D implements GLEventListener {
 
@@ -23,7 +22,7 @@ public class Renderer3D implements GLEventListener {
 	GLU glu;
 	IntBuffer viewport;
 	
-	Vector g = new Vector(0, 0, 0);
+	Vector3 g = new Vector3(0, 0, 0);
 
     float aspect = 1;
     float eye_offset = 0;
@@ -34,6 +33,8 @@ public class Renderer3D implements GLEventListener {
     TextRenderer smallFont;
     TextRenderer bigFont;
     FPSAnimator animator;
+
+	ArrayList<Text> texts = new ArrayList<>();
 	
 	public Renderer3D(Electrodynamics e) {
 		this.e = e;
@@ -99,9 +100,8 @@ public class Renderer3D implements GLEventListener {
         gl.glMatrixMode(GL2.GL_MODELVIEW);
         gl.glLoadIdentity();
 
-
-
-        e.renderer.renderText(null, smallFont);
+		texts.clear();
+        e.renderer.generateText(null, texts);
         
         gl.glClear(GL.GL_DEPTH_BUFFER_BIT);
         gl.glDisable(GL2.GL_BLEND);
@@ -110,7 +110,7 @@ public class Renderer3D implements GLEventListener {
         {
         	gl.glBegin(GL2.GL_TRIANGLES);
         	for (int pass = 1; pass <= 2; pass++) {
-        		for (Text text : e.renderer.texts) {
+        		for (Text text : texts) {
         			if (text.hasBackground && !text.is3D) {
         				Rectangle2D bounds;
         				if (text.big) 
@@ -137,7 +137,7 @@ public class Renderer3D implements GLEventListener {
 
         bigFont.beginRendering(canvas.getWidth(), canvas.getHeight());
         
-        for (Text text : e.renderer.texts) {
+        for (Text text : texts) {
         	if (text.big) {
         		if (!text.is3D) {
             		bigFont.setColor(Color.WHITE);
@@ -150,7 +150,7 @@ public class Renderer3D implements GLEventListener {
         
         smallFont.beginRendering(canvas.getWidth(), canvas.getHeight());
         
-        for (Text text : e.renderer.texts) {
+        for (Text text : texts) {
         	if (!text.big) {
         		if (!text.is3D) {
             		smallFont.setColor(Color.WHITE);
@@ -172,7 +172,7 @@ public class Renderer3D implements GLEventListener {
 
         bigFont.begin3DRendering();
         
-        for (Text text : e.renderer.texts) {
+        for (Text text : texts) {
         	if (text.big) {
         		if (text.is3D) {
             		bigFont.setColor(Color.BLACK);
@@ -187,7 +187,7 @@ public class Renderer3D implements GLEventListener {
         
         smallFont.begin3DRendering();
         
-        for (Text text : e.renderer.texts) {
+        for (Text text : texts) {
         	if (!text.big) {
         		if (text.is3D) {
         			smallFont.setColor(Color.BLACK);
@@ -199,8 +199,6 @@ public class Renderer3D implements GLEventListener {
         }
         
         smallFont.end3DRendering();
-        
-		e.renderer.clearStrings();
         
         // Pick
 		
@@ -532,13 +530,13 @@ public class Renderer3D implements GLEventListener {
         	}
 
 
-        	Vector ctr = new Vector(0,0,0);
-        	Vector arrow = new Vector(0,0,0);
-        	Vector tip1 = new Vector(0,0,0);
-        	Vector tip2 = new Vector(0,0,0);
-        	Vector body1 = new Vector(0,0,0);
-        	Vector body2 = new Vector(0,0,0);
-        	Vector o = new Vector(-e.nx/2.0,-e.ny/2.0,-e.nz/2.0);
+        	Vector3 ctr = new Vector3(0,0,0);
+        	Vector3 arrow = new Vector3(0,0,0);
+        	Vector3 tip1 = new Vector3(0,0,0);
+        	Vector3 tip2 = new Vector3(0,0,0);
+        	Vector3 body1 = new Vector3(0,0,0);
+        	Vector3 body2 = new Vector3(0,0,0);
+        	Vector3 o = new Vector3(-e.nx/2.0,-e.ny/2.0,-e.nz/2.0);
 
         	for (int i = 0; i <= density; i++) {
         		for (int j = 0; j <= density; j++) {
