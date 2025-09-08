@@ -10,21 +10,23 @@ import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
 
 import javax.swing.JPanel;
 
 import com.jogamp.opengl.util.awt.TextRenderer;
 
+import electrodynamics.util.PeriodicTask;
 import electrodynamics.util.Timer;
 import electrodynamics.util.Utils;
 import electrodynamics.util.Vector3;
 
-public class Renderer {
+public class Renderer extends PeriodicTask {
 	Electrodynamics e;
 	
 
 	JPanel imgpanel;
-	RenderCanvas r;
+	RenderCanvas canvas;
 	/* 3D graphics */
 	Renderer3D renderer_left_eye;
 	Renderer3D renderer_right_eye;
@@ -74,8 +76,32 @@ public class Renderer {
 	public Renderer(Electrodynamics e) {
 		this.e = e;
 
-		r = new RenderCanvas(e);
-		r.setFocusable(true);
+		canvas = new RenderCanvas(e);
+		canvas.setFocusable(true);
+	}
+	
+	@Override
+	public void run() {
+		//System.out.println("Hi");
+		if (!threeD_mode) {
+			e.rwLock.readLock().lock();
+			try {
+				t5.start();
+				render();
+				canvas.repaint();
+				t5.stop();
+
+				FPStimer.stop();
+				FPStimer.start();
+			} catch (Exception e1) {
+				SemiSim.displayErrorMessage(e1);
+			}
+			finally {
+				e.rwLock.readLock().unlock();
+			}
+		}
+
+        SemiSim.instance.threadPool.schedule(this, nextDelay(frameduration), TimeUnit.MILLISECONDS);
 	}
 	
 	public void create3dCanvas() {
@@ -90,52 +116,57 @@ public class Renderer {
 		image_b = new float[e.nx][e.ny][e.nz];
 		solid = new boolean[e.nx][e.ny][e.nz];
 		scalefactor = (int)(768.0/Math.max(Math.max(e.nx, e.ny), e.nz));
-		generateCanvas();
+		imgwidth = 768;
+		imgheight = 768;
 	}
 	
 	public void set3Dmode() {
-		RenderMode mode = (RenderMode) e.opts.gui_3d_view.getSelectedItem();
-		threeD_mode = RenderMode.is3d(mode);
+		e.rwLock.writeLock().lock();
+		try {
+			RenderMode mode = (RenderMode) e.opts.gui_3d_view.getSelectedItem();
+			threeD_mode = RenderMode.is3d(mode);
 
-		e.opts.gui_slice.setVisible(!threeD_mode);
-		e.opts.gui_slicelabel.setVisible(!threeD_mode);
-		slice_x = (mode == RenderMode.SLICE_X);
-		slice_y = (mode == RenderMode.SLICE_Y);
-		slice_z = (mode == RenderMode.SLICE_Z);
-		generateCanvas();
-		e.opts.pack();
-		int tmp = e.opts.gui_slice.getValue();
-		e.opts.gui_slice.setValue(0);
-		e.opts.gui_slice.setValue(1);
-		e.opts.gui_slice.setValue(tmp);
+			e.opts.gui_slice.setVisible(!threeD_mode);
+			e.opts.gui_slicelabel.setVisible(!threeD_mode);
+			slice_x = (mode == RenderMode.SLICE_X);
+			slice_y = (mode == RenderMode.SLICE_Y);
+			slice_z = (mode == RenderMode.SLICE_Z);
+			generateCanvas();
+			e.opts.pack();
+			int tmp = e.opts.gui_slice.getValue();
+			e.opts.gui_slice.setValue(0);
+			e.opts.gui_slice.setValue(1);
+			e.opts.gui_slice.setValue(tmp);
 
+			imgpanel.remove(canvas);
+			imgpanel.remove(renderer_left_eye.canvas);
+			imgpanel.remove(renderer_right_eye.canvas);
 
-		imgpanel.remove(r);
-		imgpanel.remove(renderer_left_eye.canvas);
-		imgpanel.remove(renderer_right_eye.canvas);
+			renderer_left_eye.animator.stop();
+			renderer_right_eye.animator.stop();
 
-		renderer_left_eye.animator.stop();
-		renderer_right_eye.animator.stop();
+			if (threeD_mode) {
+				imgpanel.add(renderer_left_eye.canvas);
+				renderer_left_eye.animator.start();
 
-		if (threeD_mode) {
-			imgpanel.add(renderer_left_eye.canvas);
-			renderer_left_eye.animator.start();
+				if (RenderMode.isStereoscopic(mode)) {
+					e.opts.gui_parallax.setVisible(true);
+					e.opts.gui_parallaxlabel.setVisible(true);
+					renderer_right_eye.animator.start();
+					imgpanel.add(renderer_right_eye.canvas);
+				} else {
+					e.opts.gui_parallax.setVisible(false);
+					e.opts.gui_parallaxlabel.setVisible(false);
+				}
 
-			if (RenderMode.isStereoscopic(mode)) {
-				e.opts.gui_parallax.setVisible(true);
-				e.opts.gui_parallaxlabel.setVisible(true);
-				renderer_right_eye.animator.start();
-				imgpanel.add(renderer_right_eye.canvas);
+				updateParallax();
+				e.opts.pack();
 			} else {
-				e.opts.gui_parallax.setVisible(false);
-				e.opts.gui_parallaxlabel.setVisible(false);
+				imgpanel.add(canvas);
+				e.opts.pack();
 			}
-
-			updateParallax();
-			e.opts.pack();
-		} else {
-			imgpanel.add(r);
-			e.opts.pack();
+		} finally {
+			e.rwLock.writeLock().unlock();
 		}
 	}
 	
@@ -169,9 +200,11 @@ public class Renderer {
 			imgwidth = (int)Math.ceil(scalefactor*e.nx);
 			imgheight = (int)Math.ceil(scalefactor*e.ny);
 			e.opts.gui_slice.setMaximum(e.opts.gui_slice.getVisibleAmount() + e.nz - 1);
+		} else {
+			return;
 		}
 
-		r.setPreferredSize(new Dimension(imgwidth, imgheight));
+		canvas.setPreferredSize(new Dimension(imgwidth, imgheight));
 		e.screen = (BufferedImage) e.opts.createImage(imgwidth, imgheight);
 	}
 
@@ -402,15 +435,8 @@ public class Renderer {
 	public void setalphaFG(double alpha) {
 		alphaFG = alpha;
 	}
-
-	public void render() {
-
-		FPStimer.stop();
-		FPStimer.start();
-		
-		t5.start();
-		Graphics2D g = (Graphics2D) e.screen.getGraphics();
-
+	
+	public void generatePixelData() {
 		for (int i = 0; i < e.nx; i++) {
 			for (int j = 0; j < e.ny; j++) {
 				for (int k = 0; k < e.nz; k++) {
@@ -701,12 +727,9 @@ public class Renderer {
 		if (texting) {
 			drawPixelLine(text_x, text_y, text_x, text_y+7);
 		}*/
+	}
 
-		if (threeD_mode)
-			return;
-
-		stampPixelData();
-
+	public void drawVectors() {
 		/* Draw vectors */
 
 		if ((VectorView) e.opts.gui_view_vec.getSelectedItem() != VectorView.NONE) {
@@ -912,6 +935,17 @@ public class Renderer {
 				}
 			}
 		}
+	}
+	
+	public void render() {
+		
+		Graphics2D g = (Graphics2D) e.screen.getGraphics();
+		
+		generatePixelData();
+
+		stampPixelData();
+
+		drawVectors();
 
 		g.setRenderingHint(
 		RenderingHints.KEY_TEXT_ANTIALIASING,
@@ -920,8 +954,6 @@ public class Renderer {
 		texts.clear();
 		generateText(g, texts);
 		drawStrings(g);
-
-		t5.stop();
 	}
 
 
@@ -930,16 +962,16 @@ public class Renderer {
 
 		for (VoltageProbe p: e.voltageprobes) {
 			if (e.ground != null)
-				draw3DStringWithBackground("V = " + getSI(p.potential - e.ground.potential, "V"), p.x, p.y, p.z, true, false, texts);
+				draw3dStringWithBackground("V = " + getSI(p.potential - e.ground.potential, "V"), p.x, p.y, p.z, true, false, texts);
 			else
-				draw3DStringWithBackground("V = " + getSI(p.potential, "V"), p.x, p.y, p.z, true, false, texts);
+				draw3dStringWithBackground("V = " + getSI(p.potential, "V"), p.x, p.y, p.z, true, false, texts);
 		}
 
 		if (e.ground != null)
-			draw3DStringWithBackground("Ground = " + getSI(e.ground.potential - e.ground.potential, "V"), e.ground.x, e.ground.y, e.ground.z, true, false, texts);
+			draw3dStringWithBackground("Ground = " + getSI(e.ground.potential - e.ground.potential, "V"), e.ground.x, e.ground.y, e.ground.z, true, false, texts);
 
 		for (CurrentProbe p: e.currentprobes) {
-			draw3DStringWithBackground("I = " + getSI(p.current*e.depth, "A"), (p.x1+p.x2)/2, (p.y1+p.y2)/2, (p.z1+p.z2)/2, true, false, texts);
+			draw3dStringWithBackground("I = " + getSI(p.current*e.depth, "A"), (p.x1+p.x2)/2, (p.y1+p.y2)/2, (p.z1+p.z2)/2, true, false, texts);
 		}
 
 		{
@@ -982,7 +1014,7 @@ public class Renderer {
 
 			String name = "Material: " + mat.type.name + (mat.modified? " (Modified)" : "");
 
-			drawBig2DStringWithBackground(name, hoffset, voffset + 1*vspacing, texts);
+			drawBig2dStringWithBackground(name, hoffset, voffset + 1*vspacing, texts);
 			if (e.opts.gui_tooltip.isSelected()) {
 				voffset = voffset+3;
 				int line = 2;
@@ -1013,26 +1045,26 @@ public class Renderer {
 		int voffset = 3;
 		int hoffset = 5;
 		int line = 1;
-		draw2DStringWithBackground("Time: " + getSI(e.time, "s"), hoffset, voffset + line*vspacing, texts); line++;
+		draw2dStringWithBackground("Time: " + getSI(e.time, "s"), hoffset, voffset + line*vspacing, texts); line++;
 		if (e.opts.gui_paused.isSelected())
 		{
-			draw2DStringWithBackground("Paused", hoffset, voffset + line*vspacing, texts); line++;
+			draw2dStringWithBackground("Paused", hoffset, voffset + line*vspacing, texts); line++;
 		}
 		if (e.sign_violation) {
-			draw2DStringWithBackground("Warning: Numerical instability detected. Please decrease timestep.", hoffset, voffset + line*vspacing, texts); line++;
+			draw2dStringWithBackground("Warning: Numerical instability detected. Please decrease timestep.", hoffset, voffset + line*vspacing, texts); line++;
 		}
 		if (e.controls.debugging) {
 			long total = Runtime.getRuntime().totalMemory();
 			long used  = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
-			draw2DStringWithBackground("Used memory " + Utils.getSI(used, "B"), hoffset, voffset + line*vspacing, texts); line++;
-			draw2DStringWithBackground("Total memory " + Utils.getSI(total, "B"), hoffset, voffset + line*vspacing, texts); line++;
-			draw2DStringWithBackground(e.t4.getName() + " " + Utils.getSI(e.t4.getAverageTime(), "s"), hoffset, voffset + line*vspacing, texts); line++;
-			draw2DStringWithBackground(t5.getName() + " " + Utils.getSI(t5.getAverageTime(), "s"), hoffset, voffset + line*vspacing, texts); line++;
-			draw2DStringWithBackground(e.t6.getName() + " " + Utils.getSI(e.t6.getAverageTime()*e.opts.gui_simspeed_2.getValue(), "s"), hoffset, voffset + line*vspacing, texts); line++;
-			draw2DStringWithBackground(e.t7.getName() + " " + Utils.getSI(e.t7.getAverageTime(), "s"), hoffset, voffset + line*vspacing, texts); line++;
-			draw2DStringWithBackground(e.t8.getName() + " " + Utils.getSI(e.t8.getAverageTime(), "s"), hoffset, voffset + line*vspacing, texts); line++;
-			draw2DStringWithBackground(FPStimer.getName() + " " + Utils.getSI(1/FPStimer.getAverageTime(), "Hz"), hoffset, voffset + line*vspacing, texts); line++;
-			draw2DStringWithBackground(e.simFPStimer.getName() + " " + Utils.getSI(1/e.simFPStimer.getAverageTime(), "Hz"), hoffset, voffset + line*vspacing, texts); line++;
+			draw2dStringWithBackground("Used memory " + Utils.getSI(used, "B"), hoffset, voffset + line*vspacing, texts); line++;
+			draw2dStringWithBackground("Total memory " + Utils.getSI(total, "B"), hoffset, voffset + line*vspacing, texts); line++;
+			draw2dStringWithBackground(e.t4.getName() + " " + Utils.getSI(e.t4.getAverageTime(), "s"), hoffset, voffset + line*vspacing, texts); line++;
+			draw2dStringWithBackground(t5.getName() + " " + Utils.getSI(t5.getAverageTime(), "s"), hoffset, voffset + line*vspacing, texts); line++;
+			draw2dStringWithBackground(e.t6.getName() + " " + Utils.getSI(e.t6.getAverageTime()*e.opts.gui_simspeed_2.getValue(), "s"), hoffset, voffset + line*vspacing, texts); line++;
+			draw2dStringWithBackground(e.t7.getName() + " " + Utils.getSI(e.t7.getAverageTime(), "s"), hoffset, voffset + line*vspacing, texts); line++;
+			draw2dStringWithBackground(e.t8.getName() + " " + Utils.getSI(e.t8.getAverageTime(), "s"), hoffset, voffset + line*vspacing, texts); line++;
+			draw2dStringWithBackground(FPStimer.getName() + " " + Utils.getSI(1/FPStimer.getAverageTime(), "Hz"), hoffset, voffset + line*vspacing, texts); line++;
+			draw2dStringWithBackground(e.simFPStimer.getName() + " " + Utils.getSI(1/e.simFPStimer.getAverageTime(), "Hz"), hoffset, voffset + line*vspacing, texts); line++;
 		}
 	}
 
@@ -1097,16 +1129,16 @@ public class Renderer {
 		}
 	}
 
-	public void draw2DStringWithBackground(String str1, int x, int y, ArrayList<Text> texts) {
-		texts.add(new Text(str1, x, y, 0, true, false, false));
+	public void draw2dStringWithBackground(String str1, int x, int y, ArrayList<Text> texts) {
+		texts.add(new Text(str1, x, y, 0, false, true, false));
 	}
 
-	public void drawBig2DStringWithBackground(String str1, int x, int y, ArrayList<Text> texts) {
+	public void drawBig2dStringWithBackground(String str1, int x, int y, ArrayList<Text> texts) {
 		texts.add(new Text(str1, x, y, 0, true, true, false));
 	}
 
 
-	public void draw3DStringWithBackground(String str1, int x, int y, int z, boolean hasBackground, boolean isBig, ArrayList<Text> texts) {
+	public void draw3dStringWithBackground(String str1, int x, int y, int z, boolean hasBackground, boolean isBig, ArrayList<Text> texts) {
 		texts.add(new Text(str1, x, y, z, hasBackground, isBig, true));
 	}
 

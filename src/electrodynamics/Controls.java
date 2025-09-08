@@ -15,6 +15,8 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
+import java.io.File;
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.Queue;
 
@@ -143,7 +145,7 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 		if (this.mouse_pressed) {
 			if (!this.mouse_pressed_prev) {
 				pressing = true;
-				e.renderer.r.requestFocus();
+				e.renderer.canvas.requestFocus();
 				if ((Brush.isMaterialModifyingBrush(brush) && !this.shift_down) || brush == Brush.SELECT)
 					e.opts.gui_paused.setSelected(true);
 			}
@@ -819,7 +821,7 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 	}
 
 	public void updateCursor(Cursor c) {
-		e.renderer.r.setCursor(c);
+		e.renderer.canvas.setCursor(c);
 		e.renderer.renderer_left_eye.canvas.setCursor(c);
 		e.renderer.renderer_right_eye.canvas.setCursor(c);
 	}
@@ -1045,8 +1047,12 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 		else if (ev.getSource() == e.opts.gui_open)
 			this.load = true;
 		else if (ev.getSource() == e.opts.gui_help)
-			//e.help.setVisible(true);
-		{} //TODO
+			try {
+				File helpfile = new File("README.html");
+				java.awt.Desktop.getDesktop().browse(helpfile.toURI());
+			} catch (IOException ex) {
+				ex.printStackTrace();
+			}
 		else if (ev.getSource() == e.opts.gui_editdesc) {
 			e.opts.textPane.setEditable(!e.opts.textPane.isEditable());
 		} else if (ev.getSource() == e.opts.gui_view) {

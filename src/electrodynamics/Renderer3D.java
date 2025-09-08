@@ -44,7 +44,7 @@ public class Renderer3D implements GLEventListener {
         // Create canvas
         canvas = new GLCanvas(capabilities);
         canvas.addGLEventListener(this);
-        canvas.setSize(e.renderer.imgwidth, e.renderer.imgheight);
+        canvas.setSize(768, 768);
 
         animator = new FPSAnimator(canvas, e.renderer.targetframerate);
 	}
@@ -71,177 +71,194 @@ public class Renderer3D implements GLEventListener {
     public void display(GLAutoDrawable drawable) {
     	if (!e.renderer.threeD_mode)
     		return;
-    	
-    	if (isMainCanvas && e.opts.gui_rotate.isSelected()) {
-    		e.renderer.yaw += 1f/e.renderer.targetframerate;
+
+		if (isMainCanvas) e.renderer.t5.start();
+		
+    	e.rwLock.readLock().lock();
+    	try {
+    		e.renderer.generatePixelData();
+
+    		if (isMainCanvas && e.opts.gui_rotate.isSelected()) {
+    			e.renderer.yaw += 1f/e.renderer.targetframerate;
+    		}
+
+    		GL2 gl = drawable.getGL().getGL2();
+
+    		gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
+
+    		// Draw scene
+
+    		gl.glMatrixMode(GL2.GL_PROJECTION);
+    		gl.glLoadIdentity();
+    		setupProjectionMat(gl);
+
+    		gl.glMatrixMode(GL2.GL_MODELVIEW);
+    		gl.glLoadIdentity();
+    		setupModelMat(gl);
+
+    		drawThings(gl);
+
+    		// Draw text
+
+    		gl.glMatrixMode(GL2.GL_PROJECTION);
+    		gl.glLoadIdentity();
+
+    		gl.glMatrixMode(GL2.GL_MODELVIEW);
+    		gl.glLoadIdentity();
+
+    		texts.clear();
+    		e.renderer.generateText(null, texts);
+
+    		gl.glClear(GL.GL_DEPTH_BUFFER_BIT);
+    		gl.glDisable(GL2.GL_BLEND);
+
+    		if (e.opts.gui_text_bg.isSelected())
+    		{
+    			gl.glBegin(GL2.GL_TRIANGLES);
+    			for (int pass = 1; pass <= 2; pass++) {
+    				for (Text text : texts) {
+    					if (text.hasBackground && !text.is3D) {
+    						Rectangle2D bounds;
+    						if (text.big) 
+    							bounds = bigFont.getBounds(text.text);
+    						else
+    							bounds = smallFont.getBounds(text.text);
+    						int width = (int)Math.max(text.minwidth, bounds.getWidth()+8);
+    						int height = (int)bounds.getHeight()+4;
+    						int x = text.x-3;
+    						int y = text.y-height+6;
+
+    						if (pass == 1) {
+    							gl.glColor3f(0.5f, 0.5f, 0.5f);
+    							addRectangle(gl, x-2, y-2, width+4, height+4, 0);
+    						} else if (pass == 2) {
+    							gl.glColor3f(0, 0, 0);
+    							addRectangle(gl, x, y, width, height, -1);
+    						}
+    					}
+    				}
+    			}
+    			gl.glEnd();
+    		}
+
+    		bigFont.beginRendering(canvas.getWidth(), canvas.getHeight());
+
+    		for (Text text : texts) {
+    			if (text.big) {
+    				if (!text.is3D) {
+    					bigFont.setColor(Color.WHITE);
+    					bigFont.draw(text.text, text.x, canvas.getHeight()-(text.y));
+    				}
+    			}
+    		}
+
+    		bigFont.endRendering();
+
+    		smallFont.beginRendering(canvas.getWidth(), canvas.getHeight());
+
+    		for (Text text : texts) {
+    			if (!text.big) {
+    				if (!text.is3D) {
+    					smallFont.setColor(Color.WHITE);
+    					smallFont.draw(text.text, text.x, canvas.getHeight()-(text.y));
+    				}
+    			}
+    		}
+
+    		smallFont.endRendering();
+
+
+    		gl.glMatrixMode(GL2.GL_PROJECTION);
+    		gl.glLoadIdentity();
+    		setupProjectionMat(gl);
+
+    		gl.glMatrixMode(GL2.GL_MODELVIEW);
+    		gl.glLoadIdentity();
+    		setupModelMat(gl);
+
+    		bigFont.begin3DRendering();
+
+    		for (Text text : texts) {
+    			if (text.big) {
+    				if (text.is3D) {
+    					bigFont.setColor(Color.BLACK);
+    					bigFont.draw3D(text.text, text.x+0.5f-0.15f, text.y+0.5f-0.15f, text.z+0.5f-0.01f, 0.08f);
+    					bigFont.setColor(Color.WHITE);
+    					bigFont.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, 0.08f);
+    				}
+    			}
+    		}
+
+    		bigFont.end3DRendering();
+
+    		smallFont.begin3DRendering();
+
+    		for (Text text : texts) {
+    			if (!text.big) {
+    				if (text.is3D) {
+    					smallFont.setColor(Color.BLACK);
+    					smallFont.draw3D(text.text, text.x+0.5f-0.15f, text.y+0.5f-0.15f, text.z+0.5f-0.01f, 0.08f);
+    					smallFont.setColor(Color.WHITE);
+    					smallFont.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, 0.08f);
+    				}
+    			}
+    		}
+
+    		smallFont.end3DRendering();
+
+    		// Pick
+
+    		gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport);
+    		gl.glMatrixMode(GL2.GL_PROJECTION);
+    		gl.glLoadIdentity();
+    		glu.gluPickMatrix(((float)e.controls.mx_3d)*width/canvas.getWidth(), (canvas.getHeight()-(float)e.controls.my_3d)*height/canvas.getHeight(), 1, 1, viewport);
+    		setupProjectionMat(gl);
+
+    		gl.glMatrixMode(GL2.GL_MODELVIEW);
+    		gl.glLoadIdentity();
+    		setupModelMat(gl);
+
+    		gl.glSelectBuffer(selectBuf.capacity()*Integer.SIZE, selectBuf);
+    		gl.glRenderMode(GL2.GL_SELECT);
+    		gl.glInitNames();
+    		gl.glPushName(-1);
+    		drawHitboxes(gl);
+    		int hits = gl.glRenderMode(GL2.GL_RENDER);
+    		if (hits > 0 && e.controls.update3dCursor) {
+    			//System.out.println(hits + " hits");
+
+    			long maxdepth = Long.MAX_VALUE;
+    			int m_nearest = 0;
+    			for (int m = 0; m < hits; m++) {
+    				long depth = Integer.toUnsignedLong(selectBuf.get(4*m+2));
+    				//System.out.println(depth + " depth");
+    				if (depth < maxdepth) {
+    					maxdepth = depth;
+    					m_nearest = m;
+    				}
+    			}
+
+
+
+    			int index = selectBuf.get(4*m_nearest+3);
+    			this.unpackCoords(index);
+    			e.controls.update3dCursor = false;
+    		}
+
+    		gl.glFlush();
     	}
     	
-        GL2 gl = drawable.getGL().getGL2();
+    	finally {
+    		e.rwLock.readLock().unlock();
+    	}
 
-        gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
+    	if (isMainCanvas) e.renderer.t5.stop();
 
-        // Draw scene
-        
-        gl.glMatrixMode(GL2.GL_PROJECTION);
-        gl.glLoadIdentity();
-        setupProjectionMat(gl);
-        
-        gl.glMatrixMode(GL2.GL_MODELVIEW);
-        gl.glLoadIdentity();
-        setupModelMat(gl);
-        
-        drawThings(gl);
-
-        // Draw text
-
-        gl.glMatrixMode(GL2.GL_PROJECTION);
-        gl.glLoadIdentity();
-        
-        gl.glMatrixMode(GL2.GL_MODELVIEW);
-        gl.glLoadIdentity();
-
-		texts.clear();
-        e.renderer.generateText(null, texts);
-        
-        gl.glClear(GL.GL_DEPTH_BUFFER_BIT);
-        gl.glDisable(GL2.GL_BLEND);
-
-        if (e.opts.gui_text_bg.isSelected())
-        {
-        	gl.glBegin(GL2.GL_TRIANGLES);
-        	for (int pass = 1; pass <= 2; pass++) {
-        		for (Text text : texts) {
-        			if (text.hasBackground && !text.is3D) {
-        				Rectangle2D bounds;
-        				if (text.big) 
-        					bounds = bigFont.getBounds(text.text);
-        				else
-        					bounds = smallFont.getBounds(text.text);
-        				int width = (int)Math.max(text.minwidth, bounds.getWidth()+8);
-        				int height = (int)bounds.getHeight()+4;
-        				int x = text.x-3;
-        				int y = text.y-height+6;
-
-        				if (pass == 1) {
-        					gl.glColor3f(0.5f, 0.5f, 0.5f);
-        					addRectangle(gl, x-2, y-2, width+4, height+4, 0);
-        				} else if (pass == 2) {
-        					gl.glColor3f(0, 0, 0);
-        					addRectangle(gl, x, y, width, height, -1);
-        				}
-        			}
-        		}
-        	}
-        	gl.glEnd();
-		}
-
-        bigFont.beginRendering(canvas.getWidth(), canvas.getHeight());
-        
-        for (Text text : texts) {
-        	if (text.big) {
-        		if (!text.is3D) {
-            		bigFont.setColor(Color.WHITE);
-            		bigFont.draw(text.text, text.x, canvas.getHeight()-(text.y));
-        		}
-        	}
-        }
-        
-        bigFont.endRendering();
-        
-        smallFont.beginRendering(canvas.getWidth(), canvas.getHeight());
-        
-        for (Text text : texts) {
-        	if (!text.big) {
-        		if (!text.is3D) {
-            		smallFont.setColor(Color.WHITE);
-            		smallFont.draw(text.text, text.x, canvas.getHeight()-(text.y));
-        		}
-        	}
-        }
-        
-        smallFont.endRendering();
-        
-
-        gl.glMatrixMode(GL2.GL_PROJECTION);
-        gl.glLoadIdentity();
-        setupProjectionMat(gl);
-        
-        gl.glMatrixMode(GL2.GL_MODELVIEW);
-        gl.glLoadIdentity();
-        setupModelMat(gl);
-
-        bigFont.begin3DRendering();
-        
-        for (Text text : texts) {
-        	if (text.big) {
-        		if (text.is3D) {
-            		bigFont.setColor(Color.BLACK);
-            		bigFont.draw3D(text.text, text.x+0.5f-0.15f, text.y+0.5f-0.15f, text.z+0.5f-0.01f, 0.08f);
-            		bigFont.setColor(Color.WHITE);
-            		bigFont.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, 0.08f);
-        		}
-        	}
-        }
-        
-        bigFont.end3DRendering();
-        
-        smallFont.begin3DRendering();
-        
-        for (Text text : texts) {
-        	if (!text.big) {
-        		if (text.is3D) {
-        			smallFont.setColor(Color.BLACK);
-        			smallFont.draw3D(text.text, text.x+0.5f-0.15f, text.y+0.5f-0.15f, text.z+0.5f-0.01f, 0.08f);
-        			smallFont.setColor(Color.WHITE);
-        			smallFont.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, 0.08f);
-        		}
-        	}
-        }
-        
-        smallFont.end3DRendering();
-        
-        // Pick
-		
-        gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport);
-        gl.glMatrixMode(GL2.GL_PROJECTION);
-        gl.glLoadIdentity();
-        glu.gluPickMatrix(((float)e.controls.mx_3d)*width/canvas.getWidth(), (canvas.getHeight()-(float)e.controls.my_3d)*height/canvas.getHeight(), 1, 1, viewport);
-        setupProjectionMat(gl);
-
-        gl.glMatrixMode(GL2.GL_MODELVIEW);
-        gl.glLoadIdentity();
-        setupModelMat(gl);
-        
-        gl.glSelectBuffer(selectBuf.capacity()*Integer.SIZE, selectBuf);
-        gl.glRenderMode(GL2.GL_SELECT);
-        gl.glInitNames();
-        gl.glPushName(-1);
-        drawHitboxes(gl);
-        int hits = gl.glRenderMode(GL2.GL_RENDER);
-        if (hits > 0 && e.controls.update3dCursor) {
-        	//System.out.println(hits + " hits");
-        	
-        	long maxdepth = Long.MAX_VALUE;
-        	int m_nearest = 0;
-        	for (int m = 0; m < hits; m++) {
-            	long depth = Integer.toUnsignedLong(selectBuf.get(4*m+2));
-            	//System.out.println(depth + " depth");
-            	if (depth < maxdepth) {
-            		maxdepth = depth;
-            		m_nearest = m;
-            	}
-        	}
-        	
-        	
-        	
-        	int index = selectBuf.get(4*m_nearest+3);
-        	this.unpackCoords(index);
-        	e.controls.update3dCursor = false;
-        }
-        
-        gl.glFlush();
+    	if (isMainCanvas) e.renderer.FPStimer.stop();
+    	if (isMainCanvas) e.renderer.FPStimer.start();
     }
-    
+
+
     public void addRectangle(GL2 gl, float x, float y, float w, float h, float z) {
     	float x1 = 2*(x/canvas.getWidth())-1;
     	float x2 = 2*((x+w)/canvas.getWidth())-1;

@@ -4,6 +4,7 @@
 
 package electrodynamics;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.GridLayout;
@@ -14,18 +15,23 @@ import java.util.TimerTask;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import javax.swing.InputMap;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 
+import electrodynamics.util.PeriodicTask;
 import electrodynamics.util.Timer;
 import electrodynamics.util.Utils;
 
-public class Electrodynamics extends TimerTask {
+public class Electrodynamics extends PeriodicTask {
 	//TODO:
 	// Make colors more distinguishable
 	// Add more instructions
@@ -43,7 +49,6 @@ public class Electrodynamics extends TimerTask {
 	// Inductor
 	// Capacitor
 	// Transformer
-	//
 
 
 	/* Dynamical simulation variables */
@@ -269,12 +274,14 @@ public class Electrodynamics extends TimerTask {
 
 	/* Multithreading */
 
-	int n_threads = Runtime.getRuntime().availableProcessors();
 	//int n_threads = 5;
-	CyclicBarrier start_barrier = new CyclicBarrier(n_threads + 1);
-	CyclicBarrier stop_barrier = new CyclicBarrier(n_threads + 1);
-	CyclicBarrier mid_barrier = new CyclicBarrier(n_threads);
-	ArrayList<SimulationThread> sim_threads = new ArrayList<>();
+	
+	ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
+	ReentrantLock poissonLock = new ReentrantLock(true);
+	
+	CyclicBarrier start_barrier = new CyclicBarrier(SemiSim.n_threads + 1);
+	CyclicBarrier stop_barrier = new CyclicBarrier(SemiSim.n_threads + 1);
+	CyclicBarrier mid_barrier = new CyclicBarrier(SemiSim.n_threads);
 
 
 
@@ -291,7 +298,7 @@ public class Electrodynamics extends TimerTask {
 	Timer simFPStimer = new Timer("Simulation FPS", 10, true);
 
 
-	String sim_name = "Brandon's Electromagnetics 3D";
+	String sim_name = "Brandon's Electromagnetic Simulation 3D";
 	Renderer renderer;
 	Controls controls;
 	MainWindow opts;
@@ -299,28 +306,28 @@ public class Electrodynamics extends TimerTask {
 	SaveManager savemanager;
 
 	public Electrodynamics() {
-
-		opts = new MainWindow();
-
 		controls = new Controls(this);
 		renderer = new Renderer(this);
 		savemanager = new SaveManager(this);
+		opts = new MainWindow();
 
-		SemiSim.detect64Bit(opts);
-
+		SemiSim.detect64Bit();
+		
 		initializeGrid(0.1e-6, 32, 32, 32);
 
 		renderer.create3dCanvas();
 
 		renderer.imgpanel = new JPanel();
 		renderer.imgpanel.setLayout(new GridLayout(1,2));
-		renderer.imgpanel.setPreferredSize(new Dimension(renderer.imgwidth, renderer.imgheight));
+		renderer.imgpanel.setPreferredSize(new Dimension(768, 768));
 		opts.add(renderer.imgpanel, BorderLayout.CENTER);
 
-		renderer.r.addMouseListener(controls);
-		renderer.r.addMouseMotionListener(controls);
-		renderer.r.addMouseWheelListener(controls);
-		renderer.r.addKeyListener(controls);
+		renderer.set3Dmode();
+
+		renderer.canvas.addMouseListener(controls);
+		renderer.canvas.addMouseMotionListener(controls);
+		renderer.canvas.addMouseWheelListener(controls);
+		renderer.canvas.addKeyListener(controls);
 
 		renderer.renderer_left_eye.canvas.addMouseListener(controls);
 		renderer.renderer_left_eye.canvas.addMouseMotionListener(controls);
@@ -365,13 +372,14 @@ public class Electrodynamics extends TimerTask {
 
 		opts.pack();
 
-		controls.addKeyBinds(renderer.r);
+		controls.addKeyBinds(renderer.canvas);
 		controls.addKeyBinds(opts.contentPane);
 		controls.addKeyBinds(renderer.imgpanel);
 
 		InputMap im = (InputMap)UIManager.get("Button.focusInputMap");
 		im.put(KeyStroke.getKeyStroke("pressed SPACE"), "none");
 		im.put(KeyStroke.getKeyStroke("released SPACE"), "none");
+		
 
 		//help = new HelpDialog();
 		//help.setVisible(false);
@@ -379,75 +387,95 @@ public class Electrodynamics extends TimerTask {
 
 	@Override
 	public void run() {
+		rwLock.readLock().lock();
 		try {
-			int iterationmultiplier = opts.gui_simspeed_2.getValue();
+			try {
+				int iterationmultiplier = opts.gui_simspeed_2.getValue();
 
-			if (controls.clear) {
-				resetFields(false);
-				multigridSolve(true, false);
-				time = 0.0;
-				controls.clear = false;
-			}
-
-			if (controls.reset) {
-				int result = JOptionPane.showConfirmDialog(opts, "Do you wish to reset the entire simulation?", "Reset", JOptionPane.YES_NO_OPTION);
-				if (result == JOptionPane.OK_OPTION)
-				{
-					resetFields(true);
+				if (controls.clear) {
+    				SwingUtilities.invokeLater(() -> {
+    					resetFields(false);
+    					multigridSolve(true, false);
+    				});
 					time = 0.0;
-				}
-				controls.reset = false;
-			}
-
-			if (opts.gui_simspeed.getValue() != lastsimspeed) {
-				lastsimspeed = opts.gui_simspeed.getValue();
-				dt = dt_maximum*(lastsimspeed/20.0);
-			}
-
-			controls.handleMouseInput();
-
-			if (!opts.gui_paused.isSelected() || controls.advanceframe) {
-				for (int i = 0; i < iterationmultiplier ; i++) {
-					start_barrier.await();
-					stop_barrier.await();
+					controls.clear = false;
 				}
 
-				if (frame % 2 == 0)
-					calcMiscFields(true);
-				else
+    			if (controls.reset) {
+    				SwingUtilities.invokeLater(() -> {
+        				int result = JOptionPane.showConfirmDialog(opts, "Do you wish to reset the entire simulation?", "Message", JOptionPane.YES_NO_OPTION);
+        				if (result == JOptionPane.OK_OPTION)
+        				{
+        					resetFields(true);
+        					time = 0.0;
+        				}
+    				});
+    				controls.reset = false;
+    			}
+
+				if (opts.gui_simspeed.getValue() != lastsimspeed) {
+					lastsimspeed = opts.gui_simspeed.getValue();
+					dt = dt_maximum*(lastsimspeed/20.0);
+				}
+
+				controls.handleMouseInput();
+
+				if (!opts.gui_paused.isSelected() || controls.advanceframe) {
+					for (int i = 0; i < iterationmultiplier ; i++) {
+						start_barrier.await();
+						stop_barrier.await();
+					}
+
 					calcMiscFields(false);
 
-				frame++;
-			} else if (updateMiscFields) {
-				calcMiscFields(true);
+					frame++;
+				} else if (updateMiscFields) {
+					calcMiscFields(false);
+				}
+
+
+				if (controls.save) {
+					savemanager.writeFile();
+					controls.save = false;
+				}
+
+				if (controls.load) {
+					savemanager.readFile();
+					controls.load = false;
+				}
+
+
+				simFPStimer.stop();
+				simFPStimer.start();
+
+			} catch (Exception e) {
+				SemiSim.displayErrorMessage(e);
 			}
-
-
-			if (controls.save) {
-				savemanager.writeFile();
-				controls.save = false;
-			}
-
-			if (controls.load) {
-				savemanager.readFile();
-				controls.load = false;
-			}
-			
-
-			simFPStimer.stop();
-			simFPStimer.start();
-
-			if (!renderer.threeD_mode)
-				renderer.r.repaint();
-			else
-				renderer.render();
-
-		} catch (Exception e) {
-			JOptionPane.showConfirmDialog(opts, e.getMessage(), "Error", JOptionPane.OK_OPTION);
-			e.printStackTrace();
-			System.exit(-1);
+		} finally {
+			rwLock.readLock().unlock();
 		}
+
+        SemiSim.instance.threadPool.schedule(this, nextDelay(renderer.frameduration), TimeUnit.MILLISECONDS);
 	}
+	
+
+	TimerTask potentialSolver = new PeriodicTask() {
+		@Override
+		public void run() {
+	        rwLock.readLock().lock();
+	        try {
+				if (!opts.gui_paused.isSelected() || controls.advanceframe || updateMiscFields) {
+					multigridSolve(false, true);
+					//calcMiscFields(true);
+				}
+	        } catch( Exception e) {
+	        	SemiSim.displayErrorMessage(e);
+	        } finally {
+	            rwLock.readLock().unlock();
+	        }
+	        SemiSim.instance.threadPool.schedule(this, nextDelay(renderer.frameduration), TimeUnit.MILLISECONDS);
+		}
+	};
 
 	public void initializeGrid(double ds, int x_resolution, int y_resolution, int z_resolution) {
 		this.ds = ds;
@@ -467,290 +495,302 @@ public class Electrodynamics extends TimerTask {
 
 		H_dissipation = 0.001*ds*ds/dt_maximum;
 
-		Ex = new double[nx][ny][nz];
-		Ey = new double[nx][ny][nz];
-		Ez = new double[nx][ny][nz];
-		Hx = new double[nx][ny][nz];
-		Hy = new double[nx][ny][nz];
-		Hz = new double[nx][ny][nz];
-		Bx = new double[nx][ny+1][nz+1];
-		By = new double[nx+1][ny][nz+1];
-		Bz = new double[nx+1][ny+1][nz];
-		Bx_laplacian = new double[nx][ny][nz];
-		By_laplacian = new double[nx][ny][nz];
-		Bz_laplacian = new double[nx][ny][nz];
-		rho_abs = new double[nx][ny][nz];
-		rho_n = new double[nx][ny][nz];
-		rho_p = new double[nx][ny][nz];
-		rho_back = new double[nx][ny][nz];
-		rho_free = new double[nx][ny][nz];
-		mobility_factor = new double[nx][ny][nz];
+		rwLock.writeLock().lock();
+		try {
+			Ex = new double[nx][ny][nz];
+			Ey = new double[nx][ny][nz];
+			Ez = new double[nx][ny][nz];
+			Hx = new double[nx][ny][nz];
+			Hy = new double[nx][ny][nz];
+			Hz = new double[nx][ny][nz];
+			Bx = new double[nx][ny+1][nz+1];
+			By = new double[nx+1][ny][nz+1];
+			Bz = new double[nx+1][ny+1][nz];
+			Bx_laplacian = new double[nx][ny][nz];
+			By_laplacian = new double[nx][ny][nz];
+			Bz_laplacian = new double[nx][ny][nz];
+			rho_abs = new double[nx][ny][nz];
+			rho_n = new double[nx][ny][nz];
+			rho_p = new double[nx][ny][nz];
+			rho_back = new double[nx][ny][nz];
+			rho_free = new double[nx][ny][nz];
+			mobility_factor = new double[nx][ny][nz];
 
-		Jx_abs = new double[nx][ny][nz];
-		Jy_abs = new double[nx][ny][nz];
-		Jz_abs = new double[nx][ny][nz];
-		Jx_n = new double[nx][ny][nz];
-		Jy_n = new double[nx][ny][nz];
-		Jz_n = new double[nx][ny][nz];
-		Jx_p = new double[nx][ny][nz];
-		Jy_p = new double[nx][ny][nz];
-		Jz_p = new double[nx][ny][nz];
-		Jx_free = new double[nx][ny][nz];
-		Jy_free = new double[nx][ny][nz];
-		Jz_free = new double[nx][ny][nz];
+			Jx_abs = new double[nx][ny][nz];
+			Jy_abs = new double[nx][ny][nz];
+			Jz_abs = new double[nx][ny][nz];
+			Jx_n = new double[nx][ny][nz];
+			Jy_n = new double[nx][ny][nz];
+			Jz_n = new double[nx][ny][nz];
+			Jx_p = new double[nx][ny][nz];
+			Jy_p = new double[nx][ny][nz];
+			Jz_p = new double[nx][ny][nz];
+			Jx_free = new double[nx][ny][nz];
+			Jy_free = new double[nx][ny][nz];
+			Jz_free = new double[nx][ny][nz];
 
-		materials = new Material[nx][ny][nz];
-		K = new double[nx][ny][nz];
-		F0_n = new double[nx][ny][nz];
-		F0_p = new double[nx][ny][nz];
-		F_n = new double[nx][ny][nz];
-		F_p = new double[nx][ny][nz];
-		E0_n = new double[nx][ny][nz];
-		E0_p = new double[nx][ny][nz];
-		E_a = new double[nx][ny][nz];
-		R = new double[nx][ny][nz];
-		cmfx_n = new double[nx][ny][nz];
-		cmfy_n = new double[nx][ny][nz];
-		cmfz_n = new double[nx][ny][nz];
-		cmfx_p = new double[nx][ny][nz];
-		cmfy_p = new double[nx][ny][nz];
-		cmfz_p = new double[nx][ny][nz];
-		conducting = new int[nx][ny][nz];
-		conducting_x = new int[nx][ny][nz];
-		conducting_y = new int[nx][ny][nz];
-		conducting_z = new int[nx][ny][nz];
-		//H_absorptivity_x = new double[nx][ny][nz];
-		//H_absorptivity_y = new double[nx][ny][nz];
-		//H_absorptivity_z = new double[nx][ny][nz];
-		absorptivity_x = new double[nx][ny][nz];
-		absorptivity_y = new double[nx][ny][nz];
-		absorptivity_z = new double[nx][ny][nz];
-		emfx = new double[nx][ny][nz];
-		emfy = new double[nx][ny][nz];
-		emfz = new double[nx][ny][nz];
-		epsx = new double[nx][ny][nz];
-		epsy = new double[nx][ny][nz];
-		epsz = new double[nx][ny][nz];
-		mu_x = new double[nx][ny][nz];
-		mu_y = new double[nx][ny][nz];
-		mu_z = new double[nx][ny][nz];
+			materials = new Material[nx][ny][nz];
+			K = new double[nx][ny][nz];
+			F0_n = new double[nx][ny][nz];
+			F0_p = new double[nx][ny][nz];
+			F_n = new double[nx][ny][nz];
+			F_p = new double[nx][ny][nz];
+			E0_n = new double[nx][ny][nz];
+			E0_p = new double[nx][ny][nz];
+			E_a = new double[nx][ny][nz];
+			R = new double[nx][ny][nz];
+			cmfx_n = new double[nx][ny][nz];
+			cmfy_n = new double[nx][ny][nz];
+			cmfz_n = new double[nx][ny][nz];
+			cmfx_p = new double[nx][ny][nz];
+			cmfy_p = new double[nx][ny][nz];
+			cmfz_p = new double[nx][ny][nz];
+			conducting = new int[nx][ny][nz];
+			conducting_x = new int[nx][ny][nz];
+			conducting_y = new int[nx][ny][nz];
+			conducting_z = new int[nx][ny][nz];
+			//H_absorptivity_x = new double[nx][ny][nz];
+			//H_absorptivity_y = new double[nx][ny][nz];
+			//H_absorptivity_z = new double[nx][ny][nz];
+			absorptivity_x = new double[nx][ny][nz];
+			absorptivity_y = new double[nx][ny][nz];
+			absorptivity_z = new double[nx][ny][nz];
+			emfx = new double[nx][ny][nz];
+			emfy = new double[nx][ny][nz];
+			emfz = new double[nx][ny][nz];
+			epsx = new double[nx][ny][nz];
+			epsy = new double[nx][ny][nz];
+			epsz = new double[nx][ny][nz];
+			mu_x = new double[nx][ny][nz];
+			mu_y = new double[nx][ny][nz];
+			mu_z = new double[nx][ny][nz];
 
-		Dx = new double[nx][ny][nz];
-		Dy = new double[nx][ny][nz];
-		Dz = new double[nx][ny][nz];
-		Sx = new double[nx][ny][nz];
-		Sy = new double[nx][ny][nz];
-		Sz = new double[nx][ny][nz];
-		u = new double[nx][ny][nz];
-		phi = new double[nx][ny][nz];
+			Dx = new double[nx][ny][nz];
+			Dy = new double[nx][ny][nz];
+			Dz = new double[nx][ny][nz];
+			Sx = new double[nx][ny][nz];
+			Sy = new double[nx][ny][nz];
+			Sz = new double[nx][ny][nz];
+			u = new double[nx][ny][nz];
+			phi = new double[nx][ny][nz];
 
-		G = new double[nx][ny][nz];
-		F_n = new double[nx][ny][nz];
-		F_p = new double[nx][ny][nz];
-		grad_E0x_n = new double[nx][ny][nz];
-		grad_E0y_n = new double[nx][ny][nz];
-		grad_E0z_n = new double[nx][ny][nz];
-		grad_E0x_p = new double[nx][ny][nz];
-		grad_E0y_p = new double[nx][ny][nz];
-		grad_E0z_p = new double[nx][ny][nz];
-		grad_Fx_n = new double[nx][ny][nz];
-		grad_Fy_n = new double[nx][ny][nz];
-		grad_Fz_n = new double[nx][ny][nz];
-		grad_Fx_p = new double[nx][ny][nz];
-		grad_Fy_p = new double[nx][ny][nz];
-		grad_Fz_p = new double[nx][ny][nz];
-		Q = new double[nx][ny][nz];
-		S = new double[nx][ny][nz];
-		F = new double[nx][ny][nz];
-		debug = new double[nx][ny][nz];
-		debug2 = new double[nx][ny][nz];
-
-
-		MG_rho0 = new double[nx][ny][nz];
-		MG_rho = new double[MG_levels][nx][ny][nz];
-		MG_epsx = new double[MG_levels][nx][ny][nz];
-		MG_epsy = new double[MG_levels][nx][ny][nz];
-		MG_epsz = new double[MG_levels][nx][ny][nz];
-		MG_eps_avg = new double[nx][ny][nz];
-		MG_phi1 = new double[nx][ny][nz];
-		MG_phi2 = new double[nx][ny][nz];
-
-		distance = new int[nx][ny][nz];
-		visited = new boolean[nx][ny][nz];
+			G = new double[nx][ny][nz];
+			F_n = new double[nx][ny][nz];
+			F_p = new double[nx][ny][nz];
+			grad_E0x_n = new double[nx][ny][nz];
+			grad_E0y_n = new double[nx][ny][nz];
+			grad_E0z_n = new double[nx][ny][nz];
+			grad_E0x_p = new double[nx][ny][nz];
+			grad_E0y_p = new double[nx][ny][nz];
+			grad_E0z_p = new double[nx][ny][nz];
+			grad_Fx_n = new double[nx][ny][nz];
+			grad_Fy_n = new double[nx][ny][nz];
+			grad_Fz_n = new double[nx][ny][nz];
+			grad_Fx_p = new double[nx][ny][nz];
+			grad_Fy_p = new double[nx][ny][nz];
+			grad_Fz_p = new double[nx][ny][nz];
+			Q = new double[nx][ny][nz];
+			S = new double[nx][ny][nz];
+			F = new double[nx][ny][nz];
+			debug = new double[nx][ny][nz];
+			debug2 = new double[nx][ny][nz];
 
 
-		voltageprobes = new CopyOnWriteArrayList<>();
-		currentprobes = new CopyOnWriteArrayList<>();
+			MG_rho0 = new double[nx][ny][nz];
+			MG_rho = new double[MG_levels][nx][ny][nz];
+			MG_epsx = new double[MG_levels][nx][ny][nz];
+			MG_epsy = new double[MG_levels][nx][ny][nz];
+			MG_epsz = new double[MG_levels][nx][ny][nz];
+			MG_eps_avg = new double[nx][ny][nz];
+			MG_phi1 = new double[nx][ny][nz];
+			MG_phi2 = new double[nx][ny][nz];
 
-		renderer.initializeGrid(ds, x_resolution, y_resolution, z_resolution);
-		controls.initializeGrid(ds, x_resolution, y_resolution, z_resolution);
+			distance = new int[nx][ny][nz];
+			visited = new boolean[nx][ny][nz];
 
-		resetFields(true);
-		multigridSolve(true, false);
-		calcMiscFields(true);
 
-		opts.setVisible(true);
+			voltageprobes = new CopyOnWriteArrayList<>();
+			currentprobes = new CopyOnWriteArrayList<>();
+
+			renderer.initializeGrid(ds, x_resolution, y_resolution, z_resolution);
+			controls.initializeGrid(ds, x_resolution, y_resolution, z_resolution);
+
+			resetFields(true);
+			multigridSolve(true, false);
+			calcMiscFields(true);
+
+			opts.setVisible(true);
+		} finally {
+			rwLock.writeLock().unlock();
+		}
+		
 	}
 
 	public void resetFields(boolean resetall) {
 
-		for (int i = 0; i < nx; i++)
-		{
-			for (int j = 0; j < ny; j++)
+		rwLock.writeLock().lock();
+		try {
+			for (int i = 0; i < nx; i++)
 			{
-				for (int k = 0; k < nz; k++)
+				for (int j = 0; j < ny; j++)
 				{
+					for (int k = 0; k < nz; k++)
+					{
 
-					if (resetall) {
-						if (materials[i][j][k] == null)
-							materials[i][j][k] = new Material();
-						else
-							materials[i][j][k].erase();
+						if (resetall) {
+							if (materials[i][j][k] == null)
+								materials[i][j][k] = new Material();
+							else
+								materials[i][j][k].erase();
 
-						if (controls.selection[i][j][k] == null)
-							controls.selection[i][j][k] = new Material();
-						else
-							controls.selection[i][j][k].erase();
+							if (controls.selection[i][j][k] == null)
+								controls.selection[i][j][k] = new Material();
+							else
+								controls.selection[i][j][k].erase();
 
-						if (controls.clipboard[i][j][k] == null)
-							controls.clipboard[i][j][k] = new Material();
+							if (controls.clipboard[i][j][k] == null)
+								controls.clipboard[i][j][k] = new Material();
 
-						F0_n[i][j][k] = 0;
-						F0_p[i][j][k] = 0;
-						F_n[i][j][k] = 0;
-						F_p[i][j][k] = 0;
-						E0_n[i][j][k] = 0;
-						E0_p[i][j][k] = 0;
-						K[i][j][k] = 0;
-						E_a[i][j][k] = 0;
-						R[i][j][k] = 0;
+							F0_n[i][j][k] = 0;
+							F0_p[i][j][k] = 0;
+							F_n[i][j][k] = 0;
+							F_p[i][j][k] = 0;
+							E0_n[i][j][k] = 0;
+							E0_p[i][j][k] = 0;
+							K[i][j][k] = 0;
+							E_a[i][j][k] = 0;
+							R[i][j][k] = 0;
 
-						cmfx_n[i][j][k] = 0;
-						cmfy_n[i][j][k] = 0;
-						cmfz_n[i][j][k] = 0;
-						cmfx_p[i][j][k] = 0;
-						cmfy_p[i][j][k] = 0;
-						cmfz_p[i][j][k] = 0;
+							cmfx_n[i][j][k] = 0;
+							cmfy_n[i][j][k] = 0;
+							cmfz_n[i][j][k] = 0;
+							cmfx_p[i][j][k] = 0;
+							cmfy_p[i][j][k] = 0;
+							cmfz_p[i][j][k] = 0;
 
-						emfx[i][j][k] = 0.0;
-						emfy[i][j][k] = 0.0;
-						emfz[i][j][k] = 0.0;
+							emfx[i][j][k] = 0.0;
+							emfy[i][j][k] = 0.0;
+							emfz[i][j][k] = 0.0;
 
-						epsx[i][j][k] = eps0;
-						epsy[i][j][k] = eps0;
-						epsx[i][j][k] = eps0;
-						mu_x[i][j][k] = mu0;
-						mu_y[i][j][k] = mu0;
-						mu_z[i][j][k] = mu0;
+							epsx[i][j][k] = eps0;
+							epsy[i][j][k] = eps0;
+							epsx[i][j][k] = eps0;
+							mu_x[i][j][k] = mu0;
+							mu_y[i][j][k] = mu0;
+							mu_z[i][j][k] = mu0;
 
-						conducting[i][j][k] = 0;
-						conducting_x[i][j][k] = 0;
-						conducting_y[i][j][k] = 0;
-						conducting_z[i][j][k] = 0;
+							conducting[i][j][k] = 0;
+							conducting_x[i][j][k] = 0;
+							conducting_y[i][j][k] = 0;
+							conducting_z[i][j][k] = 0;
 
-						//H_absorptivity_x[i][j][k] = 0;
-						//H_absorptivity_y[i][j][k] = 0;
-						//H_absorptivity_z[i][j][k] = 0;
-						absorptivity_x[i][j][k] = 0;
-						absorptivity_y[i][j][k] = 0;
-						absorptivity_z[i][j][k] = 0;
+							//H_absorptivity_x[i][j][k] = 0;
+							//H_absorptivity_y[i][j][k] = 0;
+							//H_absorptivity_z[i][j][k] = 0;
+							absorptivity_x[i][j][k] = 0;
+							absorptivity_y[i][j][k] = 0;
+							absorptivity_z[i][j][k] = 0;
+						}
+
+						Ex[i][j][k] = 0.0;
+						Ey[i][j][k] = 0.0;
+						Ez[i][j][k] = 0.0;
+						Hx[i][j][k] = 0.0;
+						Hy[i][j][k] = 0.0;
+						Hz[i][j][k] = 0.0;
+						Bx[i][j][k] = 0.0;
+						Bx[i][j+1][k] = 0.0;
+						Bx[i][j][k+1] = 0.0;
+						Bx[i][j+1][k+1] = 0.0;
+						By[i][j][k] = 0.0;
+						By[i+1][j][k] = 0.0;
+						By[i][j][k+1] = 0.0;
+						By[i+1][j][k+1] = 0.0;
+						Bz[i][j][k] = 0.0;
+						Bz[i+1][j][k] = 0.0;
+						Bz[i][j+1][k] = 0.0;
+						Bz[i+1][j+1][k] = 0.0;
+						Bx_laplacian[i][j][k] = 0.0;
+						By_laplacian[i][j][k] = 0.0;
+						Bz_laplacian[i][j][k] = 0.0;
+
+						rho_abs[i][j][k] = 0.0;
+						rho_n[i][j][k] = 0.0;
+						rho_p[i][j][k] = 0.0;
+						rho_back[i][j][k] = 0.0;
+						rho_free[i][j][k] = 0.0;
+						mobility_factor[i][j][k] = 0.0;
+
+						Jx_abs[i][j][k] = 0.0;
+						Jy_abs[i][j][k] = 0.0;
+						Jz_abs[i][j][k] = 0.0;
+						Jx_n[i][j][k] = 0.0;
+						Jy_n[i][j][k] = 0.0;
+						Jz_n[i][j][k] = 0.0;
+						Jx_p[i][j][k] = 0.0;
+						Jy_p[i][j][k] = 0.0;
+						Jz_p[i][j][k] = 0.0;
+						Jx_free[i][j][k] = 0.0;
+						Jy_free[i][j][k] = 0.0;
+						Jz_free[i][j][k] = 0.0;
+
+						MG_phi1[i][j][k] = 0.0;
+						MG_phi2[i][j][k] = 0.0;
+
+						distance[i][j][k] = Integer.MAX_VALUE;
+						visited[i][j][k] = false;
+
+						Sx[i][j][k] = 0.0;
+						Sy[i][j][k] = 0.0;
+						Sz[i][j][k] = 0.0;
+						u[i][j][k] = 0.0;
+						phi[i][j][k] = 0.0;
+
+						G[i][j][k] = 0.0;
+						F_n[i][j][k] = 0.0;
+						F_p[i][j][k] = 0.0;
+						grad_E0x_n[i][j][k] = 0.0;
+						grad_E0y_n[i][j][k] = 0.0;
+						grad_E0z_n[i][j][k] = 0.0;
+						grad_E0x_p[i][j][k] = 0.0;
+						grad_E0y_p[i][j][k] = 0.0;
+						grad_E0z_p[i][j][k] = 0.0;
+						grad_Fx_n[i][j][k] = 0.0;
+						grad_Fy_n[i][j][k] = 0.0;
+						grad_Fz_n[i][j][k] = 0.0;
+						grad_Fx_p[i][j][k] = 0.0;
+						grad_Fy_p[i][j][k] = 0.0;
+						grad_Fz_p[i][j][k] = 0.0;
+						Q[i][j][k] = 0.0;
+						S[i][j][k] = 0.0;
+						F[i][j][k] = 0.0;
+						debug[i][j][k] = 0.0;
+						debug2[i][j][k] = 0.0;
+
+						controls.selected[i][j][k] = false;
+						controls.selected_EMF[i][j][k] = false;
 					}
-
-					Ex[i][j][k] = 0.0;
-					Ey[i][j][k] = 0.0;
-					Ez[i][j][k] = 0.0;
-					Hx[i][j][k] = 0.0;
-					Hy[i][j][k] = 0.0;
-					Hz[i][j][k] = 0.0;
-					Bx[i][j][k] = 0.0;
-					Bx[i][j+1][k] = 0.0;
-					Bx[i][j][k+1] = 0.0;
-					Bx[i][j+1][k+1] = 0.0;
-					By[i][j][k] = 0.0;
-					By[i+1][j][k] = 0.0;
-					By[i][j][k+1] = 0.0;
-					By[i+1][j][k+1] = 0.0;
-					Bz[i][j][k] = 0.0;
-					Bz[i+1][j][k] = 0.0;
-					Bz[i][j+1][k] = 0.0;
-					Bz[i+1][j+1][k] = 0.0;
-					Bx_laplacian[i][j][k] = 0.0;
-					By_laplacian[i][j][k] = 0.0;
-					Bz_laplacian[i][j][k] = 0.0;
-
-					rho_abs[i][j][k] = 0.0;
-					rho_n[i][j][k] = 0.0;
-					rho_p[i][j][k] = 0.0;
-					rho_back[i][j][k] = 0.0;
-					rho_free[i][j][k] = 0.0;
-					mobility_factor[i][j][k] = 0.0;
-
-					Jx_abs[i][j][k] = 0.0;
-					Jy_abs[i][j][k] = 0.0;
-					Jz_abs[i][j][k] = 0.0;
-					Jx_n[i][j][k] = 0.0;
-					Jy_n[i][j][k] = 0.0;
-					Jz_n[i][j][k] = 0.0;
-					Jx_p[i][j][k] = 0.0;
-					Jy_p[i][j][k] = 0.0;
-					Jz_p[i][j][k] = 0.0;
-					Jx_free[i][j][k] = 0.0;
-					Jy_free[i][j][k] = 0.0;
-					Jz_free[i][j][k] = 0.0;
-
-					MG_phi1[i][j][k] = 0.0;
-					MG_phi2[i][j][k] = 0.0;
-
-					distance[i][j][k] = Integer.MAX_VALUE;
-					visited[i][j][k] = false;
-
-					Sx[i][j][k] = 0.0;
-					Sy[i][j][k] = 0.0;
-					Sz[i][j][k] = 0.0;
-					u[i][j][k] = 0.0;
-					phi[i][j][k] = 0.0;
-
-					G[i][j][k] = 0.0;
-					F_n[i][j][k] = 0.0;
-					F_p[i][j][k] = 0.0;
-					grad_E0x_n[i][j][k] = 0.0;
-					grad_E0y_n[i][j][k] = 0.0;
-					grad_E0z_n[i][j][k] = 0.0;
-					grad_E0x_p[i][j][k] = 0.0;
-					grad_E0y_p[i][j][k] = 0.0;
-					grad_E0z_p[i][j][k] = 0.0;
-					grad_Fx_n[i][j][k] = 0.0;
-					grad_Fy_n[i][j][k] = 0.0;
-					grad_Fz_n[i][j][k] = 0.0;
-					grad_Fx_p[i][j][k] = 0.0;
-					grad_Fy_p[i][j][k] = 0.0;
-					grad_Fz_p[i][j][k] = 0.0;
-					Q[i][j][k] = 0.0;
-					S[i][j][k] = 0.0;
-					F[i][j][k] = 0.0;
-					debug[i][j][k] = 0.0;
-					debug2[i][j][k] = 0.0;
-
-					controls.selected[i][j][k] = false;
-					controls.selected_EMF[i][j][k] = false;
 				}
 			}
+
+			if (resetall) {
+				voltageprobes.clear();
+				currentprobes.clear();
+				ground = null;
+
+				opts.setTitle(sim_name);
+			}
+
+
+			constructBoundary();
+
+			initializeAllMaterials();
+			updateAllMaterials();
+			checkCFL();
 		}
-
-		if (resetall) {
-			voltageprobes.clear();
-			currentprobes.clear();
-			ground = null;
-
-			opts.setTitle(sim_name);
+		finally {
+			rwLock.writeLock().unlock();
 		}
-
-
-		constructBoundary();
-
-		initializeAllMaterials();
-		updateAllMaterials();
-		checkCFL();
 	}
 
 	public void constructBoundary() {
@@ -1955,179 +1995,182 @@ public class Electrodynamics extends TimerTask {
 	public void multigridSolve(boolean correctEfield, boolean computePhi) {
 		assert(!(correctEfield && computePhi));
 
-		//if (computePhi)
-		//	return;
+		poissonLock.lock();
+		try {
 
-		if (correctEfield)
-			t4.start();
-		if (computePhi)
-			t7.start();
+			if (correctEfield)
+				t4.start();
+			if (computePhi)
+				t7.start();
 
-		for (int i = 0; i < nx; i++) {
-			for (int j = 0; j < ny; j++) {
-				for (int k = 0; k < nz; k++) {
-					MG_phi1[i][j][k] = 0;
-					MG_phi2[i][j][k] = 0;
-					MG_rho0[i][j][k] = 0;
-					for (int m = 0; m < MG_levels; m++) {
-						MG_rho[m][i][j][k] = 0;
-					}
-				}
-			}
-		}
-
-		if (correctEfield)
-		{
-			for (int i = 1; i < nx-1; i++) {
-				for (int j = 1; j < ny-1; j++) {
-					for (int k = 1; k < nz-1; k++) {
-						MG_rho0[i][j][k] = ((Ex[i][j][k]*epsx[i][j][k]-Ex[i-1][j][k]*epsx[i-1][j][k]
-						+ Ey[i][j][k]*epsy[i][j][k]-Ey[i][j-1][k]*epsy[i][j-1][k]
-						+ Ez[i][j][k]*epsz[i][j][k]-Ez[i][j][k-1]*epsz[i][j][k-1]
-						)/ds) - rho_free[i][j][k];
+			for (int i = 0; i < nx; i++) {
+				for (int j = 0; j < ny; j++) {
+					for (int k = 0; k < nz; k++) {
+						MG_phi1[i][j][k] = 0;
+						MG_phi2[i][j][k] = 0;
+						MG_rho0[i][j][k] = 0;
+						for (int m = 0; m < MG_levels; m++) {
+							MG_rho[m][i][j][k] = 0;
+						}
 					}
 				}
 			}
 
-			double num = 0;
-			double denom = 0;
-			for (int i = 1; i < nx-1; i++) {
-				for (int j = 1; j < ny-1; j++) {
-					for (int k = 1; k < nz-1; k++) {
-						num += MG_rho0[i][j][k]*MG_rho0[i][j][k];
-						denom += rho_free[i][j][k]*rho_free[i][j][k];
-					}
-				}
-			}
-			System.out.println("Starting poisson residual: " + Math.sqrt(num/denom));
-		}
-		if (computePhi) {
-			for (int i = 1; i < nx-1; i++) {
-				for (int j = 1; j < ny-1; j++) {
-					for (int k = 1; k < nz-1; k++) {
-						MG_rho0[i][j][k] = (Ex[i][j][k]-Ex[i-1][j][k]
-						+ Ey[i][j][k]-Ey[i][j-1][k]
-						+ Ez[i][j][k]-Ez[i][j][k-1])/(ds)
-						+ (phi[i+1][j][k]+phi[i][j+1][k]+phi[i][j][k+1]
-						+ phi[i-1][j][k]+phi[i][j-1][k]+phi[i][j][k-1]-6*phi[i][j][k])/(ds*ds);
-					}
-				}
-			}
-		}
-
-		//int[] stepsarray = {0, 0, 200, 200, 200, 200, 200, 50, 20};
-		int[] stepsarray = {0, 0, 100, 100, 50, 25, 25, 25, 20};
-		//int[] stepsarray = {0, 0, 1, 0, 0, 0, 0, 0, 0};
-
-
-		downscale(MG_rho0, MG_rho);
-
-		for (int fineness = 0; fineness < MG_levels; fineness++) {
-			int scalefactor = 1 << (MG_levels-fineness-1);
-			int nx_tmp = nx / scalefactor;
-			int ny_tmp = ny / scalefactor;
-			int nz_tmp = nz / scalefactor;
-
-			int poissonsteps = stepsarray[(fineness > 8)? 8 : fineness];
-			double alpha = ds*ds*scalefactor*scalefactor;
-
-			JacobiIteration(poissonsteps, nx_tmp, ny_tmp, nz_tmp, alpha, fineness, computePhi);
-
-			if (fineness == MG_levels - 1)
-				break;
-
-			for (int i = 0; i < nx_tmp; i++) {
-				for (int j = 0; j < ny_tmp; j++) {
-					for (int k = 0; k < nz_tmp; k++) {
-						MG_phi2[i][j][k] = MG_phi1[i][j][k];
-					}
-				}
-			}
-
-			for (int i = 0; i < nx_tmp; i++)
+			if (correctEfield)
 			{
-				for (int j = 0; j < ny_tmp; j++) {
-					for (int k = 0; k < nz_tmp; k++) {
-						MG_phi1[2*i][2*j][2*k] = MG_phi2[i][j][k];
-						MG_phi1[2*i+1][2*j][2*k] = MG_phi2[i][j][k];
-						MG_phi1[2*i][2*j+1][2*k] = MG_phi2[i][j][k];
-						MG_phi1[2*i+1][2*j+1][2*k] = MG_phi2[i][j][k];
-						MG_phi1[2*i][2*j][2*k+1] = MG_phi2[i][j][k];
-						MG_phi1[2*i+1][2*j][2*k+1] = MG_phi2[i][j][k];
-						MG_phi1[2*i][2*j+1][2*k+1] = MG_phi2[i][j][k];
-						MG_phi1[2*i+1][2*j+1][2*k+1] = MG_phi2[i][j][k];
+				for (int i = 1; i < nx-1; i++) {
+					for (int j = 1; j < ny-1; j++) {
+						for (int k = 1; k < nz-1; k++) {
+							MG_rho0[i][j][k] = ((Ex[i][j][k]*epsx[i][j][k]-Ex[i-1][j][k]*epsx[i-1][j][k]
+							+ Ey[i][j][k]*epsy[i][j][k]-Ey[i][j-1][k]*epsy[i][j-1][k]
+							+ Ez[i][j][k]*epsz[i][j][k]-Ez[i][j][k-1]*epsz[i][j][k-1]
+							)/ds) - rho_free[i][j][k];
+						}
+					}
+				}
+
+				double num = 0;
+				double denom = 0;
+				for (int i = 1; i < nx-1; i++) {
+					for (int j = 1; j < ny-1; j++) {
+						for (int k = 1; k < nz-1; k++) {
+							num += MG_rho0[i][j][k]*MG_rho0[i][j][k];
+							denom += rho_free[i][j][k]*rho_free[i][j][k];
+						}
+					}
+				}
+				System.out.println("Starting poisson residual: " + Math.sqrt(num/denom));
+			}
+			if (computePhi) {
+				for (int i = 1; i < nx-1; i++) {
+					for (int j = 1; j < ny-1; j++) {
+						for (int k = 1; k < nz-1; k++) {
+							MG_rho0[i][j][k] = (Ex[i][j][k]-Ex[i-1][j][k]
+							+ Ey[i][j][k]-Ey[i][j-1][k]
+							+ Ez[i][j][k]-Ez[i][j][k-1])/(ds)
+							+ (phi[i+1][j][k]+phi[i][j+1][k]+phi[i][j][k+1]
+							+ phi[i-1][j][k]+phi[i][j-1][k]+phi[i][j][k-1]-6*phi[i][j][k])/(ds*ds);
+						}
 					}
 				}
 			}
 
-			/*for (int i = 1; i < 2*nx_tmp-1; i++)
+			//int[] stepsarray = {0, 0, 200, 200, 200, 200, 200, 50, 20};
+			int[] stepsarray = {0, 0, 100, 100, 50, 25, 25, 25, 20};
+			//int[] stepsarray = {0, 0, 1, 0, 0, 0, 0, 0, 0};
+
+
+			downscale(MG_rho0, MG_rho);
+
+			for (int fineness = 0; fineness < MG_levels; fineness++) {
+				int scalefactor = 1 << (MG_levels-fineness-1);
+				int nx_tmp = nx / scalefactor;
+				int ny_tmp = ny / scalefactor;
+				int nz_tmp = nz / scalefactor;
+
+				int poissonsteps = stepsarray[(fineness > 8)? 8 : fineness];
+				double alpha = ds*ds*scalefactor*scalefactor;
+
+				JacobiIteration(poissonsteps, nx_tmp, ny_tmp, nz_tmp, alpha, fineness, computePhi);
+
+				if (fineness == MG_levels - 1)
+					break;
+
+				for (int i = 0; i < nx_tmp; i++) {
+					for (int j = 0; j < ny_tmp; j++) {
+						for (int k = 0; k < nz_tmp; k++) {
+							MG_phi2[i][j][k] = MG_phi1[i][j][k];
+						}
+					}
+				}
+
+				for (int i = 0; i < nx_tmp; i++)
+				{
+					for (int j = 0; j < ny_tmp; j++) {
+						for (int k = 0; k < nz_tmp; k++) {
+							MG_phi1[2*i][2*j][2*k] = MG_phi2[i][j][k];
+							MG_phi1[2*i+1][2*j][2*k] = MG_phi2[i][j][k];
+							MG_phi1[2*i][2*j+1][2*k] = MG_phi2[i][j][k];
+							MG_phi1[2*i+1][2*j+1][2*k] = MG_phi2[i][j][k];
+							MG_phi1[2*i][2*j][2*k+1] = MG_phi2[i][j][k];
+							MG_phi1[2*i+1][2*j][2*k+1] = MG_phi2[i][j][k];
+							MG_phi1[2*i][2*j+1][2*k+1] = MG_phi2[i][j][k];
+							MG_phi1[2*i+1][2*j+1][2*k+1] = MG_phi2[i][j][k];
+						}
+					}
+				}
+
+				/*for (int i = 1; i < 2*nx_tmp-1; i++)
 			{
 				for (int j = 1; j < 2*nx_tmp-1; j++) {
 					MG_phi1[i][j][k] = bilinearinterp(MG_phi2, (i-0.5)/2.0, (j-0.5)/2.0);
 				}
 			}*/
 
-			for (int i = 0; i < 2*nx_tmp; i++) {
-				for (int j = 0; j < 2*ny_tmp; j++) {
-					for (int k = 0; k < 2*nz_tmp; k++) {
-						MG_phi2[i][j][k] = MG_phi1[i][j][k];
+				for (int i = 0; i < 2*nx_tmp; i++) {
+					for (int j = 0; j < 2*ny_tmp; j++) {
+						for (int k = 0; k < 2*nz_tmp; k++) {
+							MG_phi2[i][j][k] = MG_phi1[i][j][k];
+						}
 					}
 				}
 			}
-		}
 
-		if (correctEfield) {
-			for (int i = 0; i < nx-1; i++)
-			{
-				for (int j = 0; j < ny-1; j++)
+			if (correctEfield) {
+				for (int i = 0; i < nx-1; i++)
 				{
-					for (int k = 0; k < nz-1; k++)
+					for (int j = 0; j < ny-1; j++)
 					{
-						Ex[i][j][k] = Ex[i][j][k] + (MG_phi1[i+1][j][k]-MG_phi1[i][j][k])/ds;
-						Ey[i][j][k] = Ey[i][j][k] + (MG_phi1[i][j+1][k]-MG_phi1[i][j][k])/ds;
-						Ez[i][j][k] = Ez[i][j][k] + (MG_phi1[i][j][k+1]-MG_phi1[i][j][k])/ds;
+						for (int k = 0; k < nz-1; k++)
+						{
+							Ex[i][j][k] = Ex[i][j][k] + (MG_phi1[i+1][j][k]-MG_phi1[i][j][k])/ds;
+							Ey[i][j][k] = Ey[i][j][k] + (MG_phi1[i][j+1][k]-MG_phi1[i][j][k])/ds;
+							Ez[i][j][k] = Ez[i][j][k] + (MG_phi1[i][j][k+1]-MG_phi1[i][j][k])/ds;
+						}
 					}
 				}
 			}
-		}
 
-		if (computePhi)
-		{
-			for (int i = 0; i < nx; i++)
+			if (computePhi)
 			{
-				for (int j = 0; j < ny; j++)
+				for (int i = 0; i < nx; i++)
 				{
-					for (int k = 0; k < nz; k++)
+					for (int j = 0; j < ny; j++)
 					{
-						phi[i][j][k] = phi[i][j][k] + MG_phi1[i][j][k];
-					}
-				}
-			}
-		}
-
-		if (correctEfield) {
-
-			double num = 0;
-			double denom = 0;
-			for (int i = 1; i < nx-1; i++) {
-				for (int j = 1; j < ny-1; j++) {
-					for (int k = 1; k < nz-1; k++) {
-						double drho = ((Ex[i][j][k]*epsx[i][j][k]-Ex[i-1][j][k]*epsx[i-1][j][k]
-						+ Ey[i][j][k]*epsy[i][j][k]-Ey[i][j-1][k]*epsy[i][j-1][k]
-						+ Ez[i][j][k]*epsz[i][j][k]-Ez[i][j][k-1]*epsz[i][j][k-1])/ds) - rho_free[i][j][k];
-						num += drho*drho;
-						denom += rho_free[i][j][k]*rho_free[i][j][k];
+						for (int k = 0; k < nz; k++)
+						{
+							phi[i][j][k] = phi[i][j][k] + MG_phi1[i][j][k];
+						}
 					}
 				}
 			}
 
-			System.out.println("Poisson residual: " + Math.sqrt(num/denom));
-		}
+			if (correctEfield) {
 
-		if (correctEfield)
-			t4.stop();
-		if (computePhi)
-			t7.stop();
+				double num = 0;
+				double denom = 0;
+				for (int i = 1; i < nx-1; i++) {
+					for (int j = 1; j < ny-1; j++) {
+						for (int k = 1; k < nz-1; k++) {
+							double drho = ((Ex[i][j][k]*epsx[i][j][k]-Ex[i-1][j][k]*epsx[i-1][j][k]
+							+ Ey[i][j][k]*epsy[i][j][k]-Ey[i][j-1][k]*epsy[i][j-1][k]
+							+ Ez[i][j][k]*epsz[i][j][k]-Ez[i][j][k-1]*epsz[i][j][k-1])/ds) - rho_free[i][j][k];
+							num += drho*drho;
+							denom += rho_free[i][j][k]*rho_free[i][j][k];
+						}
+					}
+				}
+
+				System.out.println("Poisson residual: " + Math.sqrt(num/denom));
+			}
+
+			if (correctEfield)
+				t4.stop();
+			if (computePhi)
+				t7.stop();
+		} finally {
+			poissonLock.unlock();
+		}
 	}
 
 
@@ -2368,8 +2411,8 @@ class RenderCanvas extends JPanel {
 	Electrodynamics parent;
 	@Override
 	public void paintComponent(Graphics real) {
-		parent.renderer.render();
-		real.drawImage(parent.screen, 0, 0, parent.opts);
+		if (!parent.renderer.threeD_mode)
+			real.drawImage(parent.screen, 0, 0, parent.opts);
 	}
 
 	public RenderCanvas(Electrodynamics w) {
