@@ -1,5 +1,5 @@
 // Copyright (c) Brandon Li 2025
-// This file is part of Brandon's Semiconductor Simulator which is released under GNU GPL v3.0.
+// This file is part of Brandon's Electromagnetic Simulation which is released under GNU GPL v3.0.
 // See LICENSE.txt for full license details.
 
 package electrodynamics;

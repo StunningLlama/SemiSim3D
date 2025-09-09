@@ -1,15 +1,24 @@
+// Copyright (c) Brandon Li 2025
+// This file is part of Brandon's Electromagnetic Simulation which is released under GNU GPL v3.0.
+// See LICENSE.txt for full license details.
+
 package electrodynamics;
 import com.jogamp.common.nio.Buffers;
+import com.jogamp.math.geom.plane.AffineTransform;
 import com.jogamp.opengl.*;
 import com.jogamp.opengl.awt.GLCanvas;
 import com.jogamp.opengl.glu.GLU;
 import com.jogamp.opengl.util.FPSAnimator;
 import com.jogamp.opengl.util.awt.TextRenderer;
 
+import electrodynamics.util.Device;
 import electrodynamics.util.Utils;
 import electrodynamics.util.Vector3;
 
 import java.awt.Color;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsEnvironment;
+import java.awt.Toolkit;
 import java.awt.geom.Rectangle2D;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
@@ -58,8 +67,9 @@ public class Renderer3D implements GLEventListener {
         selectBuf = Buffers.newDirectIntBuffer(256);
         viewport = Buffers.newDirectIntBuffer(4);
         gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport);
-        smallFont = new TextRenderer(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 6));
-        bigFont = new TextRenderer(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 8));
+        int font_scale = Device.isOnRetinaDisplay(canvas) ? 2:1;
+        smallFont = new TextRenderer(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 12/font_scale), true, true);
+        bigFont = new TextRenderer(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 16/font_scale), true, true);
     }
 
     @Override
@@ -81,7 +91,7 @@ public class Renderer3D implements GLEventListener {
     		if (isMainCanvas && e.opts.gui_rotate.isSelected()) {
     			e.renderer.yaw += 1f/e.renderer.targetframerate;
     		}
-
+    		
     		GL2 gl = drawable.getGL().getGL2();
 
     		gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
