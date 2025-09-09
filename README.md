@@ -1,138 +1,157 @@
-Semiconductor Simulation Program
-================================
+# Build instructions
+Clone the repository using
 
-Running the Program
--------------------
+```bash
+git clone https://github.com/StunningLlama/SemiSim.git
+```
+Building requres Java 1.8 and Maven for dependency management.
 
-1.  Make sure you have the latest version of Java installed.
-2.  If SemiSim crashes when loading a file:
-    *   Make sure you have a 64-bit version of Java installed.
+## Eclipse
+- Go to **File > Import > Existing Maven Projects**
+- Select the cloned repository folder
+- Click Finish
 
-Mac OS
-------
+# Introduction
 
-1.  If you see "_SemiSim.jar cannot be opened because it is from an unidentified developer_":
-    *   Right click "SemiSim.jar" and click **Open**.
-    *   Click **Open** again on the popup window.
-2.  If you are unable to see and open files:
-    *   Go into **System Preferences → Security → Privacy → Full Disk Access**.
-    *   Add `/System/Library/CoreServices/Jar Launcher.app` to the list and give it disk access.
+Brandon's electromagnetic simulation simulates simple circuits in three dimensions. Like [SemiSim](https://brandonli.net/semisim), it allows users to create their own circuits with a simple interface. There is a variety of materials to choose from and a variety of premade examples to look at.
 
-* * *
+## Physics
 
-Background
-==========
+The simulation takes place on a three-dimensional cubic grid. It uses an FDTD method to compute the dynamics of the E and B fields. This simulation demonstrates the following concepts:
 
-I created this simulator because I wanted to get a deeper understanding of how semiconductors work. It's been my experience that there's been a lack of good simulations that demonstrate advanced topics in physics. There certaintly exists many educational physics simulations, but they're all either aimed at lower educational levels, or they are very restricted in how the user can interact with the system. The only examples I've seen of simulations that combine advanced topics with a generous amount of interactivity are the physics applets written by Paul Falstad, to whom I'm also grateful for looking over my project and helping to convert it to Javascript. I've tried to give users many different ways of interacting with the simulation. Circuits can be drawn with just a few clicks of the mouse, allowing users to easily experiment with their own circuits. There are also many different ways of visualizing the underlying physics that I've incorporated into the settings. Each one gives a different perspective on the physics that is happening. At the end of the day, I think the best way to use my program is to just start playing around with it.
+*   Electromagnetic fields
+*   Charges
+*   Current and voltage
+*   Capacitance and inductance
+*   Basic electrical circuits
 
-Physics
-=======
+# Simulation features
 
-My program simulates Maxwell's equations on a two-dimensional grid. The electric field is tangent to the screen and the magnetic field points out of it. To evolve the E and B fields forward in time, I use Yee's method. On top of this, I've added in semiconductors, which have two kinds of charge carriers, electrons and holes. Both types experience electric and chemical forces that determine their motion. The charge carrier density is determined by the continuity equation, with an extra term that describes recombination. When all this is put together, the result is a simulation that demonstrates many important properties of semiconductors. These include:
+The interface consists of the simulation area which the user can interact with and the settings panel containing all the simulation controls.
 
-*   PN junctions: The depletion region and built-in potential are clearly visible.
-*   Metal-semiconductor junctions: Metals and semiconductors will form either an ohmic contact or Schottky junction depending on their workfunctions.
-*   Field effect: Charge carriers will respond to an external electric field, either moving towards or away from it.
-*   Recombination: When electrons and holes recombine, light is produced (the simulation assumes all semiconductors are direct bandgap)
-*   Galvani potential: Two metals with different chemical potentials will acquire an electrical potential difference on contact.
-*   Thermoelectricity: Current flowing between different materials can result in cooling of one material and heating of another.
+![Application](images/app.png)
 
-Limitations
------------
+Simulation area (left) and settings (right).
 
-A simulation is always an incomplete representation of physical reality. My software is intended to be educational, and used as a tool for gaining intuition, but no more than that. It's good for demonstrating how basic semiconductor devices operate, but it leaves out many physical effects that become important when the parameters of the system are pushed to the extremes. Some of the inaccuracies include:
+The main way to interact with circuits is to change the strength of voltage sources and turn switches on and off. The quickest way to get started is to load one of the examples and start changing the voltages.
 
-*   Metals are modelled as semiconductors with a huge equilibrium carrier concentration. Real metals contain electrons at all energy levels in the conduction band, which contribute to conductivity in different amounts.
-*   Electrical breakdown, which is important for the functioning of certain devices, is not modeled.
-*   Quantum tunelling, which is important at small length scales and is used in tunnel diodes, isn't modelled.
-*   Velocity saturation, which limits the amount of current that can flow in a semiconductor, isn't properly modelled.
-*   Fermi level pinning isn't taken into account. The properties of the metal-semiconductor junction are influenced more by surface effects than the metal's workfunction.
-*   The Hall effect isn't simulated.
-*   The model for carrier generation and recombination is a simplified version of those found in textbooks: different recombination mechanisms are combined into a single rate constant.
-*   Finally, certain properties of materials differ from their real life counterparts. For example, the charge carrier mobility of the semiconductor material is about 1500x greater than that of Silicon. This was done to demonstrate the properties of semiconductors as clearly as possible.
+## Vector view modes
 
-Simulation details
-==================
+**Arrows:** The direction and brightness of arrows corresponds to the direction and magnitude of the vector field.
 
-The main way to interact with circuits is to change the strength of voltage sources and turn switches on and off. The quickest way to get started is to load one of the examples, uncheck the pause button and click on one of the voltage sources. You can then adjust the voltage using a slider located on the right panel.
+![Arrows](images/arrows.png)
 
-Tools
------
+**Lines:** The brightness and density of lines indicates the magnitude of the field.
 
-*   **Interact:** Click on a voltage source to set its strength.
-*   **Draw:** Add material to the field.
-*   **Voltage:** Add a voltage probe.
-*   **Current:** Click and drag to add a current probe that measures current across a wire.
-*   **Ground:** Specifies the point relative to which probes measure voltage (optional).
-*   **Delete probe:** Click to delete a probe.
-*   **Replace:** Draw over other materials.
-*   **Line:** Click and drag to make a line.
-*   **Fill:** Fill a region.
-*   **Erase:** Erase.
-*   **Select:** Click and drag to make a rectangular selection or move it.
-*   **Select region:** Click to select a contiguous region.
-*   **Text:** Click to place a text cursor and type text on the screen.
+![Field lines](images/lines.png)
 
-Controls
---------
+## Rendering modes
 
-*   **P/Space:** Pause & unpause
-*   **F:** Advance frame
-*   **Q:** Change brush shape
-*   **C:** Toggle material color
-*   **V:** Toggle vectors
-*   **S:** Toggle scalar colors
-*   **T:** Toggle tooltip
-*   **G:** Toggle text background
-*   **Mouse wheel:** Change brush size
-*   **Shift:** Draw straight lines
-*   **Ctrl:** Fill area
-*   **Alt/Option:** Pick material
-*   **Ctrl-X:** Cut
-*   **Ctrl-C:** Copy
-*   **Ctrl-V:** Paste
-*   **Left mouse:** Draw material
-*   **Right mouse:** Erase material
-*   **Middle mouse:** Pick material
+|     |     |
+| --- | --- |
+| 2D x cross-section | Displays a cross-section in the y and z directions along a slice of constant x, controlled by the "Slice" slider. |
+| 2D y cross-section | Displays a cross-section along a slice of constant y. |
+| 2D z cross-section | Displays a cross-section along a slice of constant z.<br><br>![Band plot](images/2d_1.png) |
+| 3D orthographic | Displays an orthographic three-dimensional view of the scene (viewer infinitely far away).<br><br>![Band plot](images/3d_1.png) |
+| 3D orthographic (fields only) | Render only the field lines/vectors.<br><br>![Band plot](images/3d_2.png) |
+| 3D orthographic (transparent) | Makes solid objects semi-transparent.<br><br>![Band plot](images/3d_3.png) |
+| 3D perspective | Displays a persepective view of the scene (viewer at finite distance). |
+| 3D perspective (fields only) | Render only the field lines/vectors. |
+| 3D perspective (transparent) | Makes solid objects semi-transparent. |
+| 3D stereoscopic (cross-eye) | Renders a binocular image that allows the viewer to see depth by [crossing their eyes.<br><br>![Band plot](images/3d_4.png)<br><br>](https://en.wikipedia.org/wiki/Stereoscopy) |
+| 3D stereoscopic (parallel) | Left and right eyes are flipped with respect to cross-eye. |
 
-Materials
----------
+## Options
 
-*   **Voltage source:** Generates a voltage that can be used to power circuits.
-*   **Switch:** Conductivity can be switched on and off by the user.
-*   **Metal:** Material that conducts electricity very well.
-*   **Conductive metal:** More conductive than regular metal.
-*   **Resistive metal:** Less conductive than regular metal.
-*   **High workfunction metal:** Metal that forms an ohmic contact with p-type semiconductor.
-*   **Low workfunction metal:** Metal that forms an ohmic contact with n-type semiconductor.
-*   **Intrinsic semiconductor:** Undoped, with equal number of electrons and holes.
-*   **P-type semiconductor:** Represents a semiconductor doped with holes.
-*   **N-type semiconductor:** Represents a semiconductor doped with electrons.
-*   **Heavily doped P-type semiconductor:** Has a large concentration of holes.
-*   **Heavily doped N-type semiconductor:** Has a large concentration of electrons.
-*   **Lightly doped P-type semiconductor:** Has a small concentration of holes.
-*   **Lightly doped N-type semiconductor:** Has a small concentration of electrons.
-*   **Dielectric:** Material with a large permittivity/dielectric constant.
-*   **Ferromagnet:** Magnetic material with high relative permeability.
-*   **Positive static charge:** Positively charged insulating material.
-*   **Negative static charge:** Negatively charged insulating material.
-*   **Decoration:** Used for text or circuit symbols, has no effect otherwise.
-*   **Vacuum:** Empty space.
+|     |     |
+| --- | --- |
+| Pause | Pauses and unpauses the simulation. |
+| Show detailed info | Displays a tooltip that contains the values of all the simulation variables at the cursor's location. |
+| Show text background | Gives text boxes a black background, making the text easier to see. |
+| Display interface | Shows probe info, graph locations, time, and tooltip. |
+| Boundary condition | Choose between a boundary that absorbs outgoing radiation or a perfectly conductive boundary that reflects it. |
+| Scalar view | Choose which field to display as a color scale over the simulation field. |
+| Vector view | Choose which vector field to visualize (only works for 2D vectors, see "Vector view modes"). |
+| 3D mode | Choose between different two and three-dimensional persectives. |
+| Show material colors | If checked, gives each material a different color, making them easier to tell apart. |
+| Timestep | Sets the simulation timestep. The maximum timestep is determined by the CFL condition for the wave equation and diffusion equations for each charge carrier. |
+| Sim steps/frame | Sets the number of iterations performed during each frame. Most of the examples require at least 10 steps/frame to run responsively. The maximum number depends on how good the user's computer is. |
+| Scalar brightness | Sets the brightness of the scalar field. |
+| Vector brightness | Sets the brightness of the vector field. |
+| Parallax | Determines the angle between the two eyes in stereoscopic mode (adjust for comfort). |
+| Save scenario | Saves the current simulation to a file. |
+| Load scenario | Loads a simulation from a file. SemiSim comes with a variety of pre-made simulations located in the "examples" folder. |
+| Clear all | Removes all materials and resets all fields. |
+| Set fields to zero | Sets all fields to their default values, leaving the materials unchanged. |
+| Rotate view | Makes the 3D scene spin around. |
+| Tool | Selects one of the tools. |
 
-What do the colors mean?
-------------------------
+## Tools
+
+|     |     |
+| --- | --- |
+| Interact | Allows user to control voltage sources and turn switches on and off by clicking. |
+| Draw | Adds material to the field. |
+| Voltage | Adds a voltage probe that measures electrochemical potential at a certain point (See "What do voltmeters actually measure"). |
+| Current  <br>\[click and drag\] | Adds a current probe that measures current across a wire. |
+| Ground | Specifies the point relative to which probes measure voltage (optional). |
+| Delete probe | Click to delete a probe. |
+| Replace | Similar to the draw tool, but overwrites occupied areas. |
+| Line  <br>\[click and drag\] | Draws a line of material. |
+| Fill | Fills a region with a certain material, similar to the bucket tool. |
+| Erase | Erases material. |
+| Select | Makes a rectangular selection which can be dragged around and moved. |
+| Select region | Selects a contiguous region, similar to the bucket tool. |
+
+## Keyboard/Mouse Controls
+
+|     |     |
+| --- | --- |
+| P or Space | Pause & unpause |
+| F   | Advance frame |
+| Q   | Change brush shape |
+| C   | Toggle material color |
+| V   | Toggle vectors |
+| S   | Toggle scalar colors |
+| T   | Toggle tooltip |
+| G   | Toggle text background |
+| H   | Toggle user interface |
+| Mouse wheel | Change brush size |
+| Shift | Draw straight lines |
+| Ctrl | Fill area |
+| Alt or Option | Pick material |
+| Ctrl-X | Cut |
+| Ctrl-C | Copy |
+| Ctrl-V | Paste |
+| Left mouse | Draw material |
+| Right mouse | Erase material |
+| Middle mouse | Pick material |
+
+## Materials
+
+|     |     |
+| --- | --- |
+| Voltage source | Generates a voltage that can be used to power circuits. |
+| Switch | Conductivity can be switched on and off by the user. |
+| Metal | Material that conducts electricity very well. |
+| Conductive metal | More conductive than regular metal. |
+| Resistive metal | Less conductive than regular metal. |
+| Dielectric | Material with a large permittivity/dielectric constant. |
+| Ferromagnet | Magnetic material with high relative permeability. |
+| Positive static charge | Positively charged insulating material. |
+| Negative static charge | Negatively charged insulating material. |
+| Decoration | Used for text or circuit symbols, has no effect otherwise. |
+| Vacuum | Empty space. |
+
+# Miscellaneous questions and answers
+
+## What do the colors mean?
 
 In general, the color red is associated with either holes or a positive charge. Blue represents electrons or negative charge. White means both electrons and holes exist a location. In the rest of the cases, yellow represents a positve quantity (eg. chemical potential or magnetic field), while cyan is negative. Finally, green is used for quantites that are always positive (eg. energy density). Note: Each material also has its own color which is unrelated to the aforementioned color scheme.
 
-What do voltmeters actually measure?
-------------------------------------
+## What do voltmeters actually measure?
 
 You might notice that the reading from a voltage probe doesn't match the electric potential Φ. In reality, voltmeters do not measure Φ but rather differences in electrochemical potential of charge carriers. Things get a bit trickier when we ask what the voltage is in a piece of semiconductor, becuase now there are multiple charge carriers! In this case we can try to define voltage as the reading we get when we stick a small metallic probe at a certain point. This can actually be performed in the simulation, and the result is that the electrochemical potential of the metal lies between that of electrons and holes, closer to whichever one has a larger density. I approximate this with a simple weighted average, the result of which is displayed on the voltage probe.
-
-Why does the magnetic field vanish outside of circuits?
--------------------------------------------------------
-
-Because the simulation is in 2D, circuits actually extend infinitely in the z-direction (out of the page), so current flowing through a closed circuit has the same effect as current flowing through a 3D solenoid. If you recall from E&M class, the magnetic field within an infinitely long solenoid is entirely contained within it. This is certainly a point of departure from how we expect circuits to behave. It means that each current loop has its own inductance, and trying to create "inductors" that behave like their 3d counterparts is quite tricky.
 
 Copyright (c) 2025 Brandon Li  
 [brandonli.lex@gmail.com](mailto:brandonli.lex@gmail.com)
