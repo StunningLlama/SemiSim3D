@@ -2,7 +2,7 @@
 Clone the repository using
 
 ```bash
-git clone https://github.com/StunningLlama/SemiSim.git
+git clone https://github.com/StunningLlama/SemiSim3D.git
 ```
 Building requres Java 1.8 and Maven for dependency management.
 
