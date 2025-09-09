@@ -725,15 +725,6 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 			}
 
 			break;
-		/*case TEXT:
-			updateCursor(HAND_CURSOR);
-			if (mouse_pressed) {
-				texting = true;
-				text_x = mx_index;
-				text_y = my_index;
-			}
-			//TODO
-			break;*/
 		case GROUND:
 			if (pressing) {
 				if (e.ground == null)
@@ -749,16 +740,9 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 			break;
 		}
 
-		/*if (brush != Brush.TEXT)
-		{
-			texting = false;
-		}*/
-
 		setEMFs();
 
 		if (releasing || (BoundaryCondition)e.opts.gui_bc.getSelectedItem() != prev_boundary || update) {
-
-			e.constructBoundary();
 			e.updateAllMaterials();
 			e.multigridSolve(true, false);
 		}
@@ -1400,7 +1384,6 @@ enum Brush {
 	ERASE("Eraser"),
 	SELECT("Select & Move"),
 	FLOODSELECT("Select region");
-	//TEXT("Add text");
 
 	String name;
 	Brush(String name)

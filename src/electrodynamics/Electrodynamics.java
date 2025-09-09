@@ -798,9 +798,6 @@ public class Electrodynamics extends PeriodicTask {
 				opts.setTitle(sim_name);
 			}
 
-
-			constructBoundary();
-
 			initializeAllMaterials();
 			updateAllMaterials();
 			checkCFL();
@@ -1171,6 +1168,8 @@ public class Electrodynamics extends PeriodicTask {
 	}
 
 	public void updateAllMaterials() {
+		constructBoundary();
+
 		for (int i = 0; i < nx; i++)
 		{
 			for (int j = 0; j < ny-1; j++)
