@@ -72,6 +72,10 @@ public class Utils {
 		return val;
 	}
 	
+	public static double minAbs(double x, double y) {
+		return Math.abs(x) < Math.abs(y)? x:y;
+	}
+	
 	public static double logmean(double x, double y)
 	{
 		if (x <= 0 || y <= 0)

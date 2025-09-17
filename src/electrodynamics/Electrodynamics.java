@@ -157,6 +157,10 @@ public class Electrodynamics extends PeriodicTask {
 	int[][][] conducting_y;
 	int[][][] conducting_z;
 
+	double[][][] ac_x;
+	double[][][] ac_y;
+	double[][][] ac_z;
+
 	//double[][][] H_absorptivity_x;
 	//double[][][] H_absorptivity_y;
 	//double[][][] H_absorptivity_z;
@@ -272,6 +276,11 @@ public class Electrodynamics extends PeriodicTask {
 
 	double error_detection_threshold = 1e-5;
 	boolean sign_violation = false;
+
+	double AC_phase;
+	double AC_freq;
+	double AC_amplitude;
+	boolean AC_source_exists;
 
 
 	/* Multithreading */
@@ -566,6 +575,9 @@ public class Electrodynamics extends PeriodicTask {
 			conducting_x = new int[nx][ny][nz];
 			conducting_y = new int[nx][ny][nz];
 			conducting_z = new int[nx][ny][nz];
+			ac_x = new double[nx][ny][nz];
+			ac_y = new double[nx][ny][nz];
+			ac_z = new double[nx][ny][nz];
 			//H_absorptivity_x = new double[nx][ny][nz];
 			//H_absorptivity_y = new double[nx][ny][nz];
 			//H_absorptivity_z = new double[nx][ny][nz];
@@ -700,6 +712,10 @@ public class Electrodynamics extends PeriodicTask {
 							conducting_x[i][j][k] = 0;
 							conducting_y[i][j][k] = 0;
 							conducting_z[i][j][k] = 0;
+
+							ac_x[i][j][k] = 0.0;
+							ac_y[i][j][k] = 0.0;
+							ac_z[i][j][k] = 0.0;
 
 							//H_absorptivity_x[i][j][k] = 0;
 							//H_absorptivity_y[i][j][k] = 0;
@@ -1007,13 +1023,15 @@ public class Electrodynamics extends PeriodicTask {
 									double sigma_n = conducting_x[i][j][k]*mf*mu_electron*Utils.logmean(-rho_n[i+1][j][k],-rho_n[i][j][k]);
 									double sigma_p = conducting_x[i][j][k]*mf*mu_hole*Utils.logmean(rho_p[i+1][j][k], rho_p[i][j][k]);
 
+									double emf_phase = ac_x[i][j][k]*AC_amplitude+(1-ac_x[i][j][k]);
+									
 									Jx_abs[i][j][k] = 0;
 
 									Jx_n[i][j][k] = conducting_x[i][j][k]*(-mf*D_electron*(rho_n[i+1][j][k] - rho_n[i][j][k])/ds
-									+ sigma_n*(emfx[i][j][k] + cmfx_n[i][j][k]/q_n));
+									+ sigma_n*(emf_phase*emfx[i][j][k] + cmfx_n[i][j][k]/q_n));
 
 									Jx_p[i][j][k] = conducting_x[i][j][k]*(-mf*D_hole*(rho_p[i+1][j][k] - rho_p[i][j][k])/ds
-									+ sigma_p*(emfx[i][j][k] + cmfx_p[i][j][k]/q_p));
+									+ sigma_p*(emf_phase*emfx[i][j][k] + cmfx_p[i][j][k]/q_p));
 
 									double sigma = sigma_n + sigma_p + absorptivity_x[i][j][k]*epsx[i][j][k]*absorbing_coeff;
 									double jx = Jx_abs[i][j][k] + Jx_n[i][j][k] + Jx_p[i][j][k];
@@ -1044,13 +1062,15 @@ public class Electrodynamics extends PeriodicTask {
 									double sigma_n = conducting_y[i][j][k]*mf*mu_electron*Utils.logmean(-rho_n[i][j+1][k],-rho_n[i][j][k]);
 									double sigma_p = conducting_y[i][j][k]*mf*mu_hole*Utils.logmean(rho_p[i][j+1][k], rho_p[i][j][k]);
 
+									double emf_phase = ac_y[i][j][k]*AC_amplitude+(1-ac_y[i][j][k]);
+									
 									Jy_abs[i][j][k] = 0;
 
 									Jy_n[i][j][k] = conducting_y[i][j][k]*(-mf*D_electron*(rho_n[i][j+1][k] - rho_n[i][j][k])/ds
-									+ sigma_n*(emfy[i][j][k] + cmfy_n[i][j][k]/q_n));
+									+ sigma_n*(emf_phase*emfy[i][j][k] + cmfy_n[i][j][k]/q_n));
 
 									Jy_p[i][j][k] = conducting_y[i][j][k]*(-mf*D_hole*(rho_p[i][j+1][k] - rho_p[i][j][k])/ds
-									+ sigma_p*(emfy[i][j][k] + cmfy_p[i][j][k]/q_p));
+									+ sigma_p*(emf_phase*emfy[i][j][k] + cmfy_p[i][j][k]/q_p));
 
 									double sigma = sigma_n + sigma_p + absorptivity_y[i][j][k]*epsy[i][j][k]*absorbing_coeff;
 									double jy = Jy_abs[i][j][k] + Jy_n[i][j][k] + Jy_p[i][j][k];
@@ -1081,13 +1101,15 @@ public class Electrodynamics extends PeriodicTask {
 									double sigma_n = conducting_z[i][j][k]*mf*mu_electron*Utils.logmean(-rho_n[i][j][k+1],-rho_n[i][j][k]);
 									double sigma_p = conducting_z[i][j][k]*mf*mu_hole*Utils.logmean(rho_p[i][j][k+1], rho_p[i][j][k]);
 
+									double emf_phase = ac_z[i][j][k]*AC_amplitude+(1-ac_z[i][j][k]);
+									
 									Jz_abs[i][j][k] = 0;
 
 									Jz_n[i][j][k] = conducting_z[i][j][k]*(-mf*D_electron*(rho_n[i][j][k+1] - rho_n[i][j][k])/ds
-									+ sigma_n*(emfz[i][j][k] + cmfz_n[i][j][k]/q_n));
+									+ sigma_n*(emf_phase*emfz[i][j][k] + cmfz_n[i][j][k]/q_n));
 
 									Jz_p[i][j][k] = conducting_z[i][j][k]*(-mf*D_hole*(rho_p[i][j][k+1] - rho_p[i][j][k])/ds
-									+ sigma_p*(emfz[i][j][k] + cmfz_p[i][j][k]/q_p));
+									+ sigma_p*(emf_phase*emfz[i][j][k] + cmfz_p[i][j][k]/q_p));
 
 
 									double sigma = sigma_n + sigma_p + absorptivity_z[i][j][k]*epsz[i][j][k]*absorbing_coeff;
@@ -1155,6 +1177,8 @@ public class Electrodynamics extends PeriodicTask {
 						}
 
 						time += dt;
+						AC_phase += 2*Math.PI*AC_freq*dt;
+						AC_amplitude = Math.cos(AC_phase);
 
 						controls.advanceframe = false;
 					}
@@ -1225,10 +1249,10 @@ public class Electrodynamics extends PeriodicTask {
 				for (int k = 1; k < nz-1; k++)
 				{
 					conducting_x[i][j][k] = Math.min(materials[i+1][j][k].conducting*materials[i+1][j][k].activated, materials[i][j][k].conducting*materials[i][j][k].activated);
-					emfx[i][j][k] = 0.5*(materials[i+1][j][k].emf*Math.cos(materials[i+1][j][k].emf_direction)*materials[i+1][j][k].activated
-					+ materials[i][j][k].emf*Math.cos(materials[i][j][k].emf_direction)*materials[i][j][k].activated);
+					emfx[i][j][k] = Utils.minAbs(materials[i+1][j][k].emf_x*materials[i+1][j][k].emf, materials[i][j][k].emf_x*materials[i][j][k].emf);
 					epsx[i][j][k] = eps0*0.5*(materials[i+1][j][k].eps_r + materials[i][j][k].eps_r);
 					absorptivity_x[i][j][k] = Math.min(materials[i+1][j][k].absorptivity, materials[i][j][k].absorptivity);
+					ac_x[i][j][k] = (materials[i][j][k].type == MaterialType.AC_EMF || materials[i+1][j][k].type == MaterialType.AC_EMF) ? 1:0;
 				}
 			}
 		}
@@ -1240,10 +1264,10 @@ public class Electrodynamics extends PeriodicTask {
 				for (int k = 1; k < nz-1; k++)
 				{
 					conducting_y[i][j][k] = Math.min(materials[i][j+1][k].conducting*materials[i][j+1][k].activated, materials[i][j][k].conducting*materials[i][j][k].activated);
-					emfy[i][j][k] = 0.5*(materials[i][j+1][k].emf*Math.sin(materials[i][j+1][k].emf_direction)*materials[i][j+1][k].activated
-					+ materials[i][j][k].emf*Math.sin(materials[i][j][k].emf_direction)*materials[i][j][k].activated);
+					emfy[i][j][k] = Utils.minAbs(materials[i][j+1][k].emf_y*materials[i][j+1][k].emf, materials[i][j][k].emf_y*materials[i][j][k].emf);
 					epsy[i][j][k] = eps0*0.5*(materials[i][j+1][k].eps_r + materials[i][j][k].eps_r);
 					absorptivity_y[i][j][k] = Math.min(materials[i][j+1][k].absorptivity, materials[i][j][k].absorptivity);
+					ac_y[i][j][k] = (materials[i][j][k].type == MaterialType.AC_EMF || materials[i][j+1][k].type == MaterialType.AC_EMF) ? 1:0;
 				}
 			}
 		}
@@ -1255,15 +1279,17 @@ public class Electrodynamics extends PeriodicTask {
 				for (int k = 0; k < nz-1; k++)
 				{
 					conducting_z[i][j][k] = Math.min(materials[i][j][k+1].conducting*materials[i][j][k+1].activated, materials[i][j][k].conducting*materials[i][j][k].activated);
-					emfz[i][j][k] = 0;
+					emfz[i][j][k] = Utils.minAbs(materials[i][j][k+1].emf_z*materials[i][j][k+1].emf, materials[i][j][k].emf_z*materials[i][j][k].emf);
 					epsz[i][j][k] = eps0*0.5*(materials[i][j][k+1].eps_r + materials[i][j][k].eps_r);
 					absorptivity_z[i][j][k] = Math.min(materials[i][j][k+1].absorptivity, materials[i][j][k].absorptivity);
+					ac_z[i][j][k] = (materials[i][j][k].type == MaterialType.AC_EMF || materials[i][j][k+1].type == MaterialType.AC_EMF) ? 1:0;
 				}
 			}
 		}
 
 		computeChemicalForces();
 
+		AC_source_exists = false;
 		for (int i = 0; i < nx; i++)
 		{
 			for (int j = 0; j < ny; j++)
@@ -1285,6 +1311,9 @@ public class Electrodynamics extends PeriodicTask {
 					}
 
 					rho_free[i][j][k] = rho_abs[i][j][k]+rho_n[i][j][k]+rho_p[i][j][k]+rho_back[i][j][k];
+
+					if (materials[i][j][k].type == MaterialType.AC_EMF)
+						AC_source_exists = true;
 				}
 			}
 		}
@@ -1374,8 +1403,7 @@ public class Electrodynamics extends PeriodicTask {
 			{
 				for (int k = 1; k < nz-1; k++)
 				{
-					emfx[i][j][k] = 0.5*(materials[i+1][j][k].emf*Math.cos(materials[i+1][j][k].emf_direction)*materials[i+1][j][k].activated
-					+ materials[i][j][k].emf*Math.cos(materials[i][j][k].emf_direction)*materials[i][j][k].activated);
+					emfx[i][j][k] = Utils.minAbs(materials[i+1][j][k].emf_x*materials[i+1][j][k].emf, materials[i][j][k].emf_x*materials[i][j][k].emf);
 				}
 			}
 		}
@@ -1386,8 +1414,18 @@ public class Electrodynamics extends PeriodicTask {
 			{
 				for (int k = 1; k < nz-1; k++)
 				{
-					emfy[i][j][k] = 0.5*(materials[i][j+1][k].emf*Math.sin(materials[i][j+1][k].emf_direction)*materials[i][j+1][k].activated
-					+ materials[i][j][k].emf*Math.sin(materials[i][j][k].emf_direction)*materials[i][j][k].activated);
+					emfy[i][j][k] = Utils.minAbs(materials[i][j+1][k].emf_y*materials[i][j+1][k].emf, materials[i][j][k].emf_y*materials[i][j][k].emf);
+				}
+			}
+		}
+
+		for (int i = 1; i < nx-1; i++)
+		{
+			for (int j = 1; j < ny-1; j++)
+			{
+				for (int k = 0; k < nz-1; k++)
+				{
+					emfz[i][j][k] = Utils.minAbs(materials[i][j][k+1].emf_z*materials[i][j][k+1].emf, materials[i][j][k].emf_z*materials[i][j][k].emf);
 				}
 			}
 		}
@@ -2441,6 +2479,7 @@ enum MaterialType
 {
 
 	EMF					("Voltage source (Adjustable)",			230, 216, 46, 230),
+	AC_EMF				("AC voltage source (Adjustable)",		230, 150, 216, 230),
 	SWITCH				("Switch",								194, 194, 194, 120),
 	METAL				("Metal",								153, 153, 153, 120),
 	METAL_HIGH_C		("Conductive metal",					191, 191, 191, 120),
@@ -2486,6 +2525,7 @@ enum MaterialType
 
 	public static boolean isConducting(MaterialType material) {
 		return (material == MaterialType.EMF
+		|| material == MaterialType.AC_EMF
 		|| material == MaterialType.SWITCH
 		|| material == MaterialType.METAL
 		|| material == MaterialType.METAL_HIGH_W
@@ -2517,8 +2557,10 @@ class Material implements Cloneable {
 	int activated = 1;
 	int conducting = 0;
 	int semiconducting = 0;
-	double emf = 0.0;			// EMF strength
-	double emf_direction = 0.0;	// EMF direction
+	double emf;
+	int emf_x = 0;			// EMF strength
+	int emf_y = 0;			// EMF strength
+	int emf_z = 0;			// EMF strength
 	double eps_r = 1.0;			// Permittivity
 	double mu_r = 1.0;			// Permeability
 	double rho_back = 0.0;		// Background charge density
@@ -2534,8 +2576,10 @@ class Material implements Cloneable {
 		activated = 1;
 		conducting = 0;
 		semiconducting = 0;
-		emf = 0.0;
-		emf_direction = 0.0;
+		emf = 0;
+		emf_x = 0;
+		emf_y = 0;
+		emf_z = 0;
 		eps_r = 1.0;
 		mu_r = 1.0;
 		rho_back = 0.0;

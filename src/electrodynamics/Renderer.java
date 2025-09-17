@@ -650,7 +650,8 @@ public class Renderer extends PeriodicTask {
 		for (int i = 0; i < e.nx; i++) {
 			for (int j = 0; j < e.ny; j++) {
 				for (int k = 0; k < e.nz; k++) {
-					if (e.materials[i][j][k].type == MaterialType.EMF && i > 0 && j > 0 && i < e.nx-1 && j < e.ny-1) {
+					if ((e.materials[i][j][k].type == MaterialType.EMF || e.materials[i][j][k].type == MaterialType.AC_EMF) && i > 0 && j > 0 && k > 0 && i < e.nx-1 && j < e.ny-1 && k < e.nz-1) {
+						MaterialType type = e.materials[i][j][k].type;
 						setalphaBG(0.25);
 						setalphaFG(0.75);
 
@@ -658,17 +659,17 @@ public class Renderer extends PeriodicTask {
 						if (e.controls.selected_EMF[i][j][k])
 							offset = 60*(2*((i+j+k)%2)-1);
 
-						if (!threeD_mode && (e.materials[i+1][j][k].type != MaterialType.EMF
-						|| e.materials[i-1][j][k].type != MaterialType.EMF
-						|| e.materials[i][j+1][k].type != MaterialType.EMF
-						|| e.materials[i][j-1][k].type != MaterialType.EMF))
+						if (!threeD_mode && (e.materials[i+1][j][k].type != type
+						|| e.materials[i-1][j][k].type != type
+						|| e.materials[i][j+1][k].type != type
+						|| e.materials[i][j-1][k].type != type))
 						{
 							offset = -30;
 						}
 
-						int delta_r = MaterialType.EMF.color_r+offset;
-						int delta_g = MaterialType.EMF.color_g+offset;
-						int delta_b = MaterialType.EMF.color_b+offset;
+						int delta_r = type.color_r+offset;
+						int delta_g = type.color_g+offset;
+						int delta_b = type.color_b+offset;
 						setColor(delta_r, delta_g, delta_b);
 
 						setPixel(i, j, k);
@@ -1026,7 +1027,6 @@ public class Renderer extends PeriodicTask {
 				drawTwoColumnString("B" , 							getSI(getDualFieldMagnitude(e.Bx, e.By, e.Bz, mx_t, my_t, mz_t), "T"),	hoffset, voffset + line*vspacing, texts); line++;
 				drawTwoColumnString("H" , 							getSI(getDualFieldMagnitude(e.Hx, e.Hy, e.Hz, mx_t, my_t, mz_t), "A/m"),	hoffset, voffset + line*vspacing, texts); line++;
 				drawTwoColumnString("\u03d5" , 						getSI(Utils.bilinearinterp(e.phi,mx_t, my_t, mz_t), "V"),					hoffset, voffset + line*vspacing, texts); line++;
-				drawTwoColumnString("\u2130" , 						getSI(mat.emf, "V/m"),										hoffset, voffset + line*vspacing, texts); line++;
 				drawTwoColumnString("\u03b5/\u03b5\u2080" , 		getSI(mat.eps_r, ""),										hoffset, voffset + line*vspacing, texts); line++;
 				drawTwoColumnString("\u03bc/\u03bc\u2080" , 		getSI(mat.mu_r, ""),											hoffset, voffset + line*vspacing, texts); line++;
 				drawTwoColumnString("\u03c1\u2099" , 				getSI(Utils.bilinearinterp(e.rho_n,mx_t, my_t, mz_t), "C/m^3"),			hoffset, voffset + line*vspacing, texts); line++;

@@ -80,6 +80,7 @@ public class MainWindow extends JFrame {
 	public JCheckBox gui_rotate;
 	public JScrollBar gui_parallax;
 	public JLabel gui_parallaxlabel;
+	public JScrollBar gui_parameter1;
 
 	/**
 	 * Create the frame.
@@ -139,7 +140,7 @@ public class MainWindow extends JFrame {
 		gui_slice = new JScrollBar();
 		gui_slice.setMaximum(42);
 		gui_slice.setOrientation(JScrollBar.HORIZONTAL);
-		gui_slice.setBounds(201, 536, 171, 17);
+		gui_slice.setBounds(201, 588, 171, 17);
 		panel.add(gui_slice);
 		
 		gui_brush = new JComboBox();
@@ -171,9 +172,8 @@ public class MainWindow extends JFrame {
 		lblBrushSize.setBounds(211, 350, 138, 14);
 		panel.add(lblBrushSize);
 		
-		gui_parameter1_text = new JLabel("");
-		gui_parameter1_text.setEnabled(false);
-		gui_parameter1_text.setBounds(211, 349, 154, 14);
+		gui_parameter1_text = new JLabel("Meow");
+		gui_parameter1_text.setBounds(211, 513, 150, 14);
 		panel.add(gui_parameter1_text);
 		
 		gui_view_vec = new JComboBox();
@@ -326,7 +326,7 @@ public class MainWindow extends JFrame {
 		addTooltips(gui_3d_view);
 		
 		gui_slicelabel = new JLabel("Slice");
-		gui_slicelabel.setBounds(211, 513, 150, 14);
+		gui_slicelabel.setBounds(211, 565, 150, 14);
 		panel.add(gui_slicelabel);
 		
 		gui_rotate = new JCheckBox("Rotate view");
@@ -343,6 +343,15 @@ public class MainWindow extends JFrame {
 		gui_parallaxlabel = new JLabel("Parallax");
 		gui_parallaxlabel.setBounds(20, 562, 150, 14);
 		panel.add(gui_parallaxlabel);
+		
+		gui_parameter1 = new JScrollBar();
+		gui_parameter1.setValue(-10);
+		gui_parameter1.setOrientation(JScrollBar.HORIZONTAL);
+		gui_parameter1.setMinimum(-45);
+		gui_parameter1.setMaximum(45);
+		gui_parameter1.setBlockIncrement(1);
+		gui_parameter1.setBounds(201, 536, 171, 17);
+		panel.add(gui_parameter1);
 	}
 	
 	public void addTooltips(JComboBox box) {
