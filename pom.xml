@@ -35,7 +35,7 @@
 				<directory>${basedir}/examples</directory>
 				<targetPath>${project.build.directory}/examples</targetPath>
 				<includes>
-					<include>**/*.semisim</include>
+					<include>**/*.semisim3d</include>
 				</includes>
 			</resource>
 			<resource>

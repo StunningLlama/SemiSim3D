@@ -36,7 +36,7 @@ public class SaveManager {
 	public static File infile;
 	public static File outfile;
 	int saveversion = 2;
-	String fileextension = ".semisim";
+	String fileextension = ".semisim3d";
 	String startingpath = ".";
 	
 	public SaveManager(Electrodynamics e) {

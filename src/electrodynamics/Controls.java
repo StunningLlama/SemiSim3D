@@ -1146,7 +1146,7 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 		} else if (ev.getSource() == e.opts.menu_redo) {
 			redo = true;
 		} else if (ev.getSource() == e.opts.menu_about) {
-			JOptionPane.showConfirmDialog(e.opts, "Brandon's Semiconductor Simulator (SemiSim).\n (c) 2026 Brandon Li", "About", JOptionPane.OK_OPTION);
+			JOptionPane.showConfirmDialog(e.opts, "Brandon's Electromagnetic Simulation 3D.\n (c) 2026 Brandon Li", "About", JOptionPane.OK_OPTION);
 		} else if (ev.getSource() instanceof JRadioButtonMenuItem) {
 			for (Brush b : brushbuttonmap.keySet())
 				if (ev.getSource() == brushbuttonmap.get(b))
