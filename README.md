@@ -35,6 +35,24 @@ Simulation area (left) and settings (right).
 
 The main way to interact with circuits is to change the strength of voltage sources and turn switches on and off. The quickest way to get started is to load one of the examples and start changing the voltages.
 
+## Simulation variables
+
+Listed below are the most important variables that capture the state of the simulation at a given time:
+
+|     |     |
+| --- | --- |
+| \\(\\vec{E} = (E\_x, E\_y, 0)\\) | Electric field \[V/m\] |
+| \\(\\vec{B} = (0, 0, B\_z)\\) | Magnetic field \[T\] |
+| \\(\\rho\\) | Charge density \[C/m^3\] |
+| \\(\\vec{J}\\) | Current density \[A/m^2\] |
+| \\(\\vec{D} = \\epsilon \\vec{E}\\) | Electric displacement field \[C/m^2\] |
+| \\(\\vec{H} = \\frac{1}{\\mu} \\vec{B}\\) | Magnetic field \[A/m\] |
+| \\(\\vec{S} = \\vec{E}\\times \\vec{H}\\) | Poynting vector \[W/m^2\] |
+| \\(u = \\frac{1}{2}(\\vec{E}\\cdot \\vec{D} + \\vec{B} \\cdot \\vec{H})\\) | Electromagnetic energy density \[J/m^3\] |
+| \\(\\phi\\) | Electric scalar potential \[V\] |
+| \\(Q\\) | Heat dissipation \[J/(s m^3)\] |
+| \\(S\\) | Entropy generation \[J/ (K s m^3)\] |
+
 ## Vector view modes
 
 **Arrows:** The direction and brightness of arrows corresponds to the direction and magnitude of the vector field.
@@ -132,6 +150,7 @@ The main way to interact with circuits is to change the strength of voltage sour
 |     |     |
 | --- | --- |
 | Voltage source | Generates a voltage that can be used to power circuits. |
+| AC voltage source | Voltage source that oscillates sinusoidally at a fixed frequency. |
 | Switch | Conductivity can be switched on and off by the user. |
 | Metal | Material that conducts electricity very well. |
 | Conductive metal | More conductive than regular metal. |
@@ -145,13 +164,9 @@ The main way to interact with circuits is to change the strength of voltage sour
 
 # Miscellaneous questions and answers
 
-## What do the colors mean?
+## Why aren't there semiconductors?
 
-In general, the color red is associated with either holes or a positive charge. Blue represents electrons or negative charge. White means both electrons and holes exist a location. In the rest of the cases, yellow represents a positve quantity (eg. chemical potential or magnetic field), while cyan is negative. Finally, green is used for quantites that are always positive (eg. energy density). Note: Each material also has its own color which is unrelated to the aforementioned color scheme.
-
-## What do voltmeters actually measure?
-
-You might notice that the reading from a voltage probe doesn't match the electric potential Φ. In reality, voltmeters do not measure Φ but rather differences in electrochemical potential of charge carriers. Things get a bit trickier when we ask what the voltage is in a piece of semiconductor, becuase now there are multiple charge carriers! In this case we can try to define voltage as the reading we get when we stick a small metallic probe at a certain point. This can actually be performed in the simulation, and the result is that the electrochemical potential of the metal lies between that of electrons and holes, closer to whichever one has a larger density. I approximate this with a simple weighted average, the result of which is displayed on the voltage probe.
+The grid resolution of 32x32x32 is not enough to accurately simulate a semiconductor junction. In the future, higher resolutions may become possible.
 
 Copyright (c) 2025 Brandon Li  
 [brandonli.lex@gmail.com](mailto:brandonli.lex@gmail.com)

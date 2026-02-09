@@ -35,6 +35,7 @@ public class FastLog {
 		int exp = Math.getExponent(y);
 		double mantissa = Double.longBitsToDouble(A|Double.doubleToRawLongBits(y)&(~0x7ff0000000000000l));
 		int i = (int)(((exp-min_exponent)<<2) + 4*mantissa - 3.5);
+		i = (i < 0? 0 : ((i >= length)? length-1 : i));
 		double w = y/x[i];
 		return (w-1)/(0.66666666666666667*Math.sqrt(w) + 0.16666666666666667*(w+1)) + log_x[i];
 	}

@@ -18,8 +18,6 @@ import java.util.concurrent.TimeUnit;
 
 import javax.swing.JPanel;
 
-import com.jogamp.opengl.util.awt.TextRenderer;
-
 import electrodynamics.util.PeriodicTask;
 import electrodynamics.util.Timer;
 import electrodynamics.util.Utils;

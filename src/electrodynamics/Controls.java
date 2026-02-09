@@ -1,5 +1,6 @@
 package electrodynamics;
 
+import java.awt.BorderLayout;
 import java.awt.Cursor;
 import java.awt.MouseInfo;
 import java.awt.PointerInfo;
@@ -8,6 +9,8 @@ import java.awt.event.ActionListener;
 import java.awt.event.AdjustmentEvent;
 import java.awt.event.AdjustmentListener;
 import java.awt.event.InputEvent;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
@@ -17,20 +20,28 @@ import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Queue;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
+import javax.swing.ButtonGroup;
 import javax.swing.InputMap;
+import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JRadioButtonMenuItem;
+import javax.swing.JTextArea;
 import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
 
 import electrodynamics.util.Utils;
 import electrodynamics.util.Vector3;
 
-public class Controls implements MouseListener, MouseMotionListener, MouseWheelListener, KeyListener, ActionListener, AdjustmentListener {
+public class Controls implements MouseListener, MouseMotionListener, MouseWheelListener, KeyListener, ActionListener, AdjustmentListener, ItemListener {
 	Electrodynamics e;
 
 	Material[][][] selection;
@@ -51,6 +62,8 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 	boolean shift_down = false;
 	boolean ctrl_down = false;
 	boolean alt_down = false;
+	boolean undo = false;
+	boolean redo = false;
 
 
 	/* Mouse controls */
@@ -116,6 +129,11 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 
 	Cursor HAND_CURSOR = new Cursor(Cursor.HAND_CURSOR);
 	Cursor DEFAULT_CURSOR = new Cursor(Cursor.DEFAULT_CURSOR);
+
+	public HashMap<Brush, JRadioButtonMenuItem> brushbuttonmap;
+	public ButtonGroup buttongroup;
+	
+	UndoRedo undoredo = new UndoRedo(4);
 
 	public Controls(Electrodynamics e) {
 		this.e = e;
@@ -813,9 +831,10 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 
 		setEMFs();
 
-		if (releasing || (BoundaryCondition)e.opts.gui_bc.getSelectedItem() != prev_boundary || update) {
+		if ((releasing && Brush.isMaterialModifyingBrush(brush)) || (BoundaryCondition)e.opts.gui_bc.getSelectedItem() != prev_boundary || update) {
 			e.updateAllMaterials();
 			e.multigridSolve(true, false);
+			undoredo.captureState(e);
 		}
 
 		prev_boundary = (BoundaryCondition)e.opts.gui_bc.getSelectedItem();
@@ -989,6 +1008,26 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.CTRL_DOWN_MASK), key_paste);
 		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.META_DOWN_MASK), key_paste);
 		contentPane.getActionMap().put(key_paste, key_paste);
+		
+    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK), key_undo);
+    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.META_DOWN_MASK), key_undo);
+    	contentPane.getActionMap().put(key_undo, key_undo);
+
+    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK), key_redo);
+    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.META_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK), key_redo);
+    	contentPane.getActionMap().put(key_redo, key_redo);
+
+    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK), key_save);
+    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.META_DOWN_MASK), key_save);
+    	contentPane.getActionMap().put(key_save, key_save);
+
+    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK), key_open);
+    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.META_DOWN_MASK), key_open);
+    	contentPane.getActionMap().put(key_open, key_open);
+
+    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK), key_new);
+    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.META_DOWN_MASK), key_new);
+    	contentPane.getActionMap().put(key_new, key_new);
 
 		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_BACK_SPACE, 0), key_delete);
 		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), key_delete);
@@ -1052,21 +1091,42 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 			e.run();
 		else if (ev.getSource() == e.opts.gui_reset)
 			clear = true;
-		else if (ev.getSource() == e.opts.gui_resetall)
+		else if (ev.getSource() == e.opts.menu_new || ev.getSource() == e.opts.gui_new)
 			reset = true;
-		else if (ev.getSource() == e.opts.gui_save)
+		else if (ev.getSource() == e.opts.menu_save)
 			save = true;
-		else if (ev.getSource() == e.opts.gui_open)
+		else if (ev.getSource() == e.opts.menu_open)
 			load = true;
-		else if (ev.getSource() == e.opts.gui_help)
+		else if (ev.getSource() == e.opts.menu_help)
 			try {
 				File helpfile = new File("README.html");
 				java.awt.Desktop.getDesktop().browse(helpfile.toURI());
 			} catch (IOException ex) {
 				ex.printStackTrace();
 			}
-		else if (ev.getSource() == e.opts.gui_editdesc) {
-			e.opts.textPane.setEditable(!e.opts.textPane.isEditable());
+		else if (ev.getSource() == e.opts.menu_editdesc) {
+			SwingUtilities.invokeLater(() -> {
+				String text = e.opts.textPane.getText();
+				JFrame frame = new JFrame();
+				JTextArea area = new JTextArea();
+				JButton b = new JButton("Save");
+				frame.setSize(500, 500);
+				area.setText(text);
+				area.setEditable(true);
+				area.setLineWrap(true);
+				frame.add(area);
+				frame.add(b, BorderLayout.SOUTH);
+				b.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent ev) {
+						e.opts.textPane.setText(area.getText());
+						e.opts.textPane.setEditable(false);
+						frame.dispose();
+					}
+				});
+				frame.setVisible(true);
+				
+			});
 		} else if (ev.getSource() == e.opts.gui_view) {
 			//updateMiscFields = true;
 		} else if (ev.getSource() == e.opts.gui_view_vec) {
@@ -1075,6 +1135,29 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 			brush_changed = true;
 		} else if (ev.getSource() == e.opts.gui_3d_view) {
 			e.renderer.set3Dmode();
+		}  else if (ev.getSource() == e.opts.menu_cut) {
+			cut = true;
+		} else if (ev.getSource() == e.opts.menu_copy) {
+			copy = true;
+		} else if (ev.getSource() == e.opts.menu_paste) {
+			paste = true;
+		} else if (ev.getSource() == e.opts.menu_undo) {
+			undo = true;
+		} else if (ev.getSource() == e.opts.menu_redo) {
+			redo = true;
+		} else if (ev.getSource() == e.opts.menu_about) {
+			JOptionPane.showConfirmDialog(e.opts, "Brandon's Semiconductor Simulator (SemiSim).\n (c) 2026 Brandon Li", "About", JOptionPane.OK_OPTION);
+		} else if (ev.getSource() instanceof JRadioButtonMenuItem) {
+			for (Brush b : brushbuttonmap.keySet())
+				if (ev.getSource() == brushbuttonmap.get(b))
+					e.opts.gui_brush.setSelectedItem(b);
+		}
+	}
+	
+	@Override
+	public void itemStateChanged(ItemEvent ev) {
+		if (ev.getSource() == e.opts.gui_brush) {
+			buttongroup.setSelected(brushbuttonmap.get((Brush) e.opts.gui_brush.getSelectedItem()).getModel(), true);
 		}
 	}
 	
@@ -1248,6 +1331,22 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 			paste = true;
 		}
 	};
+	
+    @SuppressWarnings("serial")
+    private Action key_undo = new AbstractAction(null) {
+		@Override
+        public void actionPerformed(ActionEvent ev) {
+    		undo = true;
+        }
+    };
+    
+    @SuppressWarnings("serial")
+    private Action key_redo = new AbstractAction(null) {
+		@Override
+        public void actionPerformed(ActionEvent ev) {
+    		redo = true;
+        }
+    };
 
 	@SuppressWarnings("serial")
 	private Action key_delete = new AbstractAction(null) {
@@ -1343,6 +1442,30 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 		}
 	};
 	
+    @SuppressWarnings("serial")
+    private Action key_save = new AbstractAction(null) {
+		@Override
+        public void actionPerformed(ActionEvent ev) {
+    		save = true;
+        }
+    };
+    
+    @SuppressWarnings("serial")
+    private Action key_open = new AbstractAction(null) {
+		@Override
+        public void actionPerformed(ActionEvent ev) {
+    		load = true;
+        }
+    };
+    
+    @SuppressWarnings("serial")
+    private Action key_new = new AbstractAction(null) {
+		@Override
+        public void actionPerformed(ActionEvent ev) {
+    		reset = true;
+        }
+    };
+	
 	@Override
 	public void keyTyped(KeyEvent e) {
 		if (texting) {
@@ -1402,16 +1525,16 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 enum Brush {
 	INTERACT("Interact"),
 	DRAW("Draw"),
-	VOLTAGE("Add voltage probe"),
-	CURRENT("Add current probe"),
-	GROUND("Add ground"),
 	DELETEPROBE("Delete probe"),
 	REPLACE("Replace"),
 	LINE("Line"),
 	FILL("Fill"),
 	ERASE("Eraser"),
 	SELECT("Select & Move"),
-	FLOODSELECT("Select region");
+	FLOODSELECT("Select region"),
+	VOLTAGE("Add voltage probe"),
+	CURRENT("Add current probe"),
+	GROUND("Add ground");
 
 	String name;
 	Brush(String name)

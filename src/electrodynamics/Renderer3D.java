@@ -3,9 +3,18 @@
 // See LICENSE.txt for full license details.
 
 package electrodynamics;
+import java.awt.Color;
+import java.awt.geom.Rectangle2D;
+import java.nio.IntBuffer;
+import java.util.ArrayList;
+
 import com.jogamp.common.nio.Buffers;
-import com.jogamp.math.geom.plane.AffineTransform;
-import com.jogamp.opengl.*;
+import com.jogamp.opengl.GL;
+import com.jogamp.opengl.GL2;
+import com.jogamp.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLCapabilities;
+import com.jogamp.opengl.GLEventListener;
+import com.jogamp.opengl.GLProfile;
 import com.jogamp.opengl.awt.GLCanvas;
 import com.jogamp.opengl.glu.GLU;
 import com.jogamp.opengl.util.FPSAnimator;
@@ -14,14 +23,6 @@ import com.jogamp.opengl.util.awt.TextRenderer;
 import electrodynamics.util.Device;
 import electrodynamics.util.Utils;
 import electrodynamics.util.Vector3;
-
-import java.awt.Color;
-import java.awt.GraphicsConfiguration;
-import java.awt.GraphicsEnvironment;
-import java.awt.Toolkit;
-import java.awt.geom.Rectangle2D;
-import java.nio.IntBuffer;
-import java.util.ArrayList;
 
 public class Renderer3D implements GLEventListener {
 

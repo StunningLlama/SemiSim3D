@@ -16,7 +16,7 @@ public final class Device {
         final String versionString = System.getProperty("java.version");
         if (versionString.startsWith("1.8")) return JavaVersion.V8;
         if (versionString.startsWith("9.")) return JavaVersion.V9;
-        throw new RuntimeException("Unsupported Java version");
+        return JavaVersion.V9;
     }
 
     public static GraphicsConfiguration getCurrentConfiguration(final Component component) {

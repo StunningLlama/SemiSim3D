@@ -271,6 +271,7 @@ The brightness and density of lines indicates the magnitude of the field. <figur
 <h2>Materials</h2>
 <table>
     <tr><td>Voltage source</td><td>Generates a voltage that can be used to power circuits.</td></tr>
+    <tr><td>AC voltage source</td><td>Voltage source that oscillates sinusoidally at a fixed frequency.</td></tr>
     <tr><td>Switch</td><td>Conductivity can be switched on and off by the user.</td></tr>
     <tr><td>Metal</td><td>Material that conducts electricity very well.</td></tr>
     <tr><td>Conductive metal</td><td>More conductive than regular metal.</td></tr>
@@ -296,16 +297,8 @@ The simulation runs on a staggered grid with B and rho...
 
 <h1>Miscellaneous questions and answers</h1>
 
-<h2>What do the colors mean?</h2>
-In general, the color red is associated with either holes or a positive charge. Blue represents electrons or negative charge. White means both electrons and holes exist a location.
-In the rest of the cases, yellow represents a positve quantity (eg. chemical potential or magnetic field), while cyan is negative. Finally, green is used for quantites that are always positive (eg. energy density).
-Note: Each material also has its own color which is unrelated to the aforementioned color scheme.
-
-<h2>What do voltmeters actually measure?</h2>
-You might notice that the reading from a voltage probe doesn't match the electric potential Φ. In reality, voltmeters do not measure Φ but rather differences in electrochemical potential of charge carriers.
-Things get a bit trickier when we ask what the voltage is in a piece of semiconductor, becuase now there are multiple charge carriers! In this case we can try to define voltage as the reading we get when we stick a small metallic
-probe at a certain point. This can actually be performed in the simulation, and the result is that the electrochemical potential of the metal lies between that of electrons and holes, closer to whichever one has a larger density.
-I approximate this with a simple weighted average, the result of which is displayed on the voltage probe.
+<h2>Why aren't there semiconductors?</h2>
+The grid resolution of 32x32x32 is not enough to accurately simulate a semiconductor junction. In the future, higher resolutions may become possible.
 
 <p>
     Copyright (c) 2025 Brandon Li<br>

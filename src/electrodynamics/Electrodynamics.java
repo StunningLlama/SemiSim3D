@@ -4,12 +4,12 @@
 
 package electrodynamics;
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.image.BufferedImage;
-import java.util.ArrayList;
+import java.io.File;
+import java.util.HashMap;
 import java.util.List;
 import java.util.TimerTask;
 import java.util.concurrent.BrokenBarrierException;
@@ -19,14 +19,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import javax.swing.ButtonGroup;
 import javax.swing.InputMap;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JRadioButtonMenuItem;
+import javax.swing.JSeparator;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
-import javax.swing.UnsupportedLookAndFeelException;
-
+import electrodynamics.util.MenuBuilder;
 import electrodynamics.util.PeriodicTask;
 import electrodynamics.util.Timer;
 import electrodynamics.util.Utils;
@@ -34,23 +36,15 @@ import electrodynamics.util.Utils;
 public class Electrodynamics extends PeriodicTask {
 	//TODO:
 	// Make colors more distinguishable
-	// Add more instructions
-	// Draw strings in 3d
 	// Fix probes
 	// Lines
 
 	// Probes
 	// Adjust vf brightness
-	// Fix perspective projection
-	// Update text rendering
 	// Add data output
-
-	// Demos:
-	// Inductor
-	// Capacitor
-	// Transformer
 	
 	// Fix view saving
+	// Fix EMF in examples
 
 
 	/* Dynamical simulation variables */
@@ -350,12 +344,8 @@ public class Electrodynamics extends PeriodicTask {
 		renderer.renderer_right_eye.canvas.addMouseWheelListener(controls);
 		renderer.renderer_right_eye.canvas.addKeyListener(controls);
 
+		opts.gui_new.addActionListener(controls);
 		opts.gui_reset.addActionListener(controls);
-		opts.gui_resetall.addActionListener(controls);
-		opts.gui_save.addActionListener(controls);
-		opts.gui_open.addActionListener(controls);
-		opts.gui_help.addActionListener(controls);
-		opts.gui_editdesc.addActionListener(controls);
 		opts.gui_view.addActionListener(controls);
 		opts.gui_view_vec.addActionListener(controls);
 		opts.gui_brush.addActionListener(controls);
@@ -363,6 +353,39 @@ public class Electrodynamics extends PeriodicTask {
 		opts.gui_slice.addAdjustmentListener(controls);
 		opts.gui_3d_view.addActionListener(controls);
 		opts.gui_parallax.addAdjustmentListener(controls);
+		
+
+		opts.menu_open.addActionListener(controls);
+		opts.menu_save.addActionListener(controls);
+		opts.menu_about.addActionListener(controls);
+		opts.menu_help.addActionListener(controls);
+		opts.menu_undo.addActionListener(controls);
+		opts.menu_redo.addActionListener(controls);
+		opts.menu_save.addActionListener(controls);
+		opts.menu_cut.addActionListener(controls);
+		opts.menu_copy.addActionListener(controls);
+		opts.menu_paste.addActionListener(controls);
+		opts.menu_editdesc.addActionListener(controls);
+		opts.menu_new.addActionListener(controls);
+		
+		opts.gui_brush.addItemListener(controls);
+		
+		controls.brushbuttonmap = new HashMap<Brush, JRadioButtonMenuItem>();
+		controls.buttongroup = new ButtonGroup();
+		for (Brush b : Brush.values()) {
+			if (b == Brush.VOLTAGE)
+				opts.menu_tools.add(new JSeparator());
+			
+			JRadioButtonMenuItem button = new JRadioButtonMenuItem(b.name);
+			controls.brushbuttonmap.put(b, button);
+			button.addActionListener(controls);
+			controls.buttongroup.add(button);
+			opts.menu_tools.add(button);
+		}
+		controls.buttongroup.setSelected(controls.brushbuttonmap.get(Brush.INTERACT).getModel(), true);
+		
+		MenuBuilder.addDirectoryToMenu(opts.menu_examples, new File("examples"), savemanager.fileextension, (File f) -> savemanager.readFile(f));
+
 
 		opts.gui_slice.setVisible(false);
 		opts.gui_slicelabel.setVisible(false);
@@ -442,6 +465,16 @@ public class Electrodynamics extends PeriodicTask {
 				if (opts.gui_simspeed.getValue() != lastsimspeed) {
 					lastsimspeed = opts.gui_simspeed.getValue();
 					dt = dt_maximum*(lastsimspeed/20.0);
+				}
+				
+				if (controls.undo) {
+					controls.undoredo.undo(this);
+					controls.undo = false;
+				}
+				
+				if (controls.redo) {
+					controls.undoredo.redo(this);
+					controls.redo = false;
 				}
 
 				controls.handleMouseInput();
@@ -812,10 +845,13 @@ public class Electrodynamics extends PeriodicTask {
 				ground = null;
 
 				opts.setTitle(sim_name);
+
+				controls.undoredo.resetUndoHistory(this);
 			}
 
 			initializeAllMaterials();
 			updateAllMaterials();
+			controls.undoredo.captureState(this);
 			checkCFL();
 		}
 		finally {
@@ -1995,8 +2031,8 @@ public class Electrodynamics extends PeriodicTask {
 		} else if (p.normal_z) {
 			n_min = Math.min(p.x1, p.x2);
 			n_max = Math.max(p.x1, p.x2);
-			m_min = Math.min(p.z1, p.z2);
-			m_max = Math.max(p.z1, p.z2);
+			m_min = Math.min(p.y1, p.y2);
+			m_max = Math.max(p.y1, p.y2);
 			l = p.z1;
 		} else {
 			return 0;
