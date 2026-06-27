@@ -1,0 +1,23 @@
+"AppBuild"
+{
+	"AppID" "4864110"
+	"Desc" "Mac build"
+	"verbose" "0"
+	"preview" "0"
+
+	"ContentRoot" "output_mac"
+	"BuildOutput" "steam/output"
+
+	"Depots"
+	{
+		"4864111"
+		{
+			"FileMapping"
+			{
+				"LocalPath" "*"
+				"DepotPath" "."
+				"recursive" "1"
+			}
+		}
+	}
+}
