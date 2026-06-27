@@ -38,11 +38,15 @@ import javax.swing.JTextArea;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 
+import electrodynamics.Renderer.RenderMode;
+import electrodynamics.Renderer.ScalarView;
+import electrodynamics.Renderer.VectorView;
+import electrodynamics.Simulation.BoundaryCondition;
 import electrodynamics.util.Utils;
 import electrodynamics.util.Vector3;
 
 public class Controls implements MouseListener, MouseMotionListener, MouseWheelListener, KeyListener, ActionListener, AdjustmentListener, ItemListener {
-	Electrodynamics e;
+	Simulation e;
 
 	Material[][][] selection;
 	Material[][][] clipboard;
@@ -135,7 +139,7 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 	
 	UndoRedo undoredo = new UndoRedo(4);
 
-	public Controls(Electrodynamics e) {
+	public Controls(Simulation e) {
 		this.e = e;
 	}
 	
@@ -1520,82 +1524,83 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 			e.renderer.updateParallax();
 		}
 	}
+	
+	public enum Brush {
+		INTERACT("Interact"),
+		DRAW("Draw"),
+		DELETEPROBE("Delete probe"),
+		REPLACE("Replace"),
+		LINE("Line"),
+		FILL("Fill"),
+		ERASE("Eraser"),
+		SELECT("Select & Move"),
+		FLOODSELECT("Select region"),
+		VOLTAGE("Add voltage probe"),
+		CURRENT("Add current probe"),
+		GROUND("Add ground");
+
+		String name;
+		Brush(String name)
+		{
+			this.name = name;
+		}
+
+		@Override
+		public String toString() {
+			return name;
+		}
+
+		public static boolean isMaterialModifyingBrush(Brush brush) {
+			return (brush == Brush.DRAW
+			|| brush == Brush.LINE
+			|| brush == Brush.REPLACE
+			|| brush == Brush.ERASE
+			|| brush == Brush.FILL);
+		}
+
+		public static boolean isBrushShapeImportant(Brush brush) {
+			return (brush == Brush.DRAW
+			|| brush == Brush.LINE
+			|| brush == Brush.REPLACE
+			|| brush == Brush.ERASE);
+		}
+	}
+
+	public enum BrushShape {
+		CIRCLE("Circle brush"),
+		SQUARE("Square brush");
+
+		String name;
+		BrushShape(String name)
+		{
+			this.name = name;
+		}
+
+		@Override
+		public String toString() {
+			return name;
+		}
+	}
+
+	public class FloodFillCoordinate {
+		int i;
+		int j;
+		int k;
+
+		public FloodFillCoordinate(int i, int j, int k) {
+			this.i = i;
+			this.j = j;
+			this.k = k;
+		}
+	}
+
+	public interface FloodFillFunc {
+		boolean isValid(int i, int j, int k);
+		void fill(int i, int j, int k);
+	}
+
+	public interface SetFunc {
+		void set(int i, int j, int k);
+	}
 }
 
-enum Brush {
-	INTERACT("Interact"),
-	DRAW("Draw"),
-	DELETEPROBE("Delete probe"),
-	REPLACE("Replace"),
-	LINE("Line"),
-	FILL("Fill"),
-	ERASE("Eraser"),
-	SELECT("Select & Move"),
-	FLOODSELECT("Select region"),
-	VOLTAGE("Add voltage probe"),
-	CURRENT("Add current probe"),
-	GROUND("Add ground");
-
-	String name;
-	Brush(String name)
-	{
-		this.name = name;
-	}
-
-	@Override
-	public String toString() {
-		return name;
-	}
-
-	public static boolean isMaterialModifyingBrush(Brush brush) {
-		return (brush == Brush.DRAW
-		|| brush == Brush.LINE
-		|| brush == Brush.REPLACE
-		|| brush == Brush.ERASE
-		|| brush == Brush.FILL);
-	}
-
-	public static boolean isBrushShapeImportant(Brush brush) {
-		return (brush == Brush.DRAW
-		|| brush == Brush.LINE
-		|| brush == Brush.REPLACE
-		|| brush == Brush.ERASE);
-	}
-}
-
-enum BrushShape {
-	CIRCLE("Circle brush"),
-	SQUARE("Square brush");
-
-	String name;
-	BrushShape(String name)
-	{
-		this.name = name;
-	}
-
-	@Override
-	public String toString() {
-		return name;
-	}
-}
-
-class FloodFillCoordinate {
-	int i;
-	int j;
-	int k;
-
-	public FloodFillCoordinate(int i, int j, int k) {
-		this.i = i;
-		this.j = j;
-		this.k = k;
-	}
-}
-
-interface FloodFillFunc {
-	boolean isValid(int i, int j, int k);
-	void fill(int i, int j, int k);
-}
-
-interface SetFunc {
-	void set(int i, int j, int k);
-}

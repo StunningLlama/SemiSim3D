@@ -20,11 +20,11 @@ import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 
-import electrodynamics.Electrodynamics.SimulationThread;
+import electrodynamics.Simulation.SimulationThread;
 
-public class SemiSim3D {
+public class SemiSim {
 	
-	public static SemiSim3D instance;
+	public static SemiSim instance;
 	public static int n_threads = Runtime.getRuntime().availableProcessors();
 
 	ArrayList<SimulationThread> sim_threads = new ArrayList<>();
@@ -32,10 +32,10 @@ public class SemiSim3D {
 	Timer graphics_timer = new Timer();
 	Timer misc_timer = new Timer();
 	ScheduledThreadPoolExecutor threadPool = new ScheduledThreadPoolExecutor(3, new LoggingRejectionHandler());
-	Electrodynamics sim;
+	Simulation sim;
 	
-	public SemiSim3D() {
-		sim = new Electrodynamics();
+	public SemiSim() {
+		sim = new Simulation();
 		
 		//master_timer.schedule(sim, 0, sim.renderer.frameduration);
 		//graphics_timer.schedule(sim.renderer, 0, sim.renderer.frameduration);
@@ -110,7 +110,7 @@ public class SemiSim3D {
 		
 		try {
 			SwingUtilities.invokeAndWait(() -> {
-				instance = new SemiSim3D();
+				instance = new SemiSim();
 			});
 		} catch (InvocationTargetException | InterruptedException e) {
 			// TODO Auto-generated catch block

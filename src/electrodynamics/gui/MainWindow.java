@@ -2,7 +2,7 @@
 // This file is part of Brandon's Electromagnetic Simulation which is released under GNU GPL v3.0.
 // See LICENSE.txt for full license details.
 
-package electrodynamics;
+package electrodynamics.gui;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.EventQueue;
@@ -10,6 +10,17 @@ import java.awt.EventQueue;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
+
+import electrodynamics.Controls.Brush;
+import electrodynamics.Controls.BrushShape;
+import electrodynamics.MaterialType;
+import electrodynamics.Renderer;
+import electrodynamics.Renderer.RenderMode;
+import electrodynamics.Renderer.ScalarView;
+import electrodynamics.Renderer.VectorMode;
+import electrodynamics.Renderer.VectorView;
+import electrodynamics.Simulation.BoundaryCondition;
+
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JScrollBar;
@@ -362,7 +373,7 @@ public class MainWindow extends JFrame {
 		
 		gui_material = new JComboBox();
 		gui_material.setMaximumRowCount(16);
-		gui_material.setModel(new DefaultComboBoxModel(electrodynamics.MaterialType.values()));
+		gui_material.setModel(new DefaultComboBoxModel(MaterialType.values()));
 		gui_material.setSelectedIndex(0);
 		gui_material.setBounds(201, 185, 171, 22);
 		panel.add(gui_material);

@@ -28,8 +28,14 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.stream.JsonReader;
 
+import electrodynamics.Renderer.RenderMode;
+import electrodynamics.Renderer.ScalarView;
+import electrodynamics.Renderer.VectorMode;
+import electrodynamics.Renderer.VectorView;
+import electrodynamics.Simulation.BoundaryCondition;
+
 public class SaveManager {
-	Electrodynamics e;
+	Simulation e;
 	
 	/* Saving and loading */
 
@@ -39,7 +45,7 @@ public class SaveManager {
 	String fileextension = ".semisim3d";
 	String startingpath = ".";
 	
-	public SaveManager(Electrodynamics e) {
+	public SaveManager(Simulation e) {
 		this.e = e;
 	}
 	

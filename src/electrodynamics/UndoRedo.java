@@ -10,6 +10,12 @@ import java.util.List;
 
 import javax.swing.SwingUtilities;
 
+import electrodynamics.Renderer.RenderMode;
+import electrodynamics.Renderer.ScalarView;
+import electrodynamics.Renderer.VectorMode;
+import electrodynamics.Renderer.VectorView;
+import electrodynamics.Simulation.BoundaryCondition;
+
 public class UndoRedo {
 	
 	public List<Snapshot> prev_states = new ArrayList<Snapshot>();
@@ -20,7 +26,7 @@ public class UndoRedo {
 		this.history_size = history_size;
 	}
 
-	public void resetUndoHistory(Electrodynamics e) {
+	public void resetUndoHistory(Simulation e) {
 		undoredo_pointer = 0;
 		prev_states.clear();
 
@@ -29,7 +35,7 @@ public class UndoRedo {
 		prev_states.add(state);
 	}
 
-	public void undo(Electrodynamics e) {
+	public void undo(Simulation e) {
 		undoredo_pointer--;
 		if (undoredo_pointer < 0) undoredo_pointer = 0;
 
@@ -38,7 +44,7 @@ public class UndoRedo {
 		}
 	}
 
-	public void redo(Electrodynamics e) {
+	public void redo(Simulation e) {
 		undoredo_pointer++;
 		if (undoredo_pointer >= prev_states.size()) undoredo_pointer = prev_states.size()-1;
 
@@ -46,7 +52,7 @@ public class UndoRedo {
 			prev_states.get(undoredo_pointer).load(e);
 	}
 	
-	public void captureState(Electrodynamics e) {
+	public void captureState(Simulation e) {
 		int i = undoredo_pointer+1;
 		
 		while (i < prev_states.size()) {
@@ -123,7 +129,7 @@ class Snapshot {
 	List<CurrentProbe> currentprobes;
 	VoltageProbe ground;
 	
-	public void store(Electrodynamics e) {
+	public void store(Simulation e) {
 		//resolution = e.resolution;
 		//width = e.width;
 		time = e.time;
@@ -179,7 +185,7 @@ class Snapshot {
 	}
 
 
-	public void load(Electrodynamics e) {
+	public void load(Simulation e) {
 		SwingUtilities.invokeLater(() -> {
 			e.rwLock.writeLock().lock();
 			try {

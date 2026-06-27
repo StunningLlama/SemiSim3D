@@ -57,11 +57,11 @@ public class Utils {
 		else if (mag < 1E15)
 			return String.format(precision, quantity*1e-12) + " P" + unit;
 		else if (mag < 1E18)
-			return String.format(precision, quantity*1e-15) + " E" + unit;
+			return String.format(precision, quantity*1e-15) + " T" + unit;
 		else if (mag < 1E21)
-			return String.format(precision, quantity*1e-18) + " Z" + unit;
+			return String.format(precision, quantity*1e-18) + " E" + unit;
 		else if (mag < 1E27)
-			return String.format(precision, quantity*1e-21) + " Y" + unit;
+			return String.format(precision, quantity*1e-21) + " Z" + unit;
 		else
 			return "infinity " + unit;
 	}

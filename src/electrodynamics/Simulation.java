@@ -28,12 +28,17 @@ import javax.swing.JSeparator;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
+
+import electrodynamics.Controls.Brush;
+import electrodynamics.Renderer.ScalarView;
+import electrodynamics.Renderer.VectorView;
+import electrodynamics.gui.MainWindow;
 import electrodynamics.util.MenuBuilder;
 import electrodynamics.util.PeriodicTask;
 import electrodynamics.util.Timer;
 import electrodynamics.util.Utils;
 
-public class Electrodynamics extends PeriodicTask {
+public class Simulation extends PeriodicTask {
 	//TODO:
 	// Make colors more distinguishable
 	// Fix probes
@@ -284,14 +289,14 @@ public class Electrodynamics extends PeriodicTask {
 	ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
 	ReentrantLock poissonLock = new ReentrantLock(true);
 	
-	CyclicBarrier start_barrier = new CyclicBarrier(SemiSim3D.n_threads + 1);
-	CyclicBarrier stop_barrier = new CyclicBarrier(SemiSim3D.n_threads + 1);
-	CyclicBarrier mid_barrier = new CyclicBarrier(SemiSim3D.n_threads);
+	CyclicBarrier start_barrier = new CyclicBarrier(SemiSim.n_threads + 1);
+	CyclicBarrier stop_barrier = new CyclicBarrier(SemiSim.n_threads + 1);
+	CyclicBarrier mid_barrier = new CyclicBarrier(SemiSim.n_threads);
 
 
 
 
-	boolean disable_semiconductors = true;
+	boolean disable_semiconductors = false;
 
 	/* Performance profiling */
 
@@ -310,13 +315,13 @@ public class Electrodynamics extends PeriodicTask {
 	BufferedImage screen;
 	SaveManager savemanager;
 
-	public Electrodynamics() {
+	public Simulation() {
 		controls = new Controls(this);
 		renderer = new Renderer(this);
 		savemanager = new SaveManager(this);
 		opts = new MainWindow();
 
-		SemiSim3D.detect64Bit();
+		SemiSim.detect64Bit();
 		
 		initializeGrid(0.1e-6, 32, 32, 32);
 
@@ -508,13 +513,13 @@ public class Electrodynamics extends PeriodicTask {
 				simFPStimer.start();
 
 			} catch (Exception e) {
-				SemiSim3D.displayErrorMessage(e);
+				SemiSim.displayErrorMessage(e);
 			}
 		} finally {
 			rwLock.readLock().unlock();
 		}
 
-        SemiSim3D.instance.threadPool.schedule(this, nextDelay(renderer.frameduration), TimeUnit.MILLISECONDS);
+        SemiSim.instance.threadPool.schedule(this, nextDelay(renderer.frameduration), TimeUnit.MILLISECONDS);
 	}
 	
 
@@ -528,11 +533,11 @@ public class Electrodynamics extends PeriodicTask {
 					//calcMiscFields(true);
 				}
 	        } catch( Exception e) {
-	        	SemiSim3D.displayErrorMessage(e);
+	        	SemiSim.displayErrorMessage(e);
 	        } finally {
 	            rwLock.readLock().unlock();
 	        }
-	        SemiSim3D.instance.threadPool.schedule(this, nextDelay(renderer.frameduration), TimeUnit.MILLISECONDS);
+	        SemiSim.instance.threadPool.schedule(this, nextDelay(renderer.frameduration), TimeUnit.MILLISECONDS);
 		}
 	};
 
@@ -2452,21 +2457,21 @@ public class Electrodynamics extends PeriodicTask {
 			}
 		}
 	}
-}
+	
+	public enum BoundaryCondition {
+		DISSIPATIVE("Absorbing boundary"),
+		CONDUCTING("Conducting boundary");
 
-enum BoundaryCondition {
-	DISSIPATIVE("Absorbing boundary"),
-	CONDUCTING("Conducting boundary");
+		String name;
+		BoundaryCondition(String name)
+		{
+			this.name = name;
+		}
 
-	String name;
-	BoundaryCondition(String name)
-	{
-		this.name = name;
-	}
-
-	@Override
-	public String toString() {
-		return name;
+		@Override
+		public String toString() {
+			return name;
+		}
 	}
 }
 
@@ -2498,140 +2503,14 @@ class RenderCanvas extends JPanel {
 
 	private static final long serialVersionUID = 7369516276529576171L;
 
-	Electrodynamics parent;
+	Simulation parent;
 	@Override
 	public void paintComponent(Graphics real) {
 		if (!parent.renderer.threeD_mode)
 			real.drawImage(parent.screen, 0, 0, parent.opts);
 	}
 
-	public RenderCanvas(Electrodynamics w) {
+	public RenderCanvas(Simulation w) {
 		parent = w;
-	}
-}
-
-
-enum MaterialType
-{
-
-	EMF					("Voltage source (Adjustable)",			230, 216, 46, 230),
-	AC_EMF				("AC voltage source (Adjustable)",		230, 150, 216, 230),
-	SWITCH				("Switch",								194, 194, 194, 120),
-	METAL				("Metal",								153, 153, 153, 120),
-	METAL_HIGH_C		("Conductive metal",					191, 191, 191, 120),
-	METAL_LOW_C			("Resistive metal",						94, 94, 94, 120),
-	METAL_HIGH_W		("High workfunction metal",				163, 116, 116, 120),
-	METAL_LOW_W			("Low workfunction metal",				116, 121, 163, 120),
-	SEMI				("Intrinsic semiconductor",				207,  161, 212, 120),
-	SEMI_P_TYPE			("P-type semiconductor",				191,  74,  34, 120),
-	SEMI_N_TYPE			("N-type semiconductor",				 84, 123, 191, 120),
-	SEMI_HEAVY_P_TYPE	("Heavily doped P-type semiconductor",	204,  41,  41, 120),
-	SEMI_HEAVY_N_TYPE	("Heavily doped N-type semiconductor",	 39,  52, 194, 120),
-	SEMI_LIGHT_P_TYPE	("Lightly doped P-type semiconductor",	201, 131,  73, 120),
-	SEMI_LIGHT_N_TYPE	("Lightly doped N-type semiconductor",	137, 188, 204, 120),
-	DIELECTRIC			("Dielectric",							 81, 171,  51, 120),
-	FERROMAGNET			("Ferromagnet",							116, 50, 117, 120),
-	POS_CHARGE			("Positive static charge",				116, 50, 50, 120),
-	NEG_CHARGE			("Negative static charge",				50, 50, 117, 120),
-	DECO				("Decoration",							255, 255, 255, 255),
-	ABSORBER			("Absorber",							 50,  50,  50),
-	VACUUM				("Vacuum",								 20,  20,  20);
-
-	String name;
-	int color_r;
-	int color_g;
-	int color_b;
-	int color_grayscale;
-
-	MaterialType(String name, int r, int g, int b) {
-		this.name = name;
-		color_r = r;
-		color_g = g;
-		color_b = b;
-		color_grayscale = (int)(0.7*Math.max(Math.max(r, g), b));
-	}
-
-	MaterialType(String name, int r, int g, int b, int grayscale_brightness) {
-		this.name = name;
-		color_r = r;
-		color_g = g;
-		color_b = b;
-		color_grayscale = grayscale_brightness;
-	}
-
-	public static boolean isConducting(MaterialType material) {
-		return (material == MaterialType.EMF
-		|| material == MaterialType.AC_EMF
-		|| material == MaterialType.SWITCH
-		|| material == MaterialType.METAL
-		|| material == MaterialType.METAL_HIGH_W
-		|| material == MaterialType.METAL_LOW_W
-		|| material == MaterialType.METAL_HIGH_C
-		|| material == MaterialType.METAL_LOW_C);
-	}
-
-	public static boolean isSemiconducting(MaterialType material) {
-		return (material == MaterialType.SEMI_P_TYPE
-		|| material == MaterialType.SEMI_N_TYPE
-		|| material == MaterialType.SEMI
-		|| material == MaterialType.SEMI_HEAVY_P_TYPE
-		|| material == MaterialType.SEMI_HEAVY_N_TYPE
-		|| material == MaterialType.SEMI_LIGHT_P_TYPE
-		|| material == MaterialType.SEMI_LIGHT_N_TYPE);
-	}
-
-	@Override
-	public String toString() {
-		return "Material: " + name;
-	}
-}
-
-class Material implements Cloneable {
-	MaterialType type = MaterialType.VACUUM;
-
-	boolean modified = false;
-	int activated = 1;
-	int conducting = 0;
-	int semiconducting = 0;
-	double emf;
-	int emf_x = 0;			// EMF strength
-	int emf_y = 0;			// EMF strength
-	int emf_z = 0;			// EMF strength
-	double eps_r = 1.0;			// Permittivity
-	double mu_r = 1.0;			// Permeability
-	double rho_back = 0.0;		// Background charge density
-	double ni = 0;				// Equilibrium carrier density
-	double W = 0;				// Work function
-	double Eb = 0;				// Bandgap
-	double Ea = 0;				// Recombination activation energy
-	double absorptivity = 0.0;
-
-	public void erase() {
-		type = MaterialType.VACUUM;
-		modified = false;
-		activated = 1;
-		conducting = 0;
-		semiconducting = 0;
-		emf = 0;
-		emf_x = 0;
-		emf_y = 0;
-		emf_z = 0;
-		eps_r = 1.0;
-		mu_r = 1.0;
-		rho_back = 0.0;
-		ni = 0;
-		W = 0;
-		Eb = 0;
-		Ea = 0;
-		absorptivity = 0;
-	}
-
-	@Override
-	public Material clone() {
-		try {
-			return (Material) super.clone();
-		} catch (CloneNotSupportedException e) {
-			return null;
-		}
 	}
 }

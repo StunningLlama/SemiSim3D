@@ -20,13 +20,18 @@ import com.jogamp.opengl.glu.GLU;
 import com.jogamp.opengl.util.FPSAnimator;
 import com.jogamp.opengl.util.awt.TextRenderer;
 
+import electrodynamics.Controls.Brush;
+import electrodynamics.Renderer.RenderMode;
+import electrodynamics.Renderer.Text;
+import electrodynamics.Renderer.VectorMode;
+import electrodynamics.Renderer.VectorView;
 import electrodynamics.util.Device;
 import electrodynamics.util.Utils;
 import electrodynamics.util.Vector3;
 
 public class Renderer3D implements GLEventListener {
 
-	Electrodynamics e;
+	Simulation e;
 	GLCanvas canvas;
 	IntBuffer selectBuf;
 	GLU glu;
@@ -46,7 +51,7 @@ public class Renderer3D implements GLEventListener {
 
 	ArrayList<Text> texts = new ArrayList<>();
 	
-	public Renderer3D(Electrodynamics e) {
+	public Renderer3D(Simulation e) {
 		this.e = e;
         GLProfile profile = GLProfile.get(GLProfile.GL2);
         GLCapabilities capabilities = new GLCapabilities(profile);

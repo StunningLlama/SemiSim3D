@@ -18,13 +18,14 @@ import java.util.concurrent.TimeUnit;
 
 import javax.swing.JPanel;
 
+import electrodynamics.Controls.Brush;
 import electrodynamics.util.PeriodicTask;
 import electrodynamics.util.Timer;
 import electrodynamics.util.Utils;
 import electrodynamics.util.Vector3;
 
 public class Renderer extends PeriodicTask {
-	Electrodynamics e;
+	Simulation e;
 	
 
 	JPanel imgpanel;
@@ -75,7 +76,7 @@ public class Renderer extends PeriodicTask {
 	Timer t5 = new Timer("Graphics", 20, true);
 	
 
-	public Renderer(Electrodynamics e) {
+	public Renderer(Simulation e) {
 		this.e = e;
 
 		canvas = new RenderCanvas(e);
@@ -95,14 +96,14 @@ public class Renderer extends PeriodicTask {
 				FPStimer.stop();
 				FPStimer.start();
 			} catch (Exception e1) {
-				SemiSim3D.displayErrorMessage(e1);
+				SemiSim.displayErrorMessage(e1);
 			}
 			finally {
 				e.rwLock.readLock().unlock();
 			}
 		}
 		
-        SemiSim3D.instance.threadPool.schedule(this, nextDelay(frameduration), TimeUnit.MILLISECONDS);
+        SemiSim.instance.threadPool.schedule(this, nextDelay(frameduration), TimeUnit.MILLISECONDS);
 	}
 	
 	public void create3dCanvas() {
@@ -1189,152 +1190,152 @@ public class Renderer extends PeriodicTask {
 		else
 			return String.format(precision, quantity*1e-12) + " T" + unit;
 	}
-}
+	
+	public enum ScalarView {
+		NONE("No scalar overlay", 0),
+		E_FIELD("View E field magnitude", 1e4),
+		D_FIELD("View D field magnitude", 1e4*8.85e-12),
+		B_FIELD("View B field magnitude", 1e-5),
+		H_FIELD("View H field magnitude", 1e-5/1.26e-6),
+		CHARGE("View \u03c1: Net charge density", 1),
+		CURRENT("View J: Total current magnitude", 1e8),
+		POTENTIAL("View \u03d5: Electric scalar potential", 0.1),
+		ENERGY("View u: Electromagnetic energy density", 1),
+		ELECTRON_CHARGE("View \u03c1\u2099: Electron charge density", 1),
+		HOLE_CHARGE("View \u03c1\u209A: Hole charge density", 1),
+		COMBINED_CHARGE("View: Combined electron+hole charge density", 1),
+		BACKGROUND_CHARGE("View \u03c1\u2080: Background charge density", 1),
+		HEAT("View Q: Heat dissipation", 1),
+		ENTROPY("View s: Entropy generation (Free energy dissipation)", 1),
+		ELECTRON_POTENTIAL("View F\u2099: Electron chemical potential (quasi Fermi level)", 0.1),
+		HOLE_POTENTIAL("View F\u209A: Hole chemical potential (quasi Fermi level)", 0.1),
+		AVERAGE_POTENTIAL("View F: Average electrochemical potential", 0.1),
+		RECOMBINATION("View R: Recombination rate", 1e-30),
+		LIGHT("View: Emitted light", 1e-30),
+		DEBUG("Debug", 1),
+		DEBUG2("Debug 2", 1);
 
-enum ScalarView {
-	NONE("No scalar overlay", 0),
-	E_FIELD("View E field magnitude", 1e4),
-	D_FIELD("View D field magnitude", 1e4*8.85e-12),
-	B_FIELD("View B field magnitude", 1e-5),
-	H_FIELD("View H field magnitude", 1e-5/1.26e-6),
-	CHARGE("View \u03c1: Net charge density", 1),
-	CURRENT("View J: Total current magnitude", 1e8),
-	POTENTIAL("View \u03d5: Electric scalar potential", 0.1),
-	ENERGY("View u: Electromagnetic energy density", 1),
-	ELECTRON_CHARGE("View \u03c1\u2099: Electron charge density", 1),
-	HOLE_CHARGE("View \u03c1\u209A: Hole charge density", 1),
-	COMBINED_CHARGE("View: Combined electron+hole charge density", 1),
-	BACKGROUND_CHARGE("View \u03c1\u2080: Background charge density", 1),
-	HEAT("View Q: Heat dissipation", 1),
-	ENTROPY("View s: Entropy generation (Free energy dissipation)", 1),
-	ELECTRON_POTENTIAL("View F\u2099: Electron chemical potential (quasi Fermi level)", 0.1),
-	HOLE_POTENTIAL("View F\u209A: Hole chemical potential (quasi Fermi level)", 0.1),
-	AVERAGE_POTENTIAL("View F: Average electrochemical potential", 0.1),
-	RECOMBINATION("View R: Recombination rate", 1e-30),
-	LIGHT("View: Emitted light", 1e-30),
-	DEBUG("Debug", 1),
-	DEBUG2("Debug 2", 1);
+		String name;
+		double scale; //Typical order of magnitude of the quantity
 
-	String name;
-	double scale; //Typical order of magnitude of the quantity
+		ScalarView(String name, double scale)
+		{
+			this.name = name;
+			this.scale = scale;
+		}
 
-	ScalarView(String name, double scale)
-	{
-		this.name = name;
-		this.scale = scale;
+		@Override
+		public String toString() {
+			return name;
+		}
 	}
 
-	@Override
-	public String toString() {
-		return name;
-	}
-}
+	public enum VectorView {
+		NONE("No vector overlay", 0),
+		E_FIELD("View E field", 1e4),
+		D_FIELD("View D field", 1e4*8.85e-12),
+		B_FIELD("View B field", 1e-5),
+		H_FIELD("View H field", 1e-5/1.26e-6),
+		ELECTRON_CURRENT("View J\u2099: Electron current", 1e8),
+		HOLE_CURRENT("View J\u209A: Hole current", 1e8),
+		TOTAL_CURRENT("View J: Total current", 1e8),
+		EMF("View \u2130: External electromotive force", 1e4),
+		POYNTING("View S: Poynting vector", 1);
 
-enum VectorView {
-	NONE("No vector overlay", 0),
-	E_FIELD("View E field", 1e4),
-	D_FIELD("View D field", 1e4*8.85e-12),
-	B_FIELD("View B field", 1e-5),
-	H_FIELD("View H field", 1e-5/1.26e-6),
-	ELECTRON_CURRENT("View J\u2099: Electron current", 1e8),
-	HOLE_CURRENT("View J\u209A: Hole current", 1e8),
-	TOTAL_CURRENT("View J: Total current", 1e8),
-	EMF("View \u2130: External electromotive force", 1e4),
-	POYNTING("View S: Poynting vector", 1);
+		String name;
+		double scale;
 
-	String name;
-	double scale;
+		VectorView(String name, double scale)
+		{
+			this.name = name;
+			this.scale = scale;
+		}
 
-	VectorView(String name, double scale)
-	{
-		this.name = name;
-		this.scale = scale;
-	}
-
-	@Override
-	public String toString() {
-		return name;
-	}
-}
-
-enum VectorMode {
-	ARROWS("Show vectors"),
-	LINES("Show lines");
-
-	String name;
-	VectorMode(String name)
-	{
-		this.name = name;
+		@Override
+		public String toString() {
+			return name;
+		}
 	}
 
-	@Override
-	public String toString() {
-		return name;
-	}
-}
+	public enum VectorMode {
+		ARROWS("Show vectors"),
+		LINES("Show lines");
 
-enum RenderMode {
-	SLICE_X("2D x cross-section"),
-	SLICE_Y("2D y cross-section"),
-	SLICE_Z("2D z cross-section"),
-	THREED("3D orthographic"),
-	THREED_FIELDS_ONLY("3D orthographic (fields only)"),
-	THREED_TRANSLUCENT("3D orthographic (transparent)"),
-	THREED_PERSPECTIVE("3D perspective"),
-	THREED_PERSPECTIVE_FIELDS_ONLY("3D perspective (fields only)"),
-	THREED_PERSPECTIVE_TRANSLUCENT("3D perspective (transparent)"),
-	THREED_STEREO("3D stereoscopic (cross-eye)"),
-	THREED_STEREO_INV("3D stereoscopic (parallel)");
+		String name;
+		VectorMode(String name)
+		{
+			this.name = name;
+		}
 
-	String name;
-	RenderMode(String name)
-	{
-		this.name = name;
+		@Override
+		public String toString() {
+			return name;
+		}
 	}
 
-	@Override
-	public String toString() {
-		return name;
+	public enum RenderMode {
+		SLICE_X("2D x cross-section"),
+		SLICE_Y("2D y cross-section"),
+		SLICE_Z("2D z cross-section"),
+		THREED("3D orthographic"),
+		THREED_FIELDS_ONLY("3D orthographic (fields only)"),
+		THREED_TRANSLUCENT("3D orthographic (transparent)"),
+		THREED_PERSPECTIVE("3D perspective"),
+		THREED_PERSPECTIVE_FIELDS_ONLY("3D perspective (fields only)"),
+		THREED_PERSPECTIVE_TRANSLUCENT("3D perspective (transparent)"),
+		THREED_STEREO("3D stereoscopic (cross-eye)"),
+		THREED_STEREO_INV("3D stereoscopic (parallel)");
+
+		String name;
+		RenderMode(String name)
+		{
+			this.name = name;
+		}
+
+		@Override
+		public String toString() {
+			return name;
+		}
+
+		public static boolean is3d(RenderMode mode) {
+			return (mode == THREED || mode == THREED_FIELDS_ONLY || mode == THREED_TRANSLUCENT
+			|| mode == THREED_PERSPECTIVE || mode == THREED_PERSPECTIVE_FIELDS_ONLY || mode == THREED_PERSPECTIVE_TRANSLUCENT
+			|| mode == THREED_STEREO || mode == THREED_STEREO_INV);
+		}
+
+		public static boolean isOrthographic(RenderMode mode) {
+			return (mode == THREED || mode == THREED_FIELDS_ONLY || mode == THREED_TRANSLUCENT);
+		}
+
+		public static boolean isPerspective(RenderMode mode) {
+			return (mode == THREED_PERSPECTIVE || mode == THREED_PERSPECTIVE_FIELDS_ONLY || mode == THREED_PERSPECTIVE_TRANSLUCENT
+			|| mode == THREED_STEREO || mode == THREED_STEREO_INV);
+		}
+
+		public static boolean isStereoscopic(RenderMode mode) {
+			return (mode == THREED_STEREO || mode == THREED_STEREO_INV);
+		}
 	}
 
-	public static boolean is3d(RenderMode mode) {
-		return (mode == THREED || mode == THREED_FIELDS_ONLY || mode == THREED_TRANSLUCENT
-		|| mode == THREED_PERSPECTIVE || mode == THREED_PERSPECTIVE_FIELDS_ONLY || mode == THREED_PERSPECTIVE_TRANSLUCENT
-		|| mode == THREED_STEREO || mode == THREED_STEREO_INV);
-	}
+	public class Text {
+		String text;
+		int x;
+		int y;
+		int z;
+		int minwidth;
+		boolean big;
+		boolean hasBackground;
+		boolean is3D;
 
-	public static boolean isOrthographic(RenderMode mode) {
-		return (mode == THREED || mode == THREED_FIELDS_ONLY || mode == THREED_TRANSLUCENT);
-	}
-
-	public static boolean isPerspective(RenderMode mode) {
-		return (mode == THREED_PERSPECTIVE || mode == THREED_PERSPECTIVE_FIELDS_ONLY || mode == THREED_PERSPECTIVE_TRANSLUCENT
-		|| mode == THREED_STEREO || mode == THREED_STEREO_INV);
-	}
-
-	public static boolean isStereoscopic(RenderMode mode) {
-		return (mode == THREED_STEREO || mode == THREED_STEREO_INV);
-	}
-}
-
-class Text {
-	String text;
-	int x;
-	int y;
-	int z;
-	int minwidth;
-	boolean big;
-	boolean hasBackground;
-	boolean is3D;
-
-	public Text(String text, int x, int y, int z, boolean big, boolean hasBackground, boolean is3D) {
-		this.text = text;
-		this.x = x;
-		this.y = y;
-		this.z = z;
-		this.big = big;
-		this.hasBackground = hasBackground;
-		this.is3D = is3D;
-		minwidth = 0;
+		public Text(String text, int x, int y, int z, boolean big, boolean hasBackground, boolean is3D) {
+			this.text = text;
+			this.x = x;
+			this.y = y;
+			this.z = z;
+			this.big = big;
+			this.hasBackground = hasBackground;
+			this.is3D = is3D;
+			minwidth = 0;
+		}
 	}
 }
