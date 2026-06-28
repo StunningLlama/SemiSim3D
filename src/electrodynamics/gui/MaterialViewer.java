@@ -129,9 +129,9 @@ public class MaterialViewer extends JFrame implements ActionListener, ListSelect
 			Material mat = new Material();
 			e.initializeMaterial(mat, type);
 			
-			double rho_n = mat.calcEquilibriumElectronCharge(e.e_charge, e.k*e.T);
-			double rho_p = mat.calcEquilibriumHoleCharge(e.e_charge, e.k*e.T);
-			double sigma = mat.calcConductivity(e.e_charge, e.k*e.T);
+			double rho_n = mat.calcEquilibriumElectronCharge(e.e_charge, e.kB*e.T);
+			double rho_p = mat.calcEquilibriumHoleCharge(e.e_charge, e.kB*e.T);
+			double sigma = mat.calcConductivity(e.e_charge, e.kB*e.T);
 			
 
 			double n = rho_n/e.q_n;
@@ -154,11 +154,11 @@ public class MaterialViewer extends JFrame implements ActionListener, ListSelect
 			str += "Conduction band energy: <b>" + e.units.toString(mat.Ec/e.eVtoJ, Quantity.ELECTRIC_POTENTIAL) + "</b><br>";
 			str += "Valence band energy: <b>" + e.units.toString(mat.Ev/e.eVtoJ, Quantity.ELECTRIC_POTENTIAL) + "</b><br>";
 			str += "Band gap: <b>" + e.units.toString((mat.Ec - mat.Ev)/e.eVtoJ, Quantity.ELECTRIC_POTENTIAL) + "</b><br>";
-			str += "Workfunction: <b>" + e.units.toString(mat.calcPhi(e.k*e.T)/e.eVtoJ, Quantity.ELECTRIC_POTENTIAL) + "</b><br>";
+			str += "Workfunction: <b>" + e.units.toString(mat.calcPhi(e.kB*e.T)/e.eVtoJ, Quantity.ELECTRIC_POTENTIAL) + "</b><br>";
 			str += "Effective conduction band DOS: <b>" + e.units.toString(mat.gc, Quantity.NUMBER_DENSITY) + "</b><br>";
 			str += "Effective valence band DOS: <b>" + e.units.toString(mat.gv, Quantity.NUMBER_DENSITY) + "</b><br>";
 			str += "Dopant concentration: <b>" + e.units.toString(Math.abs(mat.rho_back/e.e_charge), Quantity.NUMBER_DENSITY) + "</b><br>";
-			str += "Eq. carrier concentration (ni): <b>" + e.units.toString(mat.calc_ni(e.k*e.T) , Quantity.NUMBER_DENSITY) + "</b><br>";
+			str += "Eq. carrier concentration (ni): <b>" + e.units.toString(mat.calc_ni(e.kB*e.T) , Quantity.NUMBER_DENSITY) + "</b><br>";
 			str += "Eq. electron density: <b>" + e.units.toString(-rho_n/e.e_charge, Quantity.NUMBER_DENSITY) + "</b><br>";
 			str += "Eq. hole density: <b>" + e.units.toString(rho_p/e.e_charge, Quantity.NUMBER_DENSITY) + "</b><br>";
 			str += "<br>";

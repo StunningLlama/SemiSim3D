@@ -152,7 +152,6 @@ public class SaveManager {
 						case "phase": e.AC_phase = fstr.nextDouble(); break;
 						case "description": e.description = fstr.nextString(); break;
 
-						case "gui_3d_view": e.opts.gui_3d_view.setSelectedItem(gson.fromJson(fstr, RenderMode.class)); break;
 						case "gui_zslice": e.opts.gui_slice.setValue(fstr.nextInt()); break;
 						case "pitch": e.renderer.pitch = (float)(fstr.nextDouble()); break;
 						case "yaw": e.renderer.yaw = (float)(fstr.nextDouble()); break;
@@ -164,6 +163,7 @@ public class SaveManager {
 						case "vectorview": e.controls.vectorview.setOption(gson.fromJson(fstr, Renderer.VectorView.class)); break;
 						case "scalarmode": e.controls.scalarmode.setOption(gson.fromJson(fstr, Renderer.ScalarMode.class)); break;
 						case "vectormode": e.controls.vectormode.setOption(gson.fromJson(fstr, Renderer.VectorMode.class)); break;
+						case "rendermode": e.controls.rendermode.setOption(gson.fromJson(fstr, Renderer.RenderMode.class)); break;
 						case "gui_bc": e.opts.gui_bc.setSelectedItem(gson.fromJson(fstr, BoundaryCondition.class)); break;
 						
 						default:
@@ -424,10 +424,9 @@ public class SaveManager {
 				header.add("vectorview", gson.toJsonTree(e.controls.vectorview.getOption()));
 				header.add("scalarmode", gson.toJsonTree(e.controls.scalarmode.getOption()));
 				header.add("vectormode", gson.toJsonTree(e.controls.vectormode.getOption()));
+				header.add("rendermode", gson.toJsonTree(e.controls.rendermode.getOption()));
 				header.add("gui_bc", gson.toJsonTree(e.opts.gui_bc.getSelectedItem()));
 				
-				
-				header.add("gui_3d_view", gson.toJsonTree(e.opts.gui_3d_view.getSelectedItem()));
 				header.addProperty("gui_zslice", e.opts.gui_slice.getValue());
 				header.addProperty("pitch", e.renderer.pitch);
 				header.addProperty("yaw", e.renderer.yaw);

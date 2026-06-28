@@ -73,7 +73,7 @@ public class Clipboard {
 					int si = i-delta_mx;
 					int sj = j-delta_my;
 					int sk = k-delta_mz;
-					if (si >= 0 && sj >= 0 && si < e.nx && sj < e.ny && mat[si][sj][sk].m.type != MaterialType.VACUUM) {
+					if (si >= 0 && sj >= 0 && sk >= 0 && si < e.nx && sj < e.ny && sk < e.nz && mat[si][sj][sk].m.type != MaterialType.VACUUM) {
 						e.eraseMaterial(i, j, k);
 						mat[si][sj][sk].paste(e, i, j, k);
 						e.controls.selected[i][j][k] = true;

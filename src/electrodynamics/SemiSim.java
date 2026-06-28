@@ -36,7 +36,7 @@ public class SemiSim {
 	public static SemiSim instance;
 	public static int n_threads = Runtime.getRuntime().availableProcessors();
 
-	public static String name = "Brandon's semiconductor simulator";
+	public static String name = "Brandon's semiconductor simulator 3D";
 	public static String about = "<html><body><p style='width: 250px;'>Brandon's Semiconductor Simulator / SemiSim.<br>"
 									+ "Version 2.0<br>"
 									+ "(c) 2026 Brandon Li<br><br>"

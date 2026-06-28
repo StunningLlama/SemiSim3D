@@ -155,6 +155,10 @@ public class Utils {
 	public static double minAbs(double x, double y) {
 		return Math.abs(x) < Math.abs(y)? x:y;
 	}
+
+	public static double bilinearinterp_length(double[][][] Fx, double[][][] Fy, double[][][] Fz, double x, double y, double z) {
+		return length(bilinearinterp(Fx, x-0.5, y, z), bilinearinterp(Fy, x, y-0.5, z), bilinearinterp(Fz, x, y, z-0.5));
+	}
 	
 	public static double bilinearinterp(double[][] array, double x, double y, int nx, int ny) {
 		int xfloor = (int)Math.floor(x);

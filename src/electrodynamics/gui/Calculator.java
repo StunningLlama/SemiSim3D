@@ -266,7 +266,7 @@ public class Calculator extends JDialog implements ActionListener {
 			try {
 				Material mat = new Material();
 				double eVtoJ = parent.e.eVtoJ;
-				double kT = parent.e.k*parent.e.T;
+				double kT = parent.e.kB*parent.e.T;
 				switch (tabbedPane.getSelectedIndex()) {
 				case 0:
 					mat.computeBandstructureChiG(getDouble(chi)*eVtoJ, getDouble(Eg)*eVtoJ, getDouble(gc), getDouble(gv), kT);

@@ -94,7 +94,7 @@ public class Renderer3D implements GLEventListener {
 		
     	e.rwLock.readLock().lock();
     	try {
-    		e.renderer.drawPixels();
+    		e.renderer.drawPixels(false);
 
     		if (isMainCanvas && e.opts.gui_rotate.isSelected()) {
     			e.renderer.yaw += 1f/e.renderer.targetframerate;
@@ -131,7 +131,7 @@ public class Renderer3D implements GLEventListener {
     		gl.glClear(GL.GL_DEPTH_BUFFER_BIT);
     		gl.glDisable(GL2.GL_BLEND);
 
-    		if (e.opts.gui_text_bg.isSelected())
+    		if (e.opts.menu_text_bg.isSelected())
     		{
     			gl.glBegin(GL2.GL_TRIANGLES);
     			for (int pass = 1; pass <= 2; pass++) {
@@ -292,7 +292,7 @@ public class Renderer3D implements GLEventListener {
     }
 
     public void setupProjectionMat(GL2 gl) {
-        RenderMode mode = (RenderMode) e.opts.gui_3d_view.getSelectedItem();
+        RenderMode mode = e.controls.rendermode.getOption();
         
         if (RenderMode.isOrthographic(mode))
         	gl.glOrtho(-e.renderer.scale * aspect, e.renderer.scale * aspect, -e.renderer.scale, e.renderer.scale, 0, 128);
@@ -325,7 +325,7 @@ public class Renderer3D implements GLEventListener {
 
         //System.out.println("Here3");
         
-        RenderMode mode = (RenderMode) e.opts.gui_3d_view.getSelectedItem();
+        RenderMode mode = e.controls.rendermode.getOption();
 
         if (mode != RenderMode.THREED_FIELDS_ONLY && mode != RenderMode.THREED_PERSPECTIVE_FIELDS_ONLY) {
             float alpha = 1f;
@@ -483,13 +483,13 @@ public class Renderer3D implements GLEventListener {
         gl.glBegin(GL2.GL_LINES);
         
 
-        if ((VectorView) e.opts.gui_view_vec.getSelectedItem() != VectorView.NONE) {
+        if (e.controls.vectorview.getOption() != VectorView.NONE) {
 
         	double arrowlength = 30.0/e.renderer.scalefactor;
 
-        	VectorMode vector_display_mode = (VectorMode)e.opts.gui_view_vec_mode.getSelectedItem();
+        	VectorMode vector_display_mode = e.controls.vectormode.getOption();
         	
-        	double vectorscalingconstant = Math.pow(10.0, e.opts.gui_brightness_vec.getValue()/5.0)/((VectorView) e.opts.gui_view_vec.getSelectedItem()).getScalingConstant(e);
+        	double vectorscalingconstant = Math.pow(10.0, e.opts.gui_brightness_vec.getValue()/5.0)/(e.controls.vectorview.getOption()).getScalingConstant(e);
 
 
         	rand.setSeed(4);
@@ -505,7 +505,7 @@ public class Renderer3D implements GLEventListener {
         	}
 
         	
-        	VectorView synchronized_vector_view = ((VectorView) e.opts.gui_view_vec.getSelectedItem());
+        	VectorView synchronized_vector_view = e.controls.vectorview.getOption();
 			double[][][][] vf = {null, null, null};
 			e.computeVectorField(vf, synchronized_vector_view);
 			double grid_offset = synchronized_vector_view.getGridOffset();
@@ -654,9 +654,9 @@ public class Renderer3D implements GLEventListener {
     	int j = c%e.ny; c /= e.ny;
     	int i = c%e.nx; c /= e.nx;
     	
-    	e.controls.mx = e.controls.indexToCoord(i);
-    	e.controls.my = e.controls.indexToCoord(j);
-    	e.controls.mz = e.controls.indexToCoord(k);
+    	e.controls.mx_3d = i;
+    	e.controls.my_3d = j;
+    	e.controls.mz_3d = k;
 
     	e.controls.mx_normal = di_tmp-1;
     	e.controls.my_normal = dj_tmp-1;

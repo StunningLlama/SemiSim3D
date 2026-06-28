@@ -64,6 +64,7 @@ import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 
+import electrodynamics.Renderer.RenderMode;
 import electrodynamics.Renderer.ScalarMode;
 import electrodynamics.Renderer.ScalarView;
 import electrodynamics.Renderer.VectorMode;
@@ -123,6 +124,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	public boolean flip_v_selection = false;
 	public boolean exit = false;
 	public boolean updateimagesize = false;
+    public boolean update3dmode = false;
 
 
 	/* Mouse controls */
@@ -154,6 +156,12 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	public int my_screen = 0;
 	public int mx_start_screen = 0;
 	public int my_start_screen = 0;
+	public int mx_3d = 0;
+	public int my_3d = 0;
+	public int mz_3d = 0;
+	public int mx_3d_start = 0;
+	public int my_3d_start = 0;
+	public int mz_3d_start = 0;
 
 	public int mx = 0;
 	public int my = 0;
@@ -174,17 +182,13 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 
 	public int zoom_i1 = 0;
 	public int zoom_j1 = 0;
-	public int zoom_k1 = 0;
 	public int zoom_i2 = 0;
 	public int zoom_j2 = 0;
-	public int zoom_k2 = 0;
 
 	public int zoom_i1_pan = 0;
 	public int zoom_j1_pan = 0;
-	public int zoom_k1_pan = 0;
 	public int zoom_i2_pan = 0;
 	public int zoom_j2_pan = 0;
-	public int zoom_k2_pan = 0;
 	public boolean zoomed = false;
 
 	public boolean EMF_selected = false;
@@ -221,11 +225,12 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	private Cursor BLANK_CURSOR = Toolkit.getDefaultToolkit().createCustomCursor(blankImage, new Point(0, 0), "blank cursor");
 	private Cursor currentCursor = null;
 
-	public MenuCheckList<Brush, JRadioButtonMenuItem> brushes = new MenuCheckList<Brush, JRadioButtonMenuItem>();
-	public MenuCheckList<ScalarView, CustJRadioButtonMenuItem> scalarview = new MenuCheckList<ScalarView, CustJRadioButtonMenuItem>();
-	public MenuCheckList<VectorView, CustJRadioButtonMenuItem> vectorview = new MenuCheckList<VectorView, CustJRadioButtonMenuItem>();
-	public MenuCheckList<ScalarMode, CustJRadioButtonMenuItem> scalarmode = new MenuCheckList<ScalarMode, CustJRadioButtonMenuItem>();
-	public MenuCheckList<VectorMode, CustJRadioButtonMenuItem> vectormode = new MenuCheckList<VectorMode, CustJRadioButtonMenuItem>();
+	public MenuCheckList<Brush, JRadioButtonMenuItem> brushes = new MenuCheckList<Brush, JRadioButtonMenuItem>(Brush.values(), Brush.INTERACT);
+	public MenuCheckList<ScalarView, CustJRadioButtonMenuItem> scalarview = new MenuCheckList<ScalarView, CustJRadioButtonMenuItem>(ScalarView.values(), ScalarView.CHARGE);
+	public MenuCheckList<VectorView, CustJRadioButtonMenuItem> vectorview = new MenuCheckList<VectorView, CustJRadioButtonMenuItem>(VectorView.values(), VectorView.E_FIELD);
+	public MenuCheckList<ScalarMode, CustJRadioButtonMenuItem> scalarmode = new MenuCheckList<ScalarMode, CustJRadioButtonMenuItem>(ScalarMode.values(), ScalarMode.COLORS);
+	public MenuCheckList<VectorMode, CustJRadioButtonMenuItem> vectormode = new MenuCheckList<VectorMode, CustJRadioButtonMenuItem>(VectorMode.values(), VectorMode.ARROWS);
+	public MenuCheckList<RenderMode, CustJRadioButtonMenuItem> rendermode = new MenuCheckList<RenderMode, CustJRadioButtonMenuItem>(RenderMode.values(), RenderMode.THREED);
 	//public JCheckBoxMenuItem carriers = new JCheckBoxMenuItem("Show charge carriers");
 
 	public UndoRedo undoredo = new UndoRedo(4);
@@ -299,20 +304,49 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		}
 		mouse_pressed_prev_middle = mouse_pressed_middle;
 
+		//TODO
 		if (!e.renderer.threeD_mode) {
+
+			double sf_x = (zoom_i2-zoom_i1+1)/(double)e.canvas.zoom_bound_x;
+			double sf_y = (zoom_j2-zoom_j1+1)/(double)e.canvas.zoom_bound_y;
+
+			int mx_flat = (int)Math.round(zoom_i1 + (mx_screen-e.canvas.offset_x - 1)*sf_x - 0.5);
+			int my_flat = (int)Math.round(zoom_j1 + ((e.canvas.getHeight() - 1 - my_screen) -e.canvas.offset_y - 2)*sf_y - 0.5);
+			int mz_flat = e.opts.gui_slice.getValue();
+
+			int mx_start_flat = (int)Math.round(zoom_i1 + (mx_start_screen-e.canvas.offset_x - 1)*sf_x - 0.5);
+			int my_start_flat = (int)Math.round(zoom_j1 + ((e.canvas.getHeight() - 1 - my_start_screen)-e.canvas.offset_y - 2)*sf_y - 0.5);
+			int mz_start_flat = e.opts.gui_slice.getValue();
+			
 			if (e.renderer.slice_x) {
-				my = mx_screen;
-				mz = e.renderer.imgheight - 1 - my_screen;
-				mx = indexToCoord(e.opts.gui_slice.getValue());
+				mx = mz_flat;
+				my = mx_flat;
+				mz = my_flat;
+				mx_start = mz_start_flat;
+				my_start = mx_start_flat;
+				mz_start = my_start_flat;
 			} else if (e.renderer.slice_y) {
-				mx = mx_screen;
-				mz = e.renderer.imgheight - 1 - my_screen;
-				my = indexToCoord(e.opts.gui_slice.getValue());
+				mx = mx_flat;
+				my = mz_flat;
+				mz = my_flat;
+				mx_start = mx_start_flat;
+				my_start = mz_start_flat;
+				mz_start = my_start_flat;
 			} else if (e.renderer.slice_z) {
-				mx = mx_screen;
-				my = e.renderer.imgheight - 1 - my_screen;
-				mz = indexToCoord(e.opts.gui_slice.getValue());
+				mx = mx_flat;
+				my = my_flat;
+				mz = mz_flat;
+				mx_start = mx_start_flat;
+				my_start = my_start_flat;
+				mz_start = mz_start_flat;
 			}
+		} else {
+			mx = mx_3d;
+			my = my_3d;
+			mz = mz_3d;
+			mx_start = mx_3d_start;
+			my_start = my_3d_start;
+			mz_start = mz_3d_start;
 		}
 
 		if (alt_down && (mouse_pressed_left || releasing_left || mouse_pressed_right || releasing_right))
@@ -323,14 +357,14 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		if (mz < 0) mz = 0;
 		if (mx >= e.nx) mx = e.nx-1;
 		if (my >= e.ny) my = e.ny-1;
-		if (mz >= e.ny) mz = e.nz-1;
+		if (mz >= e.nz) mz = e.nz-1;
 
 		if (mx_start < 0) mx_start = 0;
 		if (my_start < 0) my_start = 0;
 		if (mz_start < 0) mz_start = 0;
 		if (mx_start >= e.nx) mx_start = e.nx-1;
 		if (my_start >= e.ny) my_start = e.ny-1;
-		if (mz_start >= e.ny) mz_start = e.nz-1;
+		if (mz_start >= e.nz) mz_start = e.nz-1;
 	}
 
 
@@ -603,6 +637,21 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		case ERASE:
 		case FILL:
 		case LIGHT:
+			
+			if (pressing_left && shift_down) {
+				e.renderer.pitch_start =  e.renderer.pitch;
+				e.renderer.yaw_start = e.renderer.yaw;
+
+				break;
+			}  else if (mouse_pressed_left && shift_down) {
+				e.renderer.pitch = e.renderer.pitch_start + 2*(float)(my_screen - my_start_screen)/e.renderer.imgpanel.getHeight();
+				e.renderer.yaw = e.renderer.yaw_start - 2*(float)(mx_screen - mx_start_screen)/e.renderer.imgpanel.getWidth();
+
+				if (e.renderer.pitch > Math.PI/2) e.renderer.pitch = (float)Math.PI/2;
+				if (e.renderer.pitch < -Math.PI/2) e.renderer.pitch = -(float)Math.PI/2;
+
+				break;
+			}
 
 			boolean pick_material = alt_down && mx-mx_start == 0 && my-my_start == 0;
 
@@ -819,16 +868,25 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 
 					updatematerials = true;
 				}
+
+				e.renderer.pitch_start =  e.renderer.pitch;
+				e.renderer.yaw_start = e.renderer.yaw;
+			} else if (mouse_pressed_left) {
+				e.renderer.pitch = e.renderer.pitch_start + 2*(float)(my_screen - my_start_screen)/e.renderer.imgpanel.getHeight();
+				e.renderer.yaw = e.renderer.yaw_start - 2*(float)(mx_screen - mx_start_screen)/e.renderer.imgpanel.getWidth();
+
+				if (e.renderer.pitch > Math.PI/2) e.renderer.pitch = (float)Math.PI/2;
+				if (e.renderer.pitch < -Math.PI/2) e.renderer.pitch = -(float)Math.PI/2;
 			}
 			break;
 		case ZOOM:
 			if (pressing_left && shift_down || pressing_middle) {
-				zoom_i1_pan = zoom_i1;
+				/*zoom_i1_pan = zoom_i1;
 				zoom_j1_pan = zoom_j1;
 				zoom_k1_pan = zoom_k1;
 				zoom_i2_pan = zoom_i2;
 				zoom_j2_pan = zoom_j2;
-				zoom_k2_pan = zoom_k2;
+				zoom_k2_pan = zoom_k2;*/
 			} else if (mouse_pressed_left && shift_down || mouse_pressed_middle) {
 				/*double sf_x = (zoom_i2_pan-zoom_i1_pan+1)/(double)e.canvas.zoom_bound_x;
 				double sf_y = (zoom_j2_pan-zoom_j1_pan+1)/(double)e.canvas.zoom_bound_y;
@@ -888,6 +946,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 					dragging_selection = true;
 					delta_mx = 0;
 					delta_my = 0;
+					delta_mz = 0;
 				}
 			} else if (mouse_pressed_left) {
 				if (brush != Brush.FLOODSELECT) {
@@ -909,7 +968,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 							{
 								for (int k = 0; k < e.nz; k++)
 								{
-									if (i >= mx0 && i <= mx1 && j >= my0 && j <= my1)
+									if (i >= mx0 && i <= mx1 && j >= my0 && j <= my1 && k >= mz0 && k <= mz1)
 										selected[i][j][k] = true;
 									else
 										selected[i][j][k] = false;
@@ -1337,10 +1396,16 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	public void resetZoom() {
 		zoom_i1 = 0;
 		zoom_j1 = 0;
-		zoom_k1 = 0;
-		zoom_i2 = e.nx-1;
-		zoom_j2 = e.ny-1;
-		zoom_k2 = e.nz-1;
+		if (e.renderer.slice_x) {
+			zoom_i2 = e.ny-1;
+			zoom_j2 = e.nz-1;
+		} else if (e.renderer.slice_y) {
+			zoom_i2 = e.nx-1;
+			zoom_j2 = e.nz-1;
+		} else if (e.renderer.slice_z) {
+			zoom_i2 = e.nx-1;
+			zoom_j2 = e.ny-1;
+		}
 		zoomed = false;
 	}
 
@@ -1378,7 +1443,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 					double cz = 0;
 					cx = i;
 					cy = j;
-					cz = j;
+					cz = k;
 
 					a.initialize(x1, y1, z1);
 					b.initialize(x2, y2, z2);
@@ -1667,15 +1732,16 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		case "menu_load_workshop":
 			Steam.loadUGCs();
 			break;
-		case "gui_3d_view":
-			e.renderer.set3Dmode();
-			break;
 		}
 
 		if (ev.getActionCommand() == ScalarView.class.getName() || ev.getActionCommand() == VectorView.class.getName())
 			e.updateMiscFields = true;
 		if (ev.getActionCommand() == Brush.class.getName())
 			e.opts.gui_brush.setSelectedItem(brushes.getOption());
+		if (ev.getActionCommand() == RenderMode.class.getName()) {
+			updateimagesize = true;
+			update3dmode = true;
+		}
 	}
 
 	@Override
@@ -1707,6 +1773,10 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		my_screen = ev.getY();
 		mx_start_screen = ev.getX();
 		my_start_screen = ev.getY();
+
+		mx_3d_start = mx_3d;
+		my_3d_start = my_3d;
+		mz_3d_start = mz_3d;
 
 		if (ev.getButton() == MouseEvent.BUTTON3 && !Brush.disableContextMenu((Brush) e.opts.gui_brush.getSelectedItem())) {
 			ContextMenu menu = new ContextMenu();
@@ -2127,9 +2197,11 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 
 	@Override
 	public void mouseWheelMoved(MouseWheelEvent ev) {
-		e.opts.gui_brushsize.setValue(e.opts.gui_brushsize.getValue() - (int)(5*ev.getPreciseWheelRotation()));
+		if (!shift_down)
+			e.opts.gui_brushsize.setValue(e.opts.gui_brushsize.getValue() - (int)(5*ev.getPreciseWheelRotation()));
+		else
+			e.renderer.scale *= Math.exp(-(int)(10*ev.getPreciseWheelRotation())/100.0);
 	}
-
 
 	@Override
 	public void keyTyped(KeyEvent ev) {
@@ -2384,6 +2456,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 			copyMenuDontClose(vectorview, "Vector view");
 			copyMenuDontClose(scalarmode, "Scalar display mode");
 			copyMenuDontClose(vectormode, "Vector display mode");
+			copyMenuDontClose(rendermode, "3D rendering mode");
 
 			JMenuItem close = new JMenuItem("Close menu");
 			close.addActionListener(new ActionListener() {

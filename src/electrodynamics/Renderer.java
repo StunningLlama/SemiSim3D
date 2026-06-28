@@ -155,16 +155,43 @@ public class Renderer extends PeriodicTask {
 		scalefactor = (int)scalefactor_real;
 		if (scalefactor < 1) scalefactor = 1;
 
-		int imgwidth_new = (int)Math.ceil(scalefactor*e.nx);	
-		int imgheight_new = (int)Math.ceil(scalefactor*e.ny);
+		int imgwidth_new = 0;
+		int imgheight_new = 0;
+
+		RenderMode mode = e.controls.rendermode.getOption();
+		threeD_mode = RenderMode.is3d(mode);
+		slice_x = (mode == RenderMode.SLICE_X);
+		slice_y = (mode == RenderMode.SLICE_Y);
+		slice_z = (mode == RenderMode.SLICE_Z);
+
+		if (slice_x) {
+			imgwidth_new = (int)Math.ceil(scalefactor*e.ny);
+			imgheight_new = (int)Math.ceil(scalefactor*e.nz);
+			e.opts.gui_slice.setMaximum(e.opts.gui_slice.getVisibleAmount() + e.nx - 1);
+		} else if (slice_y) {
+			imgwidth_new = (int)Math.ceil(scalefactor*e.nx);
+			imgheight_new = (int)Math.ceil(scalefactor*e.nz);
+			e.opts.gui_slice.setMaximum(e.opts.gui_slice.getVisibleAmount() + e.ny - 1);
+		} else if (slice_z) {
+			imgwidth_new = (int)Math.ceil(scalefactor*e.nx);
+			imgheight_new = (int)Math.ceil(scalefactor*e.ny);
+			e.opts.gui_slice.setMaximum(e.opts.gui_slice.getVisibleAmount() + e.nz - 1);
+		}
 		
-		if (imgwidth_new != imgwidth || imgheight_new != imgheight) {
+		if (!threeD_mode && (imgwidth_new != imgwidth || imgheight_new != imgheight)) {
 			imgwidth = imgwidth_new;
 			imgheight = imgheight_new;
 			img_back = (BufferedImage) e.opts.createImage(imgwidth, imgheight);
 			img_front = (BufferedImage) e.opts.createImage(imgwidth, imgheight);
 			imgData = ((DataBufferInt)img_back.getRaster().getDataBuffer()).getData();
 			depth_buf = new int[imgData.length];
+		}
+		
+		e.controls.resetZoom();
+		
+		if (e.controls.update3dmode) {
+			set3Dmode();
+			e.controls.update3dmode = false;
 		}
 	}
 	
@@ -190,16 +217,11 @@ public class Renderer extends PeriodicTask {
 	public void set3Dmode() {
 		e.rwLock.writeLock().lock();
 		try {
-			RenderMode mode = (RenderMode) e.opts.gui_3d_view.getSelectedItem();
-			threeD_mode = RenderMode.is3d(mode);
+			RenderMode mode = e.controls.rendermode.getOption();
 
 			e.opts.gui_slice.setVisible(!threeD_mode);
 			e.opts.gui_slicelabel.setVisible(!threeD_mode);
-			slice_x = (mode == RenderMode.SLICE_X);
-			slice_y = (mode == RenderMode.SLICE_Y);
-			slice_z = (mode == RenderMode.SLICE_Z);
-			generateCanvas();
-			e.opts.pack();
+			
 			int tmp = e.opts.gui_slice.getValue();
 			e.opts.gui_slice.setValue(0);
 			e.opts.gui_slice.setValue(1);
@@ -227,10 +249,8 @@ public class Renderer extends PeriodicTask {
 				}
 
 				updateParallax();
-				e.opts.pack();
 			} else {
 				imgpanel.add(e.canvas);
-				e.opts.pack();
 			}
 		} finally {
 			e.rwLock.writeLock().unlock();
@@ -238,8 +258,8 @@ public class Renderer extends PeriodicTask {
 	}
 	
 	public void updateParallax() {
-		if (RenderMode.isStereoscopic((RenderMode)e.opts.gui_3d_view.getSelectedItem())) {
-			if ((RenderMode)e.opts.gui_3d_view.getSelectedItem() == RenderMode.THREED_STEREO) {
+		if (RenderMode.isStereoscopic(e.controls.rendermode.getOption())) {
+			if (e.controls.rendermode.getOption() == RenderMode.THREED_STEREO) {
 				renderer_left_eye.eye_offset = e.opts.gui_parallax.getValue()/2f;
 				renderer_right_eye.eye_offset = -e.opts.gui_parallax.getValue()/2f;
 			} else {
@@ -253,28 +273,6 @@ public class Renderer extends PeriodicTask {
 
 		e.opts.gui_parallaxlabel.setText("Parallax = " + e.opts.gui_parallax.getValue() + " deg");
 	}
-	
-	public void generateCanvas() {
-		if (slice_x) {
-			imgwidth = (int)Math.ceil(scalefactor*e.ny);
-			imgheight = (int)Math.ceil(scalefactor*e.nz);
-			e.opts.gui_slice.setMaximum(e.opts.gui_slice.getVisibleAmount() + e.nx - 1);
-		} else if (slice_y) {
-			imgwidth = (int)Math.ceil(scalefactor*e.nx);
-			imgheight = (int)Math.ceil(scalefactor*e.nz);
-			e.opts.gui_slice.setMaximum(e.opts.gui_slice.getVisibleAmount() + e.ny - 1);
-		} else if (slice_z) {
-			imgwidth = (int)Math.ceil(scalefactor*e.nx);
-			imgheight = (int)Math.ceil(scalefactor*e.ny);
-			e.opts.gui_slice.setMaximum(e.opts.gui_slice.getVisibleAmount() + e.nz - 1);
-		} else {
-			return;
-		}
-
-		e.canvas.setPreferredSize(new Dimension(imgwidth, imgheight));
-		img_back = (BufferedImage) e.opts.createImage(imgwidth, imgheight);
-	}
-	
 	
 	public void setalphaBG(double alpha) {
 		alphaBG = (float)alpha;
@@ -364,7 +362,6 @@ public class Renderer extends PeriodicTask {
 
 	public void stampPixelData() {
 		e.t9.start();
-		int[] imgData = ((DataBufferInt)img_back.getRaster().getDataBuffer()).getData();
 
 		if (slice_z) {
 			int scansize = e.nx*scalefactor;
@@ -399,6 +396,7 @@ public class Renderer extends PeriodicTask {
 
 		if (slice_y) {
 			int scansize = e.nx*scalefactor;
+			//System.out.println(e.nx*e.nz*scalefactor*scalefactor+ " " + imgData.length);
 			int j_slice = e.opts.gui_slice.getValue();
 			for (int x = 0; x < e.nx*scalefactor; x++) {
 				for (int y = 0; y < e.nz*scalefactor; y++) {
@@ -635,26 +633,28 @@ public class Renderer extends PeriodicTask {
 	
 	@Override
 	public void run() {
-		
-		e.rwLock.readLock().lock();
-		try {
-			t5.start();
-			drawPixels();
-			drawOverlay();
-			//drawText();
-			//Graphics2D g = img_back.createGraphics();
-			//drawText(g);
-			copyImage(img_back, img_front);
-			e.canvas.repaint();
-			t5.stop();
 
-			FPStimer.stop();
-			FPStimer.start();
-		} catch (Exception e1) {
-			SemiSim.displayErrorMessage(e1);
-		}
-		finally {
-			e.rwLock.readLock().unlock();
+		if (!this.threeD_mode) {
+			e.rwLock.readLock().lock();
+			try {
+				t5.start();
+				drawPixels(true);
+				drawOverlay();
+				//drawText();
+				//Graphics2D g = img_back.createGraphics();
+				//drawText(g);
+				copyImage(img_back, img_front);
+				e.canvas.repaint();
+				t5.stop();
+
+				FPStimer.stop();
+				FPStimer.start();
+			} catch (Exception e1) {
+				SemiSim.displayErrorMessage(e1);
+			}
+			finally {
+				e.rwLock.readLock().unlock();
+			}
 		}
 
         SemiSim.instance.threadPool.schedule(this, nextDelay(frameduration), TimeUnit.MILLISECONDS);
@@ -682,7 +682,7 @@ public class Renderer extends PeriodicTask {
 	    return dst;
 	}
 
-	void drawPixels() {
+	void drawPixels(boolean stamp) {
 
 		for (int i = 0; i < e.nx; i++) {
 			for (int j = 0; j < e.ny; j++) {
@@ -1094,7 +1094,8 @@ public class Renderer extends PeriodicTask {
 		//	drawPixelLine(e.controls.text_x, e.controls.text_y, e.controls.text_x, e.controls.text_y+7);
 		//}
 
-		stampPixelData();
+		if (stamp)
+			stampPixelData();
 
 	}
 	

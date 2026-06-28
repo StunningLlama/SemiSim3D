@@ -22,14 +22,22 @@ public class MenuCheckList<T extends Enum<?>, Button extends JRadioButtonMenuIte
 	public ButtonGroup buttongroup = new ButtonGroup();
 	public JMenu menu;
 	public HashSet<T> separators;
+	private T default_option;
 	
-	public void initialize(T[] values, JMenu menu, ActionListener a, T default_option, T[] sep, Supplier<Button> constructor) {
+	public MenuCheckList(T[] values, T default_option) {
+		for (T b : values) {
+			optionlist.add(b);
+		}
+		this.default_option = default_option;
+	}
+	
+	public void initialize(JMenu menu, ActionListener a, T[] sep, Supplier<Button> constructor) {
 		this.menu = menu;
 		this.separators = new HashSet<T>();
 		if (sep != null)
 			separators.addAll(Arrays.asList(sep));
 		
-		for (T b : values) {
+		for (T b : optionlist) {
 			if (separators.contains(b))
 				menu.add(new JSeparator());
 			
@@ -37,8 +45,7 @@ public class MenuCheckList<T extends Enum<?>, Button extends JRadioButtonMenuIte
 			button.setText(b.toString());
 			buttonmap.put(b, button);
 			buttonlist.add(button);
-			optionlist.add(b);
-			button.setActionCommand(values[0].getClass().getName());
+			button.setActionCommand(optionlist.get(0).getClass().getName());
 			button.addActionListener(a);
 			button.addActionListener(this);
 			buttongroup.add(button);
@@ -62,6 +69,10 @@ public class MenuCheckList<T extends Enum<?>, Button extends JRadioButtonMenuIte
 	}
 
 	public T getOption() {
+		if (buttonmap.isEmpty()) {
+			return default_option;
+		}
+		
 		for (T t : buttonmap.keySet()) {
 			if (buttonmap.get(t).getModel() == buttongroup.getSelection())
 				return t;

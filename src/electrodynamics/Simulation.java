@@ -54,21 +54,9 @@ import electrodynamics.util.Timer;
 import electrodynamics.util.Utils;
 
 public class Simulation extends PeriodicTask {
-	/*
-	 * Demos:
-	 * 	- PN diode (LED) [done]
-	 * 	- Schottky diode [done]
-	 * 	- MOSFET (p-channel, n-channel), depletion & enhancement [done]
-	 * 	- BJT (NPN, PNP) [done]
-	 * 	- JFET (p-channel, n-channel) [done]
-	 *  - IGBT - [done, okay]
-	 *  - MESFET [done]
-	 *  - SCR  [done]
-	 *  - Darlington pair [done]
-	 *  - LEDs
-	 *  - Saturation velocity
-	 *  - Recombination
-	 */
+	//Clipboard rotations
+	//Draw axis
+	//z settings
 	
 	/* Parts */
 	
@@ -157,7 +145,7 @@ public class Simulation extends PeriodicTask {
 	public double eps0;			// Vaccuum permittivity
 	public double mu0;			// Vaccum permeability
 	public double c;			// Speed of light
-	public double k;			// Boltzmann constant
+	public double kB;			// Boltzmann constant
 	public double e_charge;		// Elementary charge
 	public double e_mass;		// Electron mass
 	public double eVtoJ = 1.6e-19;		// eV to J conversion factor
@@ -244,16 +232,16 @@ public class Simulation extends PeriodicTask {
 
 	public void setDefaultParameters() {
 		if (!lock_resolution) {
-			default_resolution_x = 32;
+			default_resolution_x = 16;
 			default_resolution_y = 32;
-			default_resolution_z = 32;
+			default_resolution_z = 64;
 			ds = 1e-7;
 		}
 		depth = 1e-3;
 
 		eps0 = 8.85e-12;
 		mu0 = 1.257e-6;
-		k = 1.381e-23;
+		kB = 1.381e-23;
 		e_charge = 1.6e-19;
 		e_mass = 9e-31;
 		T = 297.61;
@@ -327,7 +315,7 @@ public class Simulation extends PeriodicTask {
 		q_n = -e_charge;
 		q_p = e_charge;
 		
-		beta = 1/(k*T);
+		beta = 1/(kB*T);
 		D_electron_semi = mu_electron_semi/(beta*e_charge);
 		D_hole_semi = mu_hole_semi/(beta*e_charge);
 
@@ -340,7 +328,7 @@ public class Simulation extends PeriodicTask {
 
 		Material cur_source = new Material();
 		initializeMaterial(cur_source, MaterialType.CURRENT);
-		currentsource_sigma = cur_source.calcConductivity(e_charge, k*T);
+		currentsource_sigma = cur_source.calcConductivity(e_charge, kB*T);
 		
 		for (MaterialType type : MaterialType.values()) {
 			String name = modified_names.get(type);
@@ -750,8 +738,8 @@ public class Simulation extends PeriodicTask {
 			}
 			
 
-			double rho_n = mat.calcEquilibriumElectronCharge(e_charge, k*T);
-			double rho_p = mat.calcEquilibriumHoleCharge(e_charge, k*T);
+			double rho_n = mat.calcEquilibriumElectronCharge(e_charge, kB*T);
+			double rho_p = mat.calcEquilibriumHoleCharge(e_charge, kB*T);
 			double sigma_epsr = e_charge*(-mat.D_n*beta*rho_n + mat.D_p*beta*rho_p)/mat.eps_r;
 			if (sigma_epsr > sigma_epsr_max) {
 				sigma_epsr_max = sigma_epsr;
@@ -759,7 +747,7 @@ public class Simulation extends PeriodicTask {
 			}
 		}
 
-		dt_maximum = 0.9*Math.min(Math.min(ds/(Math.sqrt(2)*c), 4*eps0/sigma_epsr_max), Math.min(ds*ds/(4*D_electron_max), ds*ds/(4*D_hole_max)));
+		dt_maximum = 0.9*Math.min(Math.min(ds/(Math.sqrt(3)*c), 4*eps0/sigma_epsr_max), Math.min(ds*ds/(4*D_electron_max), ds*ds/(4*D_hole_max)));
 		
 		Hz_dissipation = 0.01*ds*ds/dt_maximum;
 		absorber_width = (int)Math.ceil(0.045*Math.min(nx, ny));
@@ -770,7 +758,7 @@ public class Simulation extends PeriodicTask {
 		renderer.cc_default_dot_density = 1/(25*e_charge*n_default_doping_concentration*ds*ds);
 		
 		CFL_text = "";
-		CFL_text += "Wave equation stability ratio = " + units.toString((Math.sqrt(2)*c)/(ds/dt_maximum), Quantity.DIMENSIONLESS) + "\n";
+		CFL_text += "Wave equation stability ratio = " + units.toString((Math.sqrt(3)*c)/(ds/dt_maximum), Quantity.DIMENSIONLESS) + "\n";
 		CFL_text += "Electron diffusion stability ratio (" + D_electron_name + ") = " + units.toString(dt_maximum/(ds*ds/(4*D_electron_max)), Quantity.DIMENSIONLESS) + "\n";
 		CFL_text += "Hole diffusion stability ratio (" + D_hole_name + ") = " + units.toString(dt_maximum/(ds*ds/(4*D_hole_max)), Quantity.DIMENSIONLESS) + "\n";
 		CFL_text += "Conduction stability ratio (" + sigma_epsr_name + ") = " + units.toString(dt_maximum*sigma_epsr_max/(4*eps0), Quantity.DIMENSIONLESS) + "\n";
@@ -1269,311 +1257,9 @@ public class Simulation extends PeriodicTask {
 					mid_barrier.await();
 
 					/* Update E field and currents */
-					for (int i = 0; i < nx-1; i++)
-					{
-						if (i >= i_min && i <= i_max) {
-							for (int j = 1; j < ny-1; j++)
-							{
-								for (int k = 1; k < nz-1; k++)
-								{
-									double ex_prev = Ex[i][j][k];
-
-									double sigma_n = 0;
-									double sigma_p = 0;
-
-									if (conducting_x[i][j][k] == 1) {
-
-										double d_n = 0.5*(D_n[i+1][j][k] + D_n[i][j][k]);
-										double d_p = 0.5*(D_p[i+1][j][k] + D_p[i][j][k]);
-
-										double rho_n_avg = 0.5*(rho_n[i+1][j][k] + rho_n[i][j][k]);
-										double rho_p_avg = 0.5*(rho_p[i+1][j][k] + rho_p[i][j][k]);
-
-										double Esat_n = 0.5*(v_sat_n[i+1][j][k] + v_sat_n[i][j][k])/(d_n*e_charge*beta);
-										double Esat_p = 0.5*(v_sat_p[i+1][j][k] + v_sat_p[i][j][k])/(d_p*e_charge*beta);
-
-										double Fny_avg = 0.25*(Fny[i][j][k] + Fny[i][j-1][k] + Fny[i+1][j][k] + Fny[i+1][j-1][k]);
-										double Fpy_avg = 0.25*(Fpy[i][j][k] + Fpy[i][j-1][k] + Fpy[i+1][j][k] + Fpy[i+1][j-1][k]);
-
-										double Fnz_avg = 0.25*(Fnz[i][j][k] + Fnz[i][j][k-1] + Fnz[i+1][j][k] + Fnz[i+1][j][k-1]);
-										double Fpz_avg = 0.25*(Fpz[i][j][k] + Fpz[i][j][k-1] + Fpz[i+1][j][k] + Fpz[i+1][j][k-1]);
-
-										double Fn_ratio = (Fny_avg*Fny_avg+Fnz_avg*Fnz_avg)/(Esat_n*Esat_n);
-										double Fp_ratio = (Fpy_avg*Fpy_avg+Fpz_avg*Fpz_avg)/(Esat_n*Esat_n);
-
-										double w_n = Fnx[i][j][k]*q_n*beta*ds/2;
-										double w_p = Fpx[i][j][k]*q_p*beta*ds/2;
-
-										double mr_n = 1/Math.sqrt((Fnx[i][j][k]*Fnx[i][j][k])/(Esat_n*Esat_n) + Fn_ratio + 1);
-										double mr_p = 1/Math.sqrt((Fpx[i][j][k]*Fpx[i][j][k])/(Esat_p*Esat_p) + Fp_ratio + 1);
-
-										// whether to use taylor series approximation around x=0
-										boolean approx_n = Math.abs(w_n) < 0.2;
-										boolean approx_p = Math.abs(w_p) < 0.2;
-
-										double exp_2wn = approx_n? 1 : FastExp.exp(2*w_n);
-										double exp_2wp = approx_p? 1 : FastExp.exp(2*w_p);
-
-										sigma_n = -d_n*rho_n_avg*e_charge*beta*(1 + Fn_ratio)*(mr_n*mr_n*mr_n);
-										sigma_p = d_p*rho_p_avg*e_charge*beta*(1 + Fp_ratio)*(mr_p*mr_p*mr_p);
-
-										Jx_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i+1][j][k] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n)
-										+ 2*rho_n_avg*w_n) - sigma_n*ex_prev;
-										Jx_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i+1][j][k] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p)
-										+ 2*rho_p_avg*w_p) - sigma_p*ex_prev;
-
-										if (store_diff_drift) {
-											diff_x_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i+1][j][k] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n));
-											diff_x_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i+1][j][k] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p));
-
-											drift_x_n[i][j][k] = 2*rho_n_avg*w_n*mr_n*d_n/ds;
-											drift_x_p[i][j][k] = 2*rho_p_avg*w_p*mr_p*d_p/ds;
-
-											vel_x_n[i][j][k] = 2*w_n*mr_n*d_n/ds;
-											vel_x_p[i][j][k] = 2*w_p*mr_p*d_p/ds;
-										}
-									} else {
-										Jx_n[i][j][k] = 0;
-										Jx_p[i][j][k] = 0;
-
-										if (store_diff_drift) {
-											diff_x_n[i][j][k] = 0;
-											diff_x_p[i][j][k] = 0;
-
-											drift_x_n[i][j][k] = 0;
-											drift_x_p[i][j][k] = 0;
-
-											vel_x_n[i][j][k] = 0;
-											vel_x_p[i][j][k] = 0;
-										}
-									}
-
-									//if (n_thread == 0) t6.start();
-									Jx_abs[i][j][k] = 0;
-
-									double sigma = sigma_n + sigma_p + absorptivity_x[i][j][k]*epsx[i][j][k]*absorbing_coeff;
-
-									double jx = Jx_abs[i][j][k] + Jx_n[i][j][k] + Jx_p[i][j][k];
-
-									//Ex[i][j][k] = (Ex[i][j][k]*(1-0.5*dt*sigma/epsx[i][j][k]) + (((Hz[i][j][k] - Hz[i][j-1][k]) - (Hy[i][j][k] - Hy[i][j][k-1]))/ds - jx)*dt/epsx[i][j][k])
-									//	/(1+0.5*dt*sigma/epsx[i][j][k]);
-
-									Jx_abs[i][j][k] += 0.5*(absorptivity_x[i][j][k]*epsx[i][j][k]*absorbing_coeff)*(ex_prev + Ex[i][j][k]);
-									Jx_n[i][j][k] += 0.5*sigma_n*(ex_prev + Ex[i][j][k]);
-									Jx_p[i][j][k] += 0.5*sigma_p*(ex_prev + Ex[i][j][k]);
-									//if (n_thread == 0) t6.stop();
-								}
-							}
-						}
-					}
-
-					for (int i = 1; i < nx-1; i++)
-					{
-						if (i >= i_min && i <= i_max) {
-							for (int j = 0; j < ny-1; j++)
-							{
-
-								for (int k = 1; k < nz-1; k++)
-								{
-									double ey_prev = Ey[i][j][k];
-
-									double sigma_n = 0;
-									double sigma_p = 0;
-
-									if (conducting_y[i][j][k] == 1) {
-
-										double d_n = 0.5*(D_n[i][j+1][k] + D_n[i][j][k]);
-										double d_p = 0.5*(D_p[i][j+1][k] + D_p[i][j][k]);
-
-										double rho_n_avg = 0.5*(rho_n[i][j+1][k] + rho_n[i][j][k]);
-										double rho_p_avg = 0.5*(rho_p[i][j+1][k] + rho_p[i][j][k]);
-
-										double Esat_n = 0.5*(v_sat_n[i][j+1][k] + v_sat_n[i][j][k])/(d_n*e_charge*beta);
-										double Esat_p = 0.5*(v_sat_p[i][j+1][k] + v_sat_p[i][j][k])/(d_p*e_charge*beta);
-
-										double Fnx_avg = 0.25*(Fnx[i][j][k] + Fnx[i-1][j][k] + Fnx[i][j+1][k] + Fnx[i-1][j+1][k]);
-										double Fpx_avg = 0.25*(Fpx[i][j][k] + Fpx[i-1][j][k] + Fpx[i][j+1][k] + Fpx[i-1][j+1][k]);
-
-										double Fnz_avg = 0.25*(Fnx[i][j][k] + Fnx[i][j][k-1] + Fnx[i][j+1][k] + Fnx[i][j+1][k-1]);
-										double Fpz_avg = 0.25*(Fpx[i][j][k] + Fpx[i][j][k-1] + Fpx[i][j+1][k] + Fpx[i][j+1][k-1]);
-										
-										double Fn_ratio = (Fnx_avg*Fnx_avg+Fnz_avg*Fnz_avg)/(Esat_n*Esat_n);
-										double Fp_ratio = (Fpx_avg*Fpx_avg+Fpz_avg*Fpz_avg)/(Esat_n*Esat_n);
-
-										double w_n = Fny[i][j][k]*q_n*beta*ds/2;
-										double w_p = Fpy[i][j][k]*q_p*beta*ds/2;
-
-										double mr_n = 1/Math.sqrt((Fny[i][j][k]*Fny[i][j][k])/(Esat_n*Esat_n)+Fn_ratio+1);
-										double mr_p = 1/Math.sqrt((Fpy[i][j][k]*Fpy[i][j][k])/(Esat_p*Esat_p)+Fp_ratio+1);
-
-										boolean approx_n = Math.abs(w_n) < 0.2;
-										boolean approx_p = Math.abs(w_p) < 0.2;
-
-										double exp_2wn = approx_n? 1 : FastExp.exp(2*w_n);
-										double exp_2wp = approx_p? 1 : FastExp.exp(2*w_p);
-
-										sigma_n = -d_n*rho_n_avg*e_charge*beta*(1 + Fn_ratio)*(mr_n*mr_n*mr_n);
-										sigma_p = d_p*rho_p_avg*e_charge*beta*(1 + Fp_ratio)*(mr_p*mr_p*mr_p);
-
-										Jy_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i][j+1][k] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n)
-										+ 2*rho_n_avg*w_n) - sigma_n*ey_prev;
-										Jy_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i][j+1][k] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p)
-										+ 2*rho_p_avg*w_p) - sigma_p*ey_prev;
-
-										if (store_diff_drift) {
-											diff_y_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i][j+1][k] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n));
-											diff_y_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i][j+1][k] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p));
-
-											drift_y_n[i][j][k] = 2*rho_n_avg*w_n*mr_n*d_n/ds;
-											drift_y_p[i][j][k] = 2*rho_p_avg*w_p*mr_p*d_p/ds;
-
-											vel_y_n[i][j][k] = 2*w_n*mr_n*d_n/ds;
-											vel_y_p[i][j][k] = 2*w_p*mr_p*d_p/ds;
-										}
-
-									} else {
-										Jy_n[i][j][k] = 0;
-										Jy_p[i][j][k] = 0;
-
-										if (store_diff_drift) {
-											diff_y_n[i][j][k] = 0;
-											diff_y_p[i][j][k] = 0;
-
-											drift_y_n[i][j][k] = 0;
-											drift_y_p[i][j][k] = 0;
-
-											vel_y_n[i][j][k] = 0;
-											vel_y_p[i][j][k] = 0;
-										}
-									}
-
-									Jy_abs[i][j][k] = 0;
-
-									double sigma = sigma_n + sigma_p + absorptivity_y[i][j][k]*epsy[i][j][k]*absorbing_coeff;
-
-									double jy = Jy_abs[i][j][k] + Jy_n[i][j][k] + Jy_p[i][j][k];
-
-									Ey[i][j][k] = (Ey[i][j][k]*(1-0.5*dt*sigma/epsy[i][j][k]) + (((Hx[i][j][k] - Hx[i][j][k-1]) - (Hz[i][j][k] - Hz[i-1][j][k]))/ds - jy)*dt/epsy[i][j][k])
-									/(1+0.5*dt*sigma/epsy[i][j][k]);
-
-									Jy_abs[i][j][k] += 0.5*(absorptivity_y[i][j][k]*epsy[i][j][k]*absorbing_coeff)*(ey_prev + Ey[i][j][k]);
-									Jy_n[i][j][k] += 0.5*sigma_n*(ey_prev + Ey[i][j][k]);
-									Jy_p[i][j][k] += 0.5*sigma_p*(ey_prev + Ey[i][j][k]);
-								}
-							}
-						}
-					}
-					
-
-					for (int i = 1; i < nx-1; i++)
-					{
-						if (i >= i_min && i <= i_max) {
-							for (int j = 1; j < ny-1; j++)
-							{
-
-								for (int k = 0; k < nz-1; k++)
-								{
-									double ez_prev = Ez[i][j][k];
-
-									double sigma_n = 0;
-									double sigma_p = 0;
-
-									if (conducting_z[i][j][k] == 1) {
-
-										double d_n = 0.5*(D_n[i][j][k+1] + D_n[i][j][k]);
-										double d_p = 0.5*(D_p[i][j][k+1] + D_p[i][j][k]);
-
-										double rho_n_avg = 0.5*(rho_n[i][j][k+1] + rho_n[i][j][k]);
-										double rho_p_avg = 0.5*(rho_p[i][j][k+1] + rho_p[i][j][k]);
-
-										double Esat_n = 0.5*(v_sat_n[i][j][k+1] + v_sat_n[i][j][k])/(d_n*e_charge*beta);
-										double Esat_p = 0.5*(v_sat_p[i][j][k+1] + v_sat_p[i][j][k])/(d_p*e_charge*beta);
-
-										double Fnx_avg = 0.25*(Fnx[i][j][k] + Fnx[i-1][j][k] + Fnx[i][j][k+1] + Fnx[i-1][j][k+1]);
-										double Fpx_avg = 0.25*(Fpx[i][j][k] + Fpx[i-1][j][k] + Fpx[i][j][k+1] + Fpx[i-1][j][k+1]);
-
-										double Fny_avg = 0.25*(Fny[i][j][k] + Fny[i][j-1][k] + Fny[i][j][k+1] + Fny[i][j-1][k+1]);
-										double Fpy_avg = 0.25*(Fpy[i][j][k] + Fpy[i][j-1][k] + Fpy[i][j][k+1] + Fpy[i][j-1][k+1]);
-										
-										double Fn_ratio = (Fnx_avg*Fnx_avg+Fny_avg*Fny_avg)/(Esat_n*Esat_n);
-										double Fp_ratio = (Fpx_avg*Fpx_avg+Fpy_avg*Fpy_avg)/(Esat_n*Esat_n);
-
-										double w_n = Fnz[i][j][k]*q_n*beta*ds/2;
-										double w_p = Fpz[i][j][k]*q_p*beta*ds/2;
-
-										double mr_n = 1/Math.sqrt((Fnz[i][j][k]*Fnz[i][j][k])/(Esat_n*Esat_n)+Fn_ratio+1);
-										double mr_p = 1/Math.sqrt((Fpz[i][j][k]*Fpz[i][j][k])/(Esat_p*Esat_p)+Fp_ratio+1);
-
-										boolean approx_n = Math.abs(w_n) < 0.2;
-										boolean approx_p = Math.abs(w_p) < 0.2;
-
-										double exp_2wn = approx_n? 1 : FastExp.exp(2*w_n);
-										double exp_2wp = approx_p? 1 : FastExp.exp(2*w_p);
-
-										sigma_n = -d_n*rho_n_avg*e_charge*beta*(1 + Fn_ratio)*(mr_n*mr_n*mr_n);
-										sigma_p = d_p*rho_p_avg*e_charge*beta*(1 + Fp_ratio)*(mr_p*mr_p*mr_p);
-
-										Jz_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i][j][k+1] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n)
-										+ 2*rho_n_avg*w_n) - sigma_n*ez_prev;
-										Jz_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i][j][k+1] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p)
-										+ 2*rho_p_avg*w_p) - sigma_p*ez_prev;
-
-										if (store_diff_drift) {
-											diff_z_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i][j][k+1] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n));
-											diff_z_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i][j][k+1] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p));
-
-											drift_z_n[i][j][k] = 2*rho_n_avg*w_n*mr_n*d_n/ds;
-											drift_z_p[i][j][k] = 2*rho_p_avg*w_p*mr_p*d_p/ds;
-
-											vel_z_n[i][j][k] = 2*w_n*mr_n*d_n/ds;
-											vel_z_p[i][j][k] = 2*w_p*mr_p*d_p/ds;
-										}
-
-									} else {
-										Jz_n[i][j][k] = 0;
-										Jz_p[i][j][k] = 0;
-
-										if (store_diff_drift) {
-											diff_z_n[i][j][k] = 0;
-											diff_z_p[i][j][k] = 0;
-
-											drift_z_n[i][j][k] = 0;
-											drift_z_p[i][j][k] = 0;
-
-											vel_z_n[i][j][k] = 0;
-											vel_z_p[i][j][k] = 0;
-										}
-									}
-
-									Jz_abs[i][j][k] = 0;
-
-									double sigma = sigma_n + sigma_p + absorptivity_z[i][j][k]*epsz[i][j][k]*absorbing_coeff;
-
-									double jz = Jz_abs[i][j][k] + Jz_n[i][j][k] + Jz_p[i][j][k];
-
-									Ez[i][j][k] = (Ez[i][j][k]*(1-0.5*dt*sigma/epsz[i][j][k]) + (((Hy[i][j][k] - Hy[i-1][j][k]) - (Hx[i][j][k] - Hx[i][j-1][k]))/ds - jz)*dt/epsz[i][j][k])
-									/(1+0.5*dt*sigma/epsz[i][j][k]);
-
-									Jz_abs[i][j][k] += 0.5*(absorptivity_z[i][j][k]*epsz[i][j][k]*absorbing_coeff)*(ez_prev + Ez[i][j][k]);
-									Jz_n[i][j][k] += 0.5*sigma_n*(ez_prev + Ez[i][j][k]);
-									Jz_p[i][j][k] += 0.5*sigma_p*(ez_prev + Ez[i][j][k]);
-								}
-							}
-						}
-					}
-					
-					for (int i = 0; i < nx-1; i++)
-					{
-						if (i >= i_min && i <= i_max) {
-							for (int j = 0; j < ny-1; j++)
-							{
-								for (int k = 1; k < nz-1; k++)
-								{
-									Bz_laplacian[i][j][k] = (Bz[i+2][j+1][k]+Bz[i+1][j+2][k]+Bz[i+1][j+1][k+1]+Bz[i][j+1][k]+Bz[i+1][j][k]+Bz[i+1][j+1][k-1]-6*Bz[i+1][j+1][k])/(ds*ds);
-								}
-							}
-						}
-					}
+					// If there are too many lines in this function the simulation slows down 100x... why????? wtf is going on
+					// Thus electric field update has to go into new function
+					updateE();
 
 					for (int i = 1; i < nx-1; i++)
 					{
@@ -1596,6 +1282,19 @@ public class Simulation extends PeriodicTask {
 								for (int k = 0; k < nz-1; k++)
 								{
 									By_laplacian[i][j][k] = (By[i+2][j][k+1]+By[i+1][j+1][k+1]+By[i+1][j][k+2]+By[i][j][k+1]+By[i+1][j-1][k+1]+By[i+1][j][k]-6*By[i+1][j][k+1])/(ds*ds);
+								}
+							}
+						}
+					}
+					
+					for (int i = 0; i < nx-1; i++)
+					{
+						if (i >= i_min && i <= i_max) {
+							for (int j = 0; j < ny-1; j++)
+							{
+								for (int k = 1; k < nz-1; k++)
+								{
+									Bz_laplacian[i][j][k] = (Bz[i+2][j+1][k]+Bz[i+1][j+2][k]+Bz[i+1][j+1][k+1]+Bz[i][j+1][k]+Bz[i+1][j][k]+Bz[i+1][j+1][k-1]-6*Bz[i+1][j+1][k])/(ds*ds);
 								}
 							}
 						}
@@ -1707,6 +1406,301 @@ public class Simulation extends PeriodicTask {
 				e.printStackTrace();
 			}
 		}
+		
+		public void updateE() {
+			for (int i = 0; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 1; j < ny-1; j++)
+					{
+						for (int k = 1; k < nz-1; k++)
+						{
+							double ex_prev = Ex[i][j][k];
+
+							double sigma_n = 0;
+							double sigma_p = 0;
+
+							if (conducting_x[i][j][k] == 1) {
+
+								double d_n = 0.5*(D_n[i+1][j][k] + D_n[i][j][k]);
+								double d_p = 0.5*(D_p[i+1][j][k] + D_p[i][j][k]);
+
+								double rho_n_avg = 0.5*(rho_n[i+1][j][k] + rho_n[i][j][k]);
+								double rho_p_avg = 0.5*(rho_p[i+1][j][k] + rho_p[i][j][k]);
+
+								double Esat_n = 0.5*(v_sat_n[i+1][j][k] + v_sat_n[i][j][k])/(d_n*e_charge*beta);
+								double Esat_p = 0.5*(v_sat_p[i+1][j][k] + v_sat_p[i][j][k])/(d_p*e_charge*beta);
+
+								double Fny_avg = 0.25*(Fny[i][j][k] + Fny[i][j-1][k] + Fny[i+1][j][k] + Fny[i+1][j-1][k]);
+								double Fpy_avg = 0.25*(Fpy[i][j][k] + Fpy[i][j-1][k] + Fpy[i+1][j][k] + Fpy[i+1][j-1][k]);
+
+								double Fnz_avg = 0.25*(Fnz[i][j][k] + Fnz[i][j][k-1] + Fnz[i+1][j][k] + Fnz[i+1][j][k-1]);
+								double Fpz_avg = 0.25*(Fpz[i][j][k] + Fpz[i][j][k-1] + Fpz[i+1][j][k] + Fpz[i+1][j][k-1]);
+
+								double Fn_ratio = (Fny_avg*Fny_avg+Fnz_avg*Fnz_avg)/(Esat_n*Esat_n);
+								double Fp_ratio = (Fpy_avg*Fpy_avg+Fpz_avg*Fpz_avg)/(Esat_n*Esat_n);
+
+								double w_n = Fnx[i][j][k]*q_n*beta*ds/2;
+								double w_p = Fpx[i][j][k]*q_p*beta*ds/2;
+
+								double mr_n = 1/Math.sqrt((Fnx[i][j][k]*Fnx[i][j][k])/(Esat_n*Esat_n) + Fn_ratio + 1);
+								double mr_p = 1/Math.sqrt((Fpx[i][j][k]*Fpx[i][j][k])/(Esat_p*Esat_p) + Fp_ratio + 1);
+
+								// whether to use taylor series approximation around x=0
+								boolean approx_n = Math.abs(w_n) < 0.2;
+								boolean approx_p = Math.abs(w_p) < 0.2;
+
+								double exp_2wn = approx_n? 1 : FastExp.exp(2*w_n);
+								double exp_2wp = approx_p? 1 : FastExp.exp(2*w_p);
+
+								sigma_n = -d_n*rho_n_avg*e_charge*beta*(1 + Fn_ratio)*(mr_n*mr_n*mr_n);
+								sigma_p = d_p*rho_p_avg*e_charge*beta*(1 + Fp_ratio)*(mr_p*mr_p*mr_p);
+
+								Jx_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i+1][j][k] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n)
+								+ 2*rho_n_avg*w_n) - sigma_n*ex_prev;
+								Jx_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i+1][j][k] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p)
+								+ 2*rho_p_avg*w_p) - sigma_p*ex_prev;
+
+								if (store_diff_drift) {
+									diff_x_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i+1][j][k] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n));
+									diff_x_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i+1][j][k] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p));
+
+									drift_x_n[i][j][k] = 2*rho_n_avg*w_n*mr_n*d_n/ds;
+									drift_x_p[i][j][k] = 2*rho_p_avg*w_p*mr_p*d_p/ds;
+
+									vel_x_n[i][j][k] = 2*w_n*mr_n*d_n/ds;
+									vel_x_p[i][j][k] = 2*w_p*mr_p*d_p/ds;
+								}
+							} else {
+								Jx_n[i][j][k] = 0;
+								Jx_p[i][j][k] = 0;
+
+								if (store_diff_drift) {
+									diff_x_n[i][j][k] = 0;
+									diff_x_p[i][j][k] = 0;
+
+									drift_x_n[i][j][k] = 0;
+									drift_x_p[i][j][k] = 0;
+
+									vel_x_n[i][j][k] = 0;
+									vel_x_p[i][j][k] = 0;
+								}
+							}
+
+							//if (n_thread == 0) t6.start();
+							Jx_abs[i][j][k] = 0;
+
+							double sigma = sigma_n + sigma_p + absorptivity_x[i][j][k]*epsx[i][j][k]*absorbing_coeff;
+
+							double jx = Jx_abs[i][j][k] + Jx_n[i][j][k] + Jx_p[i][j][k];
+
+							Ex[i][j][k] = (Ex[i][j][k]*(1-0.5*dt*sigma/epsx[i][j][k]) + (((Hz[i][j][k] - Hz[i][j-1][k]) - (Hy[i][j][k] - Hy[i][j][k-1]))/ds - jx)*dt/epsx[i][j][k])
+								/(1+0.5*dt*sigma/epsx[i][j][k]);
+
+							Jx_abs[i][j][k] += 0.5*(absorptivity_x[i][j][k]*epsx[i][j][k]*absorbing_coeff)*(ex_prev + Ex[i][j][k]);
+							Jx_n[i][j][k] += 0.5*sigma_n*(ex_prev + Ex[i][j][k]);
+							Jx_p[i][j][k] += 0.5*sigma_p*(ex_prev + Ex[i][j][k]);
+							//if (n_thread == 0) t6.stop();
+						}
+					}
+				}
+			}
+
+			for (int i = 1; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 0; j < ny-1; j++)
+					{
+
+						for (int k = 1; k < nz-1; k++)
+						{
+							double ey_prev = Ey[i][j][k];
+
+							double sigma_n = 0;
+							double sigma_p = 0;
+
+							if (conducting_y[i][j][k] == 1) {
+
+								double d_n = 0.5*(D_n[i][j+1][k] + D_n[i][j][k]);
+								double d_p = 0.5*(D_p[i][j+1][k] + D_p[i][j][k]);
+
+								double rho_n_avg = 0.5*(rho_n[i][j+1][k] + rho_n[i][j][k]);
+								double rho_p_avg = 0.5*(rho_p[i][j+1][k] + rho_p[i][j][k]);
+
+								double Esat_n = 0.5*(v_sat_n[i][j+1][k] + v_sat_n[i][j][k])/(d_n*e_charge*beta);
+								double Esat_p = 0.5*(v_sat_p[i][j+1][k] + v_sat_p[i][j][k])/(d_p*e_charge*beta);
+
+								double Fnx_avg = 0.25*(Fnx[i][j][k] + Fnx[i-1][j][k] + Fnx[i][j+1][k] + Fnx[i-1][j+1][k]);
+								double Fpx_avg = 0.25*(Fpx[i][j][k] + Fpx[i-1][j][k] + Fpx[i][j+1][k] + Fpx[i-1][j+1][k]);
+
+								double Fnz_avg = 0.25*(Fnx[i][j][k] + Fnx[i][j][k-1] + Fnx[i][j+1][k] + Fnx[i][j+1][k-1]);
+								double Fpz_avg = 0.25*(Fpx[i][j][k] + Fpx[i][j][k-1] + Fpx[i][j+1][k] + Fpx[i][j+1][k-1]);
+								
+								double Fn_ratio = (Fnx_avg*Fnx_avg+Fnz_avg*Fnz_avg)/(Esat_n*Esat_n);
+								double Fp_ratio = (Fpx_avg*Fpx_avg+Fpz_avg*Fpz_avg)/(Esat_n*Esat_n);
+
+								double w_n = Fny[i][j][k]*q_n*beta*ds/2;
+								double w_p = Fpy[i][j][k]*q_p*beta*ds/2;
+
+								double mr_n = 1/Math.sqrt((Fny[i][j][k]*Fny[i][j][k])/(Esat_n*Esat_n)+Fn_ratio+1);
+								double mr_p = 1/Math.sqrt((Fpy[i][j][k]*Fpy[i][j][k])/(Esat_p*Esat_p)+Fp_ratio+1);
+
+								boolean approx_n = Math.abs(w_n) < 0.2;
+								boolean approx_p = Math.abs(w_p) < 0.2;
+
+								double exp_2wn = approx_n? 1 : FastExp.exp(2*w_n);
+								double exp_2wp = approx_p? 1 : FastExp.exp(2*w_p);
+
+								sigma_n = -d_n*rho_n_avg*e_charge*beta*(1 + Fn_ratio)*(mr_n*mr_n*mr_n);
+								sigma_p = d_p*rho_p_avg*e_charge*beta*(1 + Fp_ratio)*(mr_p*mr_p*mr_p);
+
+								Jy_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i][j+1][k] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n)
+								+ 2*rho_n_avg*w_n) - sigma_n*ey_prev;
+								Jy_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i][j+1][k] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p)
+								+ 2*rho_p_avg*w_p) - sigma_p*ey_prev;
+
+								if (store_diff_drift) {
+									diff_y_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i][j+1][k] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n));
+									diff_y_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i][j+1][k] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p));
+
+									drift_y_n[i][j][k] = 2*rho_n_avg*w_n*mr_n*d_n/ds;
+									drift_y_p[i][j][k] = 2*rho_p_avg*w_p*mr_p*d_p/ds;
+
+									vel_y_n[i][j][k] = 2*w_n*mr_n*d_n/ds;
+									vel_y_p[i][j][k] = 2*w_p*mr_p*d_p/ds;
+								}
+
+							} else {
+								Jy_n[i][j][k] = 0;
+								Jy_p[i][j][k] = 0;
+
+								if (store_diff_drift) {
+									diff_y_n[i][j][k] = 0;
+									diff_y_p[i][j][k] = 0;
+
+									drift_y_n[i][j][k] = 0;
+									drift_y_p[i][j][k] = 0;
+
+									vel_y_n[i][j][k] = 0;
+									vel_y_p[i][j][k] = 0;
+								}
+							}
+
+							Jy_abs[i][j][k] = 0;
+
+							double sigma = sigma_n + sigma_p + absorptivity_y[i][j][k]*epsy[i][j][k]*absorbing_coeff;
+
+							double jy = Jy_abs[i][j][k] + Jy_n[i][j][k] + Jy_p[i][j][k];
+
+							Ey[i][j][k] = (Ey[i][j][k]*(1-0.5*dt*sigma/epsy[i][j][k]) + (((Hx[i][j][k] - Hx[i][j][k-1]) - (Hz[i][j][k] - Hz[i-1][j][k]))/ds - jy)*dt/epsy[i][j][k])
+							/(1+0.5*dt*sigma/epsy[i][j][k]);
+
+							Jy_abs[i][j][k] += 0.5*(absorptivity_y[i][j][k]*epsy[i][j][k]*absorbing_coeff)*(ey_prev + Ey[i][j][k]);
+							Jy_n[i][j][k] += 0.5*sigma_n*(ey_prev + Ey[i][j][k]);
+							Jy_p[i][j][k] += 0.5*sigma_p*(ey_prev + Ey[i][j][k]);
+						}
+					}
+				}
+			}
+			
+
+			for (int i = 1; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 1; j < ny-1; j++)
+					{
+
+						for (int k = 0; k < nz-1; k++)
+						{
+							double ez_prev = Ez[i][j][k];
+
+							double sigma_n = 0;
+							double sigma_p = 0;
+
+							if (conducting_z[i][j][k] == 1) {
+
+								double d_n = 0.5*(D_n[i][j][k+1] + D_n[i][j][k]);
+								double d_p = 0.5*(D_p[i][j][k+1] + D_p[i][j][k]);
+
+								double rho_n_avg = 0.5*(rho_n[i][j][k+1] + rho_n[i][j][k]);
+								double rho_p_avg = 0.5*(rho_p[i][j][k+1] + rho_p[i][j][k]);
+
+								double Esat_n = 0.5*(v_sat_n[i][j][k+1] + v_sat_n[i][j][k])/(d_n*e_charge*beta);
+								double Esat_p = 0.5*(v_sat_p[i][j][k+1] + v_sat_p[i][j][k])/(d_p*e_charge*beta);
+
+								double Fnx_avg = 0.25*(Fnx[i][j][k] + Fnx[i-1][j][k] + Fnx[i][j][k+1] + Fnx[i-1][j][k+1]);
+								double Fpx_avg = 0.25*(Fpx[i][j][k] + Fpx[i-1][j][k] + Fpx[i][j][k+1] + Fpx[i-1][j][k+1]);
+
+								double Fny_avg = 0.25*(Fny[i][j][k] + Fny[i][j-1][k] + Fny[i][j][k+1] + Fny[i][j-1][k+1]);
+								double Fpy_avg = 0.25*(Fpy[i][j][k] + Fpy[i][j-1][k] + Fpy[i][j][k+1] + Fpy[i][j-1][k+1]);
+								
+								double Fn_ratio = (Fnx_avg*Fnx_avg+Fny_avg*Fny_avg)/(Esat_n*Esat_n);
+								double Fp_ratio = (Fpx_avg*Fpx_avg+Fpy_avg*Fpy_avg)/(Esat_n*Esat_n);
+
+								double w_n = Fnz[i][j][k]*q_n*beta*ds/2;
+								double w_p = Fpz[i][j][k]*q_p*beta*ds/2;
+
+								double mr_n = 1/Math.sqrt((Fnz[i][j][k]*Fnz[i][j][k])/(Esat_n*Esat_n)+Fn_ratio+1);
+								double mr_p = 1/Math.sqrt((Fpz[i][j][k]*Fpz[i][j][k])/(Esat_p*Esat_p)+Fp_ratio+1);
+
+								boolean approx_n = Math.abs(w_n) < 0.2;
+								boolean approx_p = Math.abs(w_p) < 0.2;
+
+								double exp_2wn = approx_n? 1 : FastExp.exp(2*w_n);
+								double exp_2wp = approx_p? 1 : FastExp.exp(2*w_p);
+
+								sigma_n = -d_n*rho_n_avg*e_charge*beta*(1 + Fn_ratio)*(mr_n*mr_n*mr_n);
+								sigma_p = d_p*rho_p_avg*e_charge*beta*(1 + Fp_ratio)*(mr_p*mr_p*mr_p);
+
+								Jz_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i][j][k+1] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n)
+								+ 2*rho_n_avg*w_n) - sigma_n*ez_prev;
+								Jz_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i][j][k+1] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p)
+								+ 2*rho_p_avg*w_p) - sigma_p*ez_prev;
+
+								if (store_diff_drift) {
+									diff_z_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i][j][k+1] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n));
+									diff_z_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i][j][k+1] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p));
+
+									drift_z_n[i][j][k] = 2*rho_n_avg*w_n*mr_n*d_n/ds;
+									drift_z_p[i][j][k] = 2*rho_p_avg*w_p*mr_p*d_p/ds;
+
+									vel_z_n[i][j][k] = 2*w_n*mr_n*d_n/ds;
+									vel_z_p[i][j][k] = 2*w_p*mr_p*d_p/ds;
+								}
+
+							} else {
+								Jz_n[i][j][k] = 0;
+								Jz_p[i][j][k] = 0;
+
+								if (store_diff_drift) {
+									diff_z_n[i][j][k] = 0;
+									diff_z_p[i][j][k] = 0;
+
+									drift_z_n[i][j][k] = 0;
+									drift_z_p[i][j][k] = 0;
+
+									vel_z_n[i][j][k] = 0;
+									vel_z_p[i][j][k] = 0;
+								}
+							}
+
+							Jz_abs[i][j][k] = 0;
+
+							double sigma = sigma_n + sigma_p + absorptivity_z[i][j][k]*epsz[i][j][k]*absorbing_coeff;
+
+							double jz = Jz_abs[i][j][k] + Jz_n[i][j][k] + Jz_p[i][j][k];
+
+							Ez[i][j][k] = (Ez[i][j][k]*(1-0.5*dt*sigma/epsz[i][j][k]) + (((Hy[i][j][k] - Hy[i-1][j][k]) - (Hx[i][j][k] - Hx[i][j-1][k]))/ds - jz)*dt/epsz[i][j][k])
+							/(1+0.5*dt*sigma/epsz[i][j][k]);
+
+							Jz_abs[i][j][k] += 0.5*(absorptivity_z[i][j][k]*epsz[i][j][k]*absorbing_coeff)*(ez_prev + Ez[i][j][k]);
+							Jz_n[i][j][k] += 0.5*sigma_n*(ez_prev + Ez[i][j][k]);
+							Jz_p[i][j][k] += 0.5*sigma_p*(ez_prev + Ez[i][j][k]);
+						}
+					}
+				}
+			}
+		}
 	}
 	
 	public void calcMiscFields(boolean updatePhi) {
@@ -1733,8 +1727,8 @@ public class Simulation extends PeriodicTask {
 						mu_p[i][j][k] = Double.NaN;
 						V_avg[i][j][k] = Double.NaN;
 					} else {
-						mu_n[i][j][k] = mu0_n[i][j][k] + k*T*Math.log(Math.abs(rho_n[i][j][k]/q_n)) + phi[i][j][k]*q_n;
-						mu_p[i][j][k] = mu0_p[i][j][k] + k*T*Math.log(Math.abs(rho_p[i][j][k]/q_p)) + phi[i][j][k]*q_p;
+						mu_n[i][j][k] = mu0_n[i][j][k] + kB*T*Math.log(Math.abs(rho_n[i][j][k]/q_n)) + phi[i][j][k]*q_n;
+						mu_p[i][j][k] = mu0_p[i][j][k] + kB*T*Math.log(Math.abs(rho_p[i][j][k]/q_p)) + phi[i][j][k]*q_p;
 						// Think about why we should take average
 
 
@@ -2385,8 +2379,8 @@ public class Simulation extends PeriodicTask {
 					if (conducting[i][j][k] == 1) {
 						E0_n[i][j][k] = materials[i][j][k].Ec;
 						E0_p[i][j][k] = -materials[i][j][k].Ev;
-						mu0_n[i][j][k] = materials[i][j][k].Ec - k*T*Math.log(materials[i][j][k].gc);
-						mu0_p[i][j][k] = -materials[i][j][k].Ev - k*T*Math.log(materials[i][j][k].gv);
+						mu0_n[i][j][k] = materials[i][j][k].Ec - kB*T*Math.log(materials[i][j][k].gc);
+						mu0_p[i][j][k] = -materials[i][j][k].Ev - kB*T*Math.log(materials[i][j][k].gv);
 					} else {
 						E0_n[i][j][k] = 0;
 						E0_p[i][j][k] = 0;
@@ -2535,7 +2529,7 @@ public class Simulation extends PeriodicTask {
 						for (int di = -smoothing_radius; di <= smoothing_radius; di++) {
 							for (int dj = -smoothing_radius; dj <= smoothing_radius; dj++) {
 								for (int dk = -smoothing_radius; dk <= smoothing_radius; dk++) {
-									if (i+di >= 0 && j+dj >= 0 && i+di < nx && j+dj < ny && conducting[i+di][j+dj][k+dk] == 1 && visited[i+di][j+dj][k+dk]) {
+									if (i+di >= 0 && j+dj >= 0 && i+di < nx && j+dj < ny && k+dk < nz && conducting[i+di][j+dj][k+dk] == 1 && visited[i+di][j+dj][k+dk]) {
 										sum += smooth_arr[i+di][j+dj][k+dk];
 										neighbors += 1;
 									}
@@ -2993,7 +2987,7 @@ public class Simulation extends PeriodicTask {
 				mat.D_p *= currentsource_mobility;
 			}
 			
-			mat.computeBandstructurePhiG(Phi, Eg_metal, g, g, k*T);
+			mat.computeBandstructurePhiG(Phi, Eg_metal, g, g, kB*T);
 		}
 
 		if (material.isSemiconducting())
@@ -3019,7 +3013,7 @@ public class Simulation extends PeriodicTask {
 			else if (material == MaterialType.SEMI_LIGHT_P_TYPE) mat.rho_back = -p_light_doping_concentration*e_charge;
 			else if (material == MaterialType.SEMI_LIGHT_N_TYPE) mat.rho_back = n_light_doping_concentration*e_charge;
 
-			mat.computeBandstructureChiG(chi_semi, Eg_semi, gc_semi, gv_semi, k*T);
+			mat.computeBandstructureChiG(chi_semi, Eg_semi, gc_semi, gv_semi, kB*T);
 			
 			mat.D_n *= calculateMobilityFactor(d_crit_n, mat.rho_back);
 			mat.D_p *= calculateMobilityFactor(d_crit_p, mat.rho_back);
@@ -3437,38 +3431,39 @@ public class Simulation extends PeriodicTask {
 		
 		int mx = controls.mx;
 		int my = controls.my;
+		int mz = controls.mz;
 		
 		String str = "";
 		str += "Mouse\n";
 		str += ("x\t"  						+	units.toString(mx*ds, Quantity.LENGTH) + "\n");
 		str += ("y\t"  						+	units.toString(ds*ny-(my+1)*ds, Quantity.LENGTH) + "\n");
 		str += "\nFields\n";
-		/*str += ("E\t"  						+	units.toString(Utils.bilinearinterp_length(Ex, Ey, mx, my, nx, ny), Quantity.ELECTRIC_FIELD) + "\n");
-		str += ("D\t"  						+	units.toString(Utils.bilinearinterp_length(Dx, Dy, mx, my, nx, ny), Quantity.ELECTRIC_FLUX_DENSITY) + "\n");
-		str += ("B\t"  						+	units.toString(parity*Utils.bilinearinterp(Bz, mx-0.5, my-0.5, nx, ny), Quantity.MAGNETIC_FLUX_DENSITY) + "\n");
-		str += ("H\t"  						+	units.toString(parity*Utils.bilinearinterp(Hz, mx-0.5, my-0.5, nx, ny), Quantity.MAGNETIC_FIELD_STRENGTH) + "\n");
+		str += ("E\t"  						+	units.toString(Utils.bilinearinterp_length(Ex, Ey, Ez, mx, my, mz), Quantity.ELECTRIC_FIELD) + "\n");
+		//str += ("D\t"  						+	units.toString(Utils.bilinearinterp_length(Dx, Dy, Dz, mx, my, mz), Quantity.ELECTRIC_FLUX_DENSITY) + "\n");
+		str += ("B\t"  						+	units.toString(parity*Utils.bilinearinterp_length(Bx, By, Bz, mx, my, mz), Quantity.MAGNETIC_FLUX_DENSITY) + "\n");
+		str += ("H\t"  						+	units.toString(parity*Utils.bilinearinterp_length(Hx, Hy, Hz, mx, my, mz), Quantity.MAGNETIC_FIELD_STRENGTH) + "\n");
 		str += "\nCharge/current\n";
-		str += ("\u03c1\u2099\t"  			+	units.toString(rho_n[mx][my], Quantity.CHARGE_DENSITY) + "\n");
-		str += ("\u03c1\u209A\t"  			+	units.toString(rho_p[mx][my], Quantity.CHARGE_DENSITY) + "\n");
-		str += ("\u03c1\u2080\t"			+	units.toString(rho_back[mx][my], Quantity.CHARGE_DENSITY) + "\n");
-		str += ("\u03c1 abs\t"				+	units.toString(rho_abs[mx][my], Quantity.CHARGE_DENSITY) + "\n");
-		str += ("\u03c1\t"  				+	units.toString(rho_free[mx][my], Quantity.CHARGE_DENSITY) + "\n");
-		str += ("J\u2099\t" 				+	units.toString(Utils.bilinearinterp_length(Jx_n, Jy_n, mx, my, nx, ny), Quantity.CURRENT_DENSITY) + "\n");
-		str += ("J\u209A\t"  				+	units.toString(Utils.bilinearinterp_length(Jx_p, Jy_p, mx, my, nx, ny), Quantity.CURRENT_DENSITY) + "\n");
-		str += ("J abs\t"  					+	units.toString(Utils.bilinearinterp_length(Jx_abs, Jy_abs, mx, my, nx, ny), Quantity.CURRENT_DENSITY) + "\n");
-		str += ("J\t"  						+	units.toString(Utils.bilinearinterp_length(Jx_free, Jy_free, mx, my, nx, ny), Quantity.CURRENT_DENSITY) + "\n");
+		str += ("\u03c1\u2099\t"  			+	units.toString(rho_n[mx][my][mz], Quantity.CHARGE_DENSITY) + "\n");
+		str += ("\u03c1\u209A\t"  			+	units.toString(rho_p[mx][my][mz], Quantity.CHARGE_DENSITY) + "\n");
+		str += ("\u03c1\u2080\t"			+	units.toString(rho_back[mx][my][mz], Quantity.CHARGE_DENSITY) + "\n");
+		str += ("\u03c1 abs\t"				+	units.toString(rho_abs[mx][my][mz], Quantity.CHARGE_DENSITY) + "\n");
+		str += ("\u03c1\t"  				+	units.toString(rho_free[mx][my][mz], Quantity.CHARGE_DENSITY) + "\n");
+		str += ("J\u2099\t" 				+	units.toString(Utils.bilinearinterp_length(Jx_n, Jy_n, Jz_n, mx, my, mz), Quantity.CURRENT_DENSITY) + "\n");
+		str += ("J\u209A\t"  				+	units.toString(Utils.bilinearinterp_length(Jx_p, Jy_p, Jz_p, mx, my, mz), Quantity.CURRENT_DENSITY) + "\n");
+		str += ("J abs\t"  					+	units.toString(Utils.bilinearinterp_length(Jx_abs, Jy_abs, Jz_abs, mx, my, mz), Quantity.CURRENT_DENSITY) + "\n");
+		str += ("J\t"  						+	units.toString(Utils.bilinearinterp_length(Jx_free, Jy_free, Jz_free, mx, my, mz), Quantity.CURRENT_DENSITY) + "\n");
 		str += "\nThermodynamic quantities\n";
-		str += ("\u03d5\t"  				+	units.toString(phi[mx][my], Quantity.ELECTRIC_POTENTIAL) + "\n");
-		str += ("F\u2099\t"  				+	units.toString(mu_n[mx][my]/eVtoJ, Quantity.ELECTRIC_POTENTIAL) + "\n");
-		str += ("F\u209a\t"  				+	units.toString(-mu_p[mx][my]/eVtoJ, Quantity.ELECTRIC_POTENTIAL) + "\n");
-		str += ("V\t"  						+	units.toString(V_avg[mx][my], Quantity.ELECTRIC_POTENTIAL) + "\n");
-		str += ("G\t"  						+	units.toString(G[mx][my], Quantity.RATE_DENSITY) + "\n");
-		str += ("R\t"  						+	units.toString(R[mx][my], Quantity.RATE_DENSITY) + "\n");
-		str += ("Electron CMF\t"  			+	units.toString(Utils.bilinearinterp_length(cmfx_n, cmfy_n, mx, my, nx, ny), Quantity.FORCE) + "\n");
-		str += ("Hole CMF\t"  				+	units.toString(Utils.bilinearinterp_length(cmfx_p, cmfy_p, mx, my, nx, ny), Quantity.FORCE) + "\n");
-		str += ("EMF\t"  					+	units.toString(Utils.bilinearinterp_length(emfx, emfy, mx, my, nx, ny), Quantity.ELECTRIC_FIELD) + "\n");
-		str += ("Electron vel.\t"  			+	units.toString(Utils.bilinearinterp_length(Jx_n, Jy_n, mx, my, nx, ny)/rho_n[mx][my], Quantity.VELOCITY) + "\n");
-		str += ("Hole vel.\t"  				+	units.toString(Utils.bilinearinterp_length(Jx_p, Jy_p, mx, my, nx, ny)/rho_p[mx][my], Quantity.VELOCITY) + "\n");*/
+		str += ("\u03d5\t"  				+	units.toString(phi[mx][my][mz], Quantity.ELECTRIC_POTENTIAL) + "\n");
+		str += ("F\u2099\t"  				+	units.toString(mu_n[mx][my][mz]/eVtoJ, Quantity.ELECTRIC_POTENTIAL) + "\n");
+		str += ("F\u209a\t"  				+	units.toString(-mu_p[mx][my][mz]/eVtoJ, Quantity.ELECTRIC_POTENTIAL) + "\n");
+		str += ("V\t"  						+	units.toString(V_avg[mx][my][mz], Quantity.ELECTRIC_POTENTIAL) + "\n");
+		str += ("G\t"  						+	units.toString(G[mx][my][mz], Quantity.RATE_DENSITY) + "\n");
+		str += ("R\t"  						+	units.toString(R[mx][my][mz], Quantity.RATE_DENSITY) + "\n");
+		str += ("Electron CMF\t"  			+	units.toString(Utils.bilinearinterp_length(cmfx_n, cmfy_n, cmfz_n, mx, my, mz), Quantity.FORCE) + "\n");
+		str += ("Hole CMF\t"  				+	units.toString(Utils.bilinearinterp_length(cmfx_p, cmfy_p, cmfz_p, mx, my, mz), Quantity.FORCE) + "\n");
+		str += ("EMF\t"  					+	units.toString(Utils.bilinearinterp_length(emfx, emfy, emfz, mx, my, mz), Quantity.ELECTRIC_FIELD) + "\n");
+		str += ("Electron vel.\t"  			+	units.toString(Utils.bilinearinterp_length(Jx_n, Jy_n, Jz_n, mx, my, mz)/rho_n[mx][my][mz], Quantity.VELOCITY) + "\n");
+		str += ("Hole vel.\t"  				+	units.toString(Utils.bilinearinterp_length(Jx_p, Jy_p, Jz_p, mx, my, mz)/rho_p[mx][my][mz], Quantity.VELOCITY) + "\n");
 		str += "\nNumerical stability ratios\n";
 		str += CFL_text;
 		
