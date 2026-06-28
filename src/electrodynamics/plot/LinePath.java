@@ -12,6 +12,8 @@ public class LinePath extends Path {
 	public int x2;
 	public int y1;
 	public int y2;
+	public int z1;
+	public int z2;
 	
 	@Override
 	public double getX(double t) {
@@ -24,8 +26,13 @@ public class LinePath extends Path {
 	}
 
 	@Override
+	public double getZ(double t) {
+		return t*(z2 - z1) + z1;
+	}
+
+	@Override
 	public double getArclength() {
-		return Utils.length(x2-x1, y2-y1);
+		return Utils.length(x2-x1, y2-y1, z2-z1);
 	}	
 	
 
@@ -34,13 +41,13 @@ public class LinePath extends Path {
 		r.setalphaBG(0.5);
 		r.setalphaFG(1.0);
 		r.setColorFloat(1.0f, 1.0f, 1.0f);
-		r.drawPixelLine((int)x1, (int)y1, (int)x2, (int)y2);
+		r.drawPixelLine((int)x1, (int)y1, (int)z1, (int)x2, (int)y2, (int)z2);
 
 		r.setalphaBG(0.0);
 		r.setalphaFG(1.0);
 		r.setColorFloat(0.7f, 0.7f, 0.7f);
-		r.drawPixelRectangle((int)x1-1, (int)y1-1, 3, 3);
+		r.drawPixelRectangle((int)x1-1, (int)y1-1, (int)z1-1, 3, 3, 3);
 		r.setColorFloat(1.0f, 1.0f, 1.0f);
-		r.drawPixelRectangle((int)x2-1, (int)y2-1, 3, 3);
+		r.drawPixelRectangle((int)x2-1, (int)y2-1, (int)z2-1, 3, 3, 3);
 	}
 }

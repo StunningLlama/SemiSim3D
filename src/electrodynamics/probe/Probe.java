@@ -24,18 +24,18 @@ public abstract class Probe implements Cloneable {
 	public String name = "";
 	public boolean custom = false;
 
-	public Probe(int mx, int my) {};
+	public Probe(int mx, int my, int mz) {};
 	public abstract void reset();
 	public abstract void calculateDefaultLabelCoords();
 	public abstract void measure(Simulation e, boolean savedatapoint);
-	public abstract boolean isMouseHovering(int mx, int my);
-	public abstract boolean intersects(int xmin, int ymin, int xmax, int ymax);
+	public abstract boolean isMouseHovering(int mx, int my, int mz);
+	public abstract boolean intersects(int xmin, int ymin, int zmin, int xmax, int ymax, int zmax);
 	public abstract boolean checkInBounds(Simulation e);
-	public abstract void translate(int dx, int dy);
+	public abstract void translate(int dx, int dy, int dz);
 	public abstract void rotate90(int i_max, int j_max);
 	public abstract void flip_h(int i_min, int i_max);
 	public abstract void flip_v(int j_min, int j_max);
-	public abstract void drag(int mx, int my);
+	public abstract void drag(int mx, int my, int mz);
 	public abstract void draw(Renderer r);
 	public abstract String getText(Units units);
 	
@@ -90,6 +90,7 @@ public abstract class Probe implements Cloneable {
 	public class LabelCoord implements Cloneable {
 		public int x = -1;
 		public int y = -1;
+		public int z = -1;
 		
 	    @Override
 	    public LabelCoord clone() {
@@ -100,9 +101,10 @@ public abstract class Probe implements Cloneable {
 			}
 	    }
 	    
-		public void translate(int dx, int dy) {
+		public void translate(int dx, int dy, int dz) {
 			x += dx;
 			y += dy;
+			z += dz;
 		}
 
 		public void rotate90(int i_max, int j_max) {

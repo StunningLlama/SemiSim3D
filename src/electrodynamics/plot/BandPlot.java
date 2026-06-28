@@ -51,13 +51,14 @@ public class BandPlot extends Plot {
 				double t = n/100.0;
 				double x = path.getX(t);
 				double y = path.getY(t);
+				double z = path.getZ(t);
 				double len = t*path.getArclength()*e.ds/xunitquantity;
 
 				// Add chemical energy and electrostatic energy to get band energy
-				E_n_data.add(len, -(Utils.bilinearinterp_extrap(e.E0_n, x, y, e.nx, e.ny)/e.q_n+Utils.bilinearinterp_extrap(e.phi, e.E0_n, x, y, e.nx, e.ny)));
-				E_p_data.add(len, -(Utils.bilinearinterp_extrap(e.E0_p, x, y, e.nx, e.ny)/e.q_p+Utils.bilinearinterp_extrap(e.phi, e.E0_p, x, y, e.nx, e.ny)));
-				F_n_data.add(len, -Utils.bilinearinterp_extrap(e.mu_n, x, y, e.nx, e.ny)/e.q_n);
-				F_p_data.add(len, -Utils.bilinearinterp_extrap(e.mu_p, x, y, e.nx, e.ny)/e.q_p);
+				E_n_data.add(len, -(Utils.bilinearinterp_extrap(e.E0_n, x, y, z)/e.q_n+Utils.bilinearinterp_extrap(e.phi, e.E0_n, x, y, z)));
+				E_p_data.add(len, -(Utils.bilinearinterp_extrap(e.E0_p, x, y, z)/e.q_p+Utils.bilinearinterp_extrap(e.phi, e.E0_p, x, y, z)));
+				F_n_data.add(len, -Utils.bilinearinterp_extrap(e.mu_n, x, y, z)/e.q_n);
+				F_p_data.add(len, -Utils.bilinearinterp_extrap(e.mu_p, x, y, z)/e.q_p);
 			}
 
 			E_n_data.setNotify(true);

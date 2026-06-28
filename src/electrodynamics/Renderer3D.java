@@ -7,6 +7,7 @@ import java.awt.Color;
 import java.awt.geom.Rectangle2D;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.Random;
 
 import com.jogamp.common.nio.Buffers;
 import com.jogamp.opengl.GL;
@@ -32,7 +33,7 @@ import electrodynamics.util.Vector3;
 public class Renderer3D implements GLEventListener {
 
 	Simulation e;
-	GLCanvas canvas;
+	public GLCanvas canvas;
 	IntBuffer selectBuf;
 	GLU glu;
 	IntBuffer viewport;
@@ -44,6 +45,7 @@ public class Renderer3D implements GLEventListener {
     int width;
     int height;
     boolean isMainCanvas = false;
+    Random rand = new Random();
     
     TextRenderer smallFont;
     TextRenderer bigFont;
@@ -61,7 +63,7 @@ public class Renderer3D implements GLEventListener {
         canvas.addGLEventListener(this);
         canvas.setSize(768, 768);
 
-        animator = new FPSAnimator(canvas, e.renderer.targetframerate);
+        animator = new FPSAnimator(canvas, (int)e.renderer.targetframerate);
 	}
 
     @Override
@@ -92,7 +94,7 @@ public class Renderer3D implements GLEventListener {
 		
     	e.rwLock.readLock().lock();
     	try {
-    		e.renderer.generatePixelData();
+    		e.renderer.drawPixels();
 
     		if (isMainCanvas && e.opts.gui_rotate.isSelected()) {
     			e.renderer.yaw += 1f/e.renderer.targetframerate;
@@ -123,7 +125,8 @@ public class Renderer3D implements GLEventListener {
     		gl.glLoadIdentity();
 
     		texts.clear();
-    		e.renderer.generateText(null, texts);
+    		//TODO
+    		//e.renderer.generateText(null, texts);
 
     		gl.glClear(GL.GL_DEPTH_BUFFER_BIT);
     		gl.glDisable(GL2.GL_BLEND);
@@ -135,7 +138,7 @@ public class Renderer3D implements GLEventListener {
     				for (Text text : texts) {
     					if (text.hasBackground && !text.is3D) {
     						Rectangle2D bounds;
-    						if (text.big) 
+    						if (text.isBig) 
     							bounds = bigFont.getBounds(text.text);
     						else
     							bounds = smallFont.getBounds(text.text);
@@ -160,7 +163,7 @@ public class Renderer3D implements GLEventListener {
     		bigFont.beginRendering(canvas.getWidth(), canvas.getHeight());
 
     		for (Text text : texts) {
-    			if (text.big) {
+    			if (text.isBig) {
     				if (!text.is3D) {
     					bigFont.setColor(Color.WHITE);
     					bigFont.draw(text.text, text.x, canvas.getHeight()-(text.y));
@@ -173,7 +176,7 @@ public class Renderer3D implements GLEventListener {
     		smallFont.beginRendering(canvas.getWidth(), canvas.getHeight());
 
     		for (Text text : texts) {
-    			if (!text.big) {
+    			if (!text.isBig) {
     				if (!text.is3D) {
     					smallFont.setColor(Color.WHITE);
     					smallFont.draw(text.text, text.x, canvas.getHeight()-(text.y));
@@ -195,7 +198,7 @@ public class Renderer3D implements GLEventListener {
     		bigFont.begin3DRendering();
 
     		for (Text text : texts) {
-    			if (text.big) {
+    			if (text.isBig) {
     				if (text.is3D) {
     					bigFont.setColor(Color.BLACK);
     					bigFont.draw3D(text.text, text.x+0.5f-0.15f, text.y+0.5f-0.15f, text.z+0.5f-0.01f, 0.08f);
@@ -210,7 +213,7 @@ public class Renderer3D implements GLEventListener {
     		smallFont.begin3DRendering();
 
     		for (Text text : texts) {
-    			if (!text.big) {
+    			if (!text.isBig) {
     				if (text.is3D) {
     					smallFont.setColor(Color.BLACK);
     					smallFont.draw3D(text.text, text.x+0.5f-0.15f, text.y+0.5f-0.15f, text.z+0.5f-0.01f, 0.08f);
@@ -227,7 +230,7 @@ public class Renderer3D implements GLEventListener {
     		gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport);
     		gl.glMatrixMode(GL2.GL_PROJECTION);
     		gl.glLoadIdentity();
-    		glu.gluPickMatrix(((float)e.controls.mx_3d)*width/canvas.getWidth(), (canvas.getHeight()-(float)e.controls.my_3d)*height/canvas.getHeight(), 1, 1, viewport);
+    		glu.gluPickMatrix(((float)e.controls.mx_screen)*width/canvas.getWidth(), (canvas.getHeight()-(float)e.controls.my_screen)*height/canvas.getHeight(), 1, 1, viewport);
     		setupProjectionMat(gl);
 
     		gl.glMatrixMode(GL2.GL_MODELVIEW);
@@ -486,10 +489,10 @@ public class Renderer3D implements GLEventListener {
 
         	VectorMode vector_display_mode = (VectorMode)e.opts.gui_view_vec_mode.getSelectedItem();
         	
-        	double vectorscalingconstant = Math.pow(10.0, e.opts.gui_brightness_vec.getValue()/5.0)/((VectorView) e.opts.gui_view_vec.getSelectedItem()).scale;
+        	double vectorscalingconstant = Math.pow(10.0, e.opts.gui_brightness_vec.getValue()/5.0)/((VectorView) e.opts.gui_view_vec.getSelectedItem()).getScalingConstant(e);
 
 
-        	e.renderer.rand.setSeed(4);
+        	rand.setSeed(4);
 
         	int density = 10;
 
@@ -501,67 +504,16 @@ public class Renderer3D implements GLEventListener {
         		randomness = 0.75;
         	}
 
-        	double[][][] vf_x = null;
-        	double[][][] vf_y = null;
-        	double[][][] vf_z = null;
         	
-        	double grid_offset = -0.5;
-        	double dual_offset = 0;
-        	
-        	switch ((VectorView) e.opts.gui_view_vec.getSelectedItem()) {
-        	case NONE:
-        		break;
-        	case B_FIELD:
-        		vf_x = e.Bx;
-        		vf_y = e.By;
-        		vf_z = e.Bz;
-        		grid_offset = 0;
-        		dual_offset = 0.5;
-        		break;
-        	case H_FIELD:
-        		vf_x = e.Hx;
-        		vf_y = e.Hy;
-        		vf_z = e.Hz;
-        		grid_offset = 0;
-        		dual_offset = -0.5;
-        		break;
-        	case E_FIELD:
-        		vf_x = e.Ex;
-        		vf_y = e.Ey;
-        		vf_z = e.Ez;
-        		break;
-        	case D_FIELD:
-        		vf_x = e.Dx;
-        		vf_y = e.Dy;
-        		vf_z = e.Dz;
-        		break;
-        	case ELECTRON_CURRENT:
-        		vf_x = e.Jx_n;
-        		vf_y = e.Jy_n;
-        		vf_z = e.Jz_n;
-        		break;
-        	case HOLE_CURRENT:
-        		vf_x = e.Jx_p;
-        		vf_y = e.Jy_p;
-        		vf_z = e.Jz_p;
-        		break;
-        	case TOTAL_CURRENT:
-        		vf_x = e.Jx_free;
-        		vf_y = e.Jy_free;
-        		vf_z = e.Jz_free;
-        		break;
-        	case POYNTING:
-        		vf_x = e.Sx;
-        		vf_y = e.Sy;
-        		vf_z = e.Sz;
-        		break;
-        	case EMF:
-        		vf_x = e.emfx;
-        		vf_y = e.emfy;
-        		vf_z = e.emfz;
-        		break;
-        	}
+        	VectorView synchronized_vector_view = ((VectorView) e.opts.gui_view_vec.getSelectedItem());
+			double[][][][] vf = {null, null, null};
+			e.computeVectorField(vf, synchronized_vector_view);
+			double grid_offset = synchronized_vector_view.getGridOffset();
+			double dual_offset = synchronized_vector_view.getDualOffset();
 
+			double[][][] vf_x = vf[0];
+			double[][][] vf_y = vf[1];
+			double[][][] vf_z = vf[2];
 
         	Vector3 ctr = new Vector3(0,0,0);
         	Vector3 arrow = new Vector3(0,0,0);
@@ -577,9 +529,9 @@ public class Renderer3D implements GLEventListener {
 
         				//double x = (nx-1)*(i+0.5)/50;
         				//double y = (ny-1)*(j+0.5)/50;
-        				double x = (e.nx-1)*(i+randomness*(e.renderer.rand.nextFloat()-0.5))/density;
-        				double y = (e.ny-1)*(j+randomness*(e.renderer.rand.nextFloat()-0.5))/density;
-        				double z = (e.nz-1)*(k+randomness*(e.renderer.rand.nextFloat()-0.5))/density;
+        				double x = (e.nx-1)*(i+randomness*(rand.nextFloat()-0.5))/density;
+        				double y = (e.ny-1)*(j+randomness*(rand.nextFloat()-0.5))/density;
+        				double z = (e.nz-1)*(k+randomness*(rand.nextFloat()-0.5))/density;
         				
 
     					

@@ -15,9 +15,11 @@ public class Material {
 	public int activated;
 	public int conducting;
 	public int semiconducting;
-	
-	public double emf;				// EMF strength
-	public double emf_direction;	// EMF direction in radians
+
+	public double emf;
+	public double emf_x;				// EMF strength
+	public double emf_y;				// EMF strength
+	public double emf_z;				// EMF strength
 	
 	public double eps_r;			// Permittivity
 	public double mu_r;				// Permeability
@@ -66,9 +68,11 @@ public class Material {
 	public void setDefaultParameters() {
 		conducting = 0;
 		semiconducting = 0;
-		
-		emf = 0.0;
-		emf_direction = 0.0;
+
+		emf = 0;
+		emf_x = 0;
+		emf_y = 0;
+		emf_z = 0;
 		
 		eps_r = 1.0;
 		mu_r = 1.0;
@@ -105,9 +109,11 @@ public class Material {
     	activated = mat.activated;
     	conducting = mat.conducting;
     	semiconducting = mat.semiconducting;
-    	
-    	emf = mat.emf;				
-    	emf_direction = mat.emf_direction;	
+
+    	emf = mat.emf;	
+    	emf_x = mat.emf_x;				
+    	emf_y = mat.emf_y;				
+    	emf_z = mat.emf_z;				
     	
     	eps_r = mat.eps_r;			
     	mu_r = mat.mu_r;				

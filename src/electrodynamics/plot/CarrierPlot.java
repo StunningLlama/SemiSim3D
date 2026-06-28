@@ -46,20 +46,21 @@ public class CarrierPlot extends Plot {
 				double t = n/100.0;
 				double x = path.getX(t);
 				double y = path.getY(t);
+				double z = path.getZ(t);
 				double len = t*path.getArclength()*e.ds/xunitquantity;
 
 				if (!debug_charge) {
-					double n_n = Utils.bilinearinterp_charge(e.rho_n, x, y, e.nx, e.ny)/e.e_charge/yunitquantity;
+					double n_n = Utils.bilinearinterp_charge(e.rho_n, x, y, z)/e.e_charge/yunitquantity;
 					if (n_n > 0) rho_n_data.add(len, n_n);
 					else rho_n_data.add(len, Double.NaN);
 
-					double n_p = Utils.bilinearinterp_charge(e.rho_p, x, y, e.nx, e.ny)/e.e_charge/yunitquantity;
+					double n_p = Utils.bilinearinterp_charge(e.rho_p, x, y, z)/e.e_charge/yunitquantity;
 					if (n_p > 0) rho_p_data.add(len, n_p);
 					else rho_p_data.add(len, Double.NaN);
 				} else {
-					double n_n = Utils.bilinearinterp(e.rho_n, x, y, e.nx, e.ny)/e.e_charge/yunitquantity;
+					double n_n = Utils.bilinearinterp(e.rho_n, x, y, z)/e.e_charge/yunitquantity;
 					rho_n_data.add(len, n_n);
-					double n_p = Utils.bilinearinterp(e.rho_p, x, y, e.nx, e.ny)/e.e_charge/yunitquantity;
+					double n_p = Utils.bilinearinterp(e.rho_p, x, y, z)/e.e_charge/yunitquantity;
 					rho_p_data.add(len, n_p);
 				}
 			}

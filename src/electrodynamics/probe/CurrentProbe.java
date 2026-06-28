@@ -9,8 +9,8 @@ import electrodynamics.Renderer.VectorView;
 import electrodynamics.units.Quantity;
 
 public class CurrentProbe extends LineProbe {
-	public CurrentProbe(int mx, int my) {
-		super(mx, my);
+	public CurrentProbe(int mx, int my, int mz) {
+		super(mx, my, mz);
 		shorthand = "I";
 		quantity = Quantity.ELECTRIC_CURRENT;
 		vectorname = VectorView.TOTAL_CURRENT;

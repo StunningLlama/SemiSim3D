@@ -1,9 +1,20 @@
+// Copyright (c) Brandon Li 2025-2026
+// This file is part of Brandon's Semiconductor Simulator which is released under GNU GPL v3.0.
+// See LICENSE.txt for full license details.
+
 package electrodynamics;
 
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Graphics2D;
+import java.awt.KeyboardFocusManager;
 import java.awt.MouseInfo;
+import java.awt.Point;
 import java.awt.PointerInfo;
+import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.AdjustmentEvent;
@@ -18,263 +29,313 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.Queue;
 
+import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
-import javax.swing.ButtonGroup;
 import javax.swing.InputMap;
 import javax.swing.JButton;
 import javax.swing.JComponent;
-import javax.swing.JFrame;
+import javax.swing.JDialog;
+import javax.swing.JList;
+import javax.swing.JMenu;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JRadioButtonMenuItem;
+import javax.swing.JScrollPane;
+import javax.swing.JSeparator;
 import javax.swing.JTextArea;
 import javax.swing.KeyStroke;
+import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 
-import electrodynamics.Renderer.RenderMode;
+import electrodynamics.Renderer.ScalarMode;
 import electrodynamics.Renderer.ScalarView;
+import electrodynamics.Renderer.VectorMode;
 import electrodynamics.Renderer.VectorView;
 import electrodynamics.Simulation.BoundaryCondition;
+import electrodynamics.gui.CustJMenuItem;
+import electrodynamics.gui.CustJRadioButtonMenuItem;
+import electrodynamics.gui.MenuCheckList;
+import electrodynamics.plot.LinePath;
+import electrodynamics.plot.Path;
+import electrodynamics.plot.Plot;
+import electrodynamics.plot.ProbePlot;
+import electrodynamics.plot.SegmentedPath;
+import electrodynamics.probe.AreaProbe;
+import electrodynamics.probe.AreaProbe.QuantityType;
+import electrodynamics.probe.ChargeProbe;
+import electrodynamics.probe.CurrentProbe;
+import electrodynamics.probe.FluxProbe;
+import electrodynamics.probe.Ground;
+import electrodynamics.probe.LineProbe;
+import electrodynamics.probe.PointProbe;
+import electrodynamics.probe.Probe;
+import electrodynamics.probe.Ruler;
+import electrodynamics.probe.VoltageProbe;
+import electrodynamics.units.Quantity;
+import electrodynamics.util.Font7x5;
 import electrodynamics.util.Utils;
+import electrodynamics.util.Vector;
 import electrodynamics.util.Vector3;
 
-public class Controls implements MouseListener, MouseMotionListener, MouseWheelListener, KeyListener, ActionListener, AdjustmentListener, ItemListener {
+public class Controls implements ActionListener, MouseListener, MouseMotionListener, MouseWheelListener, KeyListener, ItemListener, WindowListener, AdjustmentListener {
 	Simulation e;
-
-	Material[][][] selection;
-	Material[][][] clipboard;
 
 	/* Keyboard controls */
 
-	boolean advanceframe = false;
-	boolean clear = false;
-	boolean reset = false;
-	boolean save = false;
-	boolean load = false;
-	boolean debugging = false;
-	boolean cut = false;
-	boolean copy = false;
-	boolean paste = false;
-	boolean delete = false;
-	boolean shift_down = false;
-	boolean ctrl_down = false;
-	boolean alt_down = false;
-	boolean undo = false;
-	boolean redo = false;
+	public boolean advanceframe = false;
+	public boolean clear = false;
+	public boolean reset = false;
+	public boolean save = false;
+	public boolean saveas = false;
+	public boolean load = false;
+	public boolean debugging = false;
+	public boolean cut = false;
+	public boolean copy = false;
+	public boolean paste = false;
+	public boolean undo = false;
+	public boolean redo = false;
+	public boolean selectall = false;
+	public boolean deselectall = false;
+	public boolean delete = false;
+	public boolean shift_down = false;
+	public boolean ctrl_down = false;
+	public boolean alt_down = false;
+	public boolean logdata = false;
+	public boolean rotate_selection = false;
+	public boolean flip_h_selection = false;
+	public boolean flip_v_selection = false;
+	public boolean exit = false;
+	public boolean updateimagesize = false;
 
 
 	/* Mouse controls */
 
 	PointerInfo pointerinfo = MouseInfo.getPointerInfo();
-	boolean mouse_pressed = false;
-	boolean mouse_pressed_prev = false;
-	boolean modifier_pressed = false;
-	boolean moving_selection = false;
-	boolean dragging_selection = false;
-	boolean brush_changed = false;
+	public boolean mouse_pressed_left = false;
+	public boolean mouse_pressed_prev_left = false;
+	public boolean pressing_left = false;
+	public boolean releasing_left = false;
 
-	int mousebutton = 0;
-	int mx = 0;
-	int my = 0;
-	int mz = 0;
-	int mx_start = 0;
-	int my_start = 0;
-	int mz_start = 0;
+	public boolean mouse_pressed_middle = false;
+	public boolean mouse_pressed_prev_middle = false;
+	public boolean pressing_middle = false;
+	public boolean releasing_middle = false;
 
-	int mx_normal = 0;
-	int my_normal = 0;
-	int mz_normal = 0;
+	public boolean mouse_pressed_right = false;
+	public boolean mouse_pressed_prev_right = false;
+	public boolean pressing_right = false;
+	public boolean releasing_right = false;
 
-	int mx_index = 0;
-	int my_index = 0;
-	int mz_index = 0;
-	int mx_start_index = 0;
-	int my_start_index = 0;
-	int mz_start_index = 0;
+	public boolean moving_selection = false;
+	public boolean dragging_selection = false;
+	public boolean brush_changed = false;
+	public boolean changesmade = false;
+	public boolean undocaptureneeded = false;
 
+	//public int mousebutton = 0;
+	public int mx_screen = 0;
+	public int my_screen = 0;
+	public int mx_start_screen = 0;
+	public int my_start_screen = 0;
 
-	double mx_realspace = 0;
-	double my_realspace = 0;
-	double mz_realspace = 0;
+	public int mx = 0;
+	public int my = 0;
+	public int mz = 0;
+	public int mx_start = 0;
+	public int my_start = 0;
+	public int mz_start = 0;
+	public int mxp = 0;
+	public int myp = 0;
+	public int mzp = 0;
+	public int mx_normal = 0;
+	public int my_normal = 0;
+	public int mz_normal = 0;
 
-	double mxp_realspace = 0;
-	double myp_realspace = 0;
-	double mzp_realspace = 0;
-	double mx_start_realspace = 0;
-	double my_start_realspace = 0;
-	double mz_start_realspace = 0;
+	public int delta_mx = 0;
+	public int delta_my = 0;
+	public int delta_mz = 0;
 
-	int delta_mx_index = 0;
-	int delta_my_index = 0;
-	int delta_mz_index = 0;
+	public int zoom_i1 = 0;
+	public int zoom_j1 = 0;
+	public int zoom_k1 = 0;
+	public int zoom_i2 = 0;
+	public int zoom_j2 = 0;
+	public int zoom_k2 = 0;
 
-	boolean EMF_selected = false;
-	double max_EMF = 5e5;
+	public int zoom_i1_pan = 0;
+	public int zoom_j1_pan = 0;
+	public int zoom_k1_pan = 0;
+	public int zoom_i2_pan = 0;
+	public int zoom_j2_pan = 0;
+	public int zoom_k2_pan = 0;
+	public boolean zoomed = false;
 
-	Brush prev_brush;
-	double brushsize = 0;
-	int prev_EMF_setting = 0;
-	BoundaryCondition prev_boundary = null;
+	public boolean EMF_selected = false;
 
-	boolean[][][] under_brush;
-	boolean[][][] selected;
-	boolean[][][] selected_EMF;
+	public double brushsize = 0;
+	public int prev_EMF_setting = 0;
+	public BoundaryCondition prev_boundary = BoundaryCondition.DISSIPATIVE;
 
-	int text_x = 0;
-	int text_y = 0;
-	boolean texting = false;
+	public boolean[][][] under_brush;
+	public boolean[][][] selected;
+	public boolean[][][] selected_EMF;
 
-	Cursor HAND_CURSOR = new Cursor(Cursor.HAND_CURSOR);
-	Cursor DEFAULT_CURSOR = new Cursor(Cursor.DEFAULT_CURSOR);
+	public boolean iscurrentselected = false;
 
-	public HashMap<Brush, JRadioButtonMenuItem> brushbuttonmap;
-	public ButtonGroup buttongroup;
-	
-	UndoRedo undoredo = new UndoRedo(4);
+	public Clipboard selection;
+	public Clipboard clipboard;
+	public boolean selectionempty = true;
+	public boolean clipboardempty = true;
+
+	public int text_x = 0;
+	public int text_y = 0;
+	public boolean texting = false;
+
+	public double flashlight_strength;
+
+	public int plotinterval = 10;
+
+	private Cursor HAND_CURSOR = new Cursor(Cursor.HAND_CURSOR);
+	private Cursor DEFAULT_CURSOR = new Cursor(Cursor.DEFAULT_CURSOR);
+	private Cursor CROSSHAIR_CURSOR = new Cursor(Cursor.CROSSHAIR_CURSOR);
+	private Cursor TEXT_CURSOR = new Cursor(Cursor.TEXT_CURSOR);
+
+	private BufferedImage blankImage = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+	private Cursor BLANK_CURSOR = Toolkit.getDefaultToolkit().createCustomCursor(blankImage, new Point(0, 0), "blank cursor");
+	private Cursor currentCursor = null;
+
+	public MenuCheckList<Brush, JRadioButtonMenuItem> brushes = new MenuCheckList<Brush, JRadioButtonMenuItem>();
+	public MenuCheckList<ScalarView, CustJRadioButtonMenuItem> scalarview = new MenuCheckList<ScalarView, CustJRadioButtonMenuItem>();
+	public MenuCheckList<VectorView, CustJRadioButtonMenuItem> vectorview = new MenuCheckList<VectorView, CustJRadioButtonMenuItem>();
+	public MenuCheckList<ScalarMode, CustJRadioButtonMenuItem> scalarmode = new MenuCheckList<ScalarMode, CustJRadioButtonMenuItem>();
+	public MenuCheckList<VectorMode, CustJRadioButtonMenuItem> vectormode = new MenuCheckList<VectorMode, CustJRadioButtonMenuItem>();
+	//public JCheckBoxMenuItem carriers = new JCheckBoxMenuItem("Show charge carriers");
+
+	public UndoRedo undoredo = new UndoRedo(4);
+
+	public Probe.LabelCoord labelcoord = null;
+
+	public Path plotpath = null;
 
 	public Controls(Simulation e) {
 		this.e = e;
 	}
-	
-	public void initializeGrid(double ds, int x_resolution, int y_resolution, int z_resolution) {
 
-		selection = new Material[e.nx][e.ny][e.nz];
-		clipboard = new Material[e.nx][e.ny][e.nz];
-		
+	void setResolution() {
+		selection = new Clipboard(e);
+		clipboard = new Clipboard(e);
+
 		under_brush = new boolean[e.nx][e.ny][e.nz];
 		selected = new boolean[e.nx][e.ny][e.nz];
 		selected_EMF = new boolean[e.nx][e.ny][e.nz];
-		
+
 		text_x = 0;
 		text_y = 0;
-		texting = false;
+		endTextInput();
 	}
-	
+
 	public void handleMouseInput() {
-		Brush brush = (Brush) e.opts.gui_brush.getSelectedItem();
-		BrushShape brushshape = (BrushShape) e.opts.gui_brush_1.getSelectedItem();
+		transformMouseCoords();
+		processKeyboardCommands();
+		makeUIchanges();
+		applyTool();
+	}
 
-		boolean pressing = false;
-		boolean releasing = false;
-
-		if (mouse_pressed) {
-			if (!mouse_pressed_prev) {
-				pressing = true;
-				e.renderer.canvas.requestFocus();
-				if ((Brush.isMaterialModifyingBrush(brush) && !shift_down) || brush == Brush.SELECT)
-					e.opts.gui_paused.setSelected(true);
+	public void transformMouseCoords() {
+		pressing_left = false;
+		releasing_left = false;
+		if (mouse_pressed_left) {
+			if (!mouse_pressed_prev_left) {
+				pressing_left = true;
 			}
 		} else {
-			if (mouse_pressed_prev) {
-				releasing = true;
+			if (mouse_pressed_prev_left) {
+				releasing_left = true;
 			}
 		}
-		mouse_pressed_prev = mouse_pressed;
+		mouse_pressed_prev_left = mouse_pressed_left;
 
 
-		if (!mouse_pressed && !releasing) {
-
-			if (ctrl_down /*|| shift_down*/) {
-				if (!modifier_pressed && Brush.isMaterialModifyingBrush(brush)) {
-					modifier_pressed = true;
-					prev_brush = brush;
-
-					if (ctrl_down) {
-						e.opts.gui_brush.setSelectedItem(Brush.FILL);
-						brush = (Brush) e.opts.gui_brush.getSelectedItem();
-					}
-					/*else if (shift_down) {
-						opts.gui_brush.setSelectedItem(Brush.LINE);
-						brush = (Brush) opts.gui_brush.getSelectedItem();
-					}*/
-					//r.requestFocus();
-				}
-			} else {
-				if (modifier_pressed) {
-					modifier_pressed = false;
-					e.opts.gui_brush.setSelectedItem(Brush.DRAW);
-					brush = (Brush) e.opts.gui_brush.getSelectedItem();
-					//r.requestFocus();
-				}
+		pressing_right = false;
+		releasing_right = false;
+		if (mouse_pressed_right) {
+			if (!mouse_pressed_prev_right) {
+				pressing_right = true;
+			}
+		} else {
+			if (mouse_pressed_prev_right) {
+				releasing_right = true;
 			}
 		}
+		mouse_pressed_prev_right = mouse_pressed_right;
 
+		pressing_middle = false;
+		releasing_middle = false;
+		if (mouse_pressed_middle) {
+			if (!mouse_pressed_prev_middle) {
+				pressing_middle = true;
+			}
+		} else {
+			if (mouse_pressed_prev_middle) {
+				releasing_middle = true;
+			}
+		}
+		mouse_pressed_prev_middle = mouse_pressed_middle;
 
 		if (!e.renderer.threeD_mode) {
-			mx_normal = 0;
-			my_normal = 0;
-			mz_normal = 0;
+			if (e.renderer.slice_x) {
+				my = mx_screen;
+				mz = e.renderer.imgheight - 1 - my_screen;
+				mx = indexToCoord(e.opts.gui_slice.getValue());
+			} else if (e.renderer.slice_y) {
+				mx = mx_screen;
+				mz = e.renderer.imgheight - 1 - my_screen;
+				my = indexToCoord(e.opts.gui_slice.getValue());
+			} else if (e.renderer.slice_z) {
+				mx = mx_screen;
+				my = e.renderer.imgheight - 1 - my_screen;
+				mz = indexToCoord(e.opts.gui_slice.getValue());
+			}
 		}
 
-		mx_realspace = Math.round((mx-1)/(double)e.renderer.scalefactor - 0.5 + mx_normal)*e.ds;
-		my_realspace = Math.round((my-1)/(double)e.renderer.scalefactor - 0.5 + my_normal)*e.ds;
-		mz_realspace = Math.round((mz-1)/(double)e.renderer.scalefactor - 0.5 + mz_normal)*e.ds;
+		if (alt_down && (mouse_pressed_left || releasing_left || mouse_pressed_right || releasing_right))
+			snapToCardinals(mx, my, mz);
 
-		mx_start_realspace =  Math.round((mx_start-1)/(double)e.renderer.scalefactor - 0.5 + mx_normal)*e.ds;
-		my_start_realspace = Math.round((my_start-1)/(double)e.renderer.scalefactor - 0.5 + my_normal)*e.ds;
-		mz_start_realspace = Math.round((mz_start-1)/(double)e.renderer.scalefactor - 0.5 + mz_normal)*e.ds;
+		if (mx < 0) mx = 0;
+		if (my < 0) my = 0;
+		if (mz < 0) mz = 0;
+		if (mx >= e.nx) mx = e.nx-1;
+		if (my >= e.ny) my = e.ny-1;
+		if (mz >= e.ny) mz = e.nz-1;
 
-		mx_index = (int)Math.round((mx-1)/(double)e.renderer.scalefactor - 0.5);
-		my_index = (int)Math.round((my-1)/(double)e.renderer.scalefactor - 0.5);
-		mz_index = (int)Math.round((mz-1)/(double)e.renderer.scalefactor - 0.5);
-
-		mx_start_index = (int)Math.round((mx_start-1)/(double)e.renderer.scalefactor - 0.5);
-		my_start_index = (int)Math.round((my_start-1)/(double)e.renderer.scalefactor - 0.5);
-		mz_start_index = (int)Math.round((mz_start-1)/(double)e.renderer.scalefactor - 0.5);
-
-		if (mx_index < 0) mx_index = 0;
-		if (my_index < 0) my_index = 0;
-		if (mz_index < 0) mz_index = 0;
-		if (mx_index >= e.nx) mx_index = e.nx-1;
-		if (my_index >= e.ny) my_index = e.ny-1;
-		if (mz_index >= e.nz) mz_index = e.nz-1;
-
-		if (mx_start_index < 0) mx_start_index = 0;
-		if (my_start_index < 0) my_start_index = 0;
-		if (mz_start_index < 0) mz_start_index = 0;
-		if (mx_start_index >= e.nx) mx_start_index = e.nx-1;
-		if (my_start_index >= e.ny) my_start_index = e.ny-1;
-		if (mz_start_index >= e.nz) mz_start_index = e.nz-1;
-
-		e.opts.gui_stepsizelbl.setText("Step size: " + Utils.getSI(e.dt, "s"));
-		e.opts.gui_stepslbl.setText("Steps/frame: " + e.opts.gui_simspeed_2.getValue());
-
-		brushsize = (e.min_width/500)*(Math.pow(10.0, e.opts.gui_brushsize.getValue()/500.0) + e.opts.gui_brushsize.getValue()/100.0);
-		e.opts.lblBrushSize.setText("Brush size: " + (int)Math.ceil(brushsize/e.ds));
-
-		if (!Brush.isMaterialModifyingBrush(brush))
-		{
-			e.opts.gui_parameter2.setVisible(false);
-			e.opts.gui_parameter2_text.setVisible(false);
-			e.opts.gui_parameter2_text.setText("");
-		}
+		if (mx_start < 0) mx_start = 0;
+		if (my_start < 0) my_start = 0;
+		if (mz_start < 0) mz_start = 0;
+		if (mx_start >= e.nx) mx_start = e.nx-1;
+		if (my_start >= e.ny) my_start = e.ny-1;
+		if (mz_start >= e.ny) mz_start = e.nz-1;
+	}
 
 
-		if (Brush.isMaterialModifyingBrush(brush) && brush != Brush.FILL) {
-			e.opts.gui_brush_1.setVisible(true);
-			e.opts.gui_brush_highlight.setVisible(true);
-			e.opts.gui_brushsize.setVisible(true);
-			e.opts.lblBrushSize.setVisible(true);
-		} else {
-			e.opts.gui_brush_1.setVisible(false);
-			e.opts.gui_brush_highlight.setVisible(false);
-			e.opts.gui_brushsize.setVisible(false);
-			e.opts.lblBrushSize.setVisible(false);
-		}
-
-
-		if (Brush.isMaterialModifyingBrush(brush) && brush != Brush.ERASE) {
-			e.opts.gui_material.setVisible(true);
-		} else {
-			e.opts.gui_material.setVisible(false);
-		}
+	public void processKeyboardCommands() {
+		Brush brush = (Brush) e.opts.gui_brush.getSelectedItem();
 
 		if (brush_changed) {
 			if (!(brush == Brush.SELECT || brush == Brush.FLOODSELECT)) {
@@ -288,6 +349,8 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 						}
 					}
 				}
+
+				e.probes.forEach((p) -> p.selected = false);
 			}
 
 			if (brush != Brush.INTERACT) {
@@ -307,78 +370,22 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 			brush_changed = false;
 		}
 
-		boolean update = false;
-
 		if (cut || copy) {
-			int i_min = e.nx-1;
-			int j_min = e.ny-1;
-			int k_min = e.nz-1;
-			for (int i = 0; i < e.nx; i++)
-			{
-				for (int j = 0; j < e.ny; j++)
-				{
-					for (int k = 0; k < e.nz; k++)
-					{
-						clipboard[i][j][k].erase();
-						if (selected[i][j][k] && e.materials[i][j][k].type != MaterialType.VACUUM) {
-							if (i < i_min) i_min = i;
-							if (j < j_min) j_min = j;
-							if (k < k_min) k_min = k;
-						}
-					}
-				}
-			}
-			for (int i = 0; i < e.nx; i++)
-			{
-				for (int j = 0; j < e.ny; j++)
-				{
-					for (int k = 0; k < e.nz; k++)
-					{
-						if (selected[i][j][k] && e.materials[i][j][k].type != MaterialType.VACUUM) {
-							clipboard[i-i_min][j-j_min][k-k_min] = e.materials[i][j][k].clone();
-							if (cut) {
-								e.materials[i][j][k].erase();
-							}
-						}
-						if (cut) {
-							selected[i][j][k] = false;
-						}
-					}
-				}
-			}
+			clipboardempty = clipboard.copy(cut);
 
-			if (cut) update = true;
+			if (cut) flagChanges(true);
 
 			cut = false;
 			copy = false;
 		}
 
 		if (paste) {
-			for (int i = 0; i < e.nx; i++)
-			{
-				for (int j = 0; j < e.ny; j++)
-				{
-					for (int k = 0; k < e.nz; k++)
-					{
-						selected[i][j][k] = false;
-					}
-				}
-			}
+			clipboard.transfer(selection);
 
-			for (int i = 0; i < e.nx; i++)
-			{
-				for (int j = 0; j < e.ny; j++)
-				{
-					for (int k = 0; k < e.nz; k++)
-					{
-						selection[i][j][k] = clipboard[i][j][k].clone();
-					}
-				}
-			}
 			moving_selection = true;
 			dragging_selection = false;
 			paste = false;
-			update = true;
+			flagChanges(true);
 		}
 
 		if (delete) {
@@ -389,14 +396,205 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 					for (int k = 0; k < e.nz; k++)
 					{
 						if (selected[i][j][k] && e.materials[i][j][k].type != MaterialType.VACUUM) {
-							e.materials[i][j][k].erase();
+							e.eraseMaterial(i, j, k);
 						}
 					}
 				}
 			}
+			e.probes.removeIf((p) -> p.selected);
+			e.relabelProbes();
+
 			delete = false;
-			update = true;
+			flagChanges(true);
 		}
+
+		if (rotate_selection || flip_h_selection || flip_v_selection) {
+
+			if (rotate_selection) {
+				selection.rotate90();
+				rotate_selection = false;
+			}
+
+			if (flip_h_selection) {
+				selection.flip_h();
+				flip_h_selection = false;
+			}
+
+			if (flip_v_selection) {
+				selection.flip_v();
+				flip_v_selection = false;
+			}
+		}
+
+		if (selectall) {
+			for (int i = 0; i < e.nx; i++)
+			{
+				for (int j = 0; j < e.ny; j++)
+				{
+					for (int k = 0; k < e.nz; k++)
+					{
+						if (!(e.materials[i][j][k].auto_placed && e.materials[i][j][k].type == MaterialType.ABSORBER)) {
+							selected[i][j][k] = true;
+						}
+					}
+				}
+			}
+			e.probes.forEach((p) -> p.selected = true);
+			e.opts.gui_brush.setSelectedItem(Brush.SELECT);
+			selectall = false;
+		}
+
+		if (deselectall) {
+			for (int i = 0; i < e.nx; i++)
+			{
+				for (int j = 0; j < e.ny; j++)
+				{
+					for (int k = 0; k < e.nz; k++)
+					{
+						selected[i][j][k] = false;
+					}
+				}
+			}
+			e.probes.forEach((p) -> p.selected = false);
+			deselectall = false;
+		}
+
+		selectionempty = true;
+
+		for (int i = 0; i < e.nx; i++)
+		{
+			for (int j = 0; j < e.ny; j++)
+			{
+				for (int k = 0; k < e.nz; k++)
+				{
+					if (selected[i][j][k]) {
+						selectionempty = false;
+					}
+				}
+			}
+		}
+		for (Probe p : e.probes)
+			if (p.selected)
+				selectionempty = false;
+
+		e.opts.menu_cut.setEnabled(!selectionempty);
+		e.opts.menu_copy.setEnabled(!selectionempty);
+		e.opts.menu_paste.setEnabled(!clipboardempty);
+		e.opts.menu_rotate.setEnabled(moving_selection);
+		e.opts.menu_flip_h.setEnabled(moving_selection);
+		e.opts.menu_flip_v.setEnabled(moving_selection);
+		e.opts.menu_undo.setEnabled(undoredo.canUndo());
+		e.opts.menu_redo.setEnabled(undoredo.canRedo());
+		e.opts.menu_deselectall.setEnabled(!selectionempty);
+	}
+
+	public void makeUIchanges() {
+		Brush brush = (Brush) e.opts.gui_brush.getSelectedItem();
+		currentCursor = DEFAULT_CURSOR;
+
+		if (pressing_left) {
+			e.canvas.requestFocus();
+			if (Brush.isMaterialModifyingBrush(brush) || brush == Brush.SELECT)
+				e.opts.gui_paused.setSelected(true);
+		}
+
+		if (pressing_right) {
+			e.canvas.requestFocus();
+			if (Brush.isMaterialModifyingBrush(brush))
+				e.opts.gui_paused.setSelected(true);
+		}
+
+		e.opts.gui_stepsizelbl.setText("Timestep: " + e.units.toString(e.dt, Quantity.TIME));
+		e.opts.gui_stepslbl.setText("Sim steps/frame: " + e.opts.gui_simspeed_2.getValue());
+
+		brushsize = Math.pow(10.0, 2*e.opts.gui_brushsize.getValue()/(50.0*10.0) - 0.75) + e.opts.gui_brushsize.getValue()/10.0 + 0.5;
+		e.opts.lblBrushSize.setText("Brush size: " + (int)Math.ceil(brushsize));
+
+		if (!Brush.isMaterialModifyingBrush(brush))
+		{
+			e.opts.gui_parameter2.setVisible(false);
+			e.opts.gui_parameter2_text.setVisible(false);
+			e.opts.gui_parameter2_text.setText("");
+		}
+
+
+		if (Brush.isBrushShapeImportant(brush)) {
+			e.opts.gui_brush_1.setVisible(true);
+			e.opts.gui_brush_highlight.setVisible(true);
+			e.opts.gui_brushsize.setVisible(true);
+			e.opts.lblBrushSize.setVisible(true);
+			currentCursor = BLANK_CURSOR;
+		} else {
+			e.opts.gui_brush_1.setVisible(false);
+			e.opts.gui_brush_highlight.setVisible(false);
+			e.opts.gui_brushsize.setVisible(false);
+			e.opts.lblBrushSize.setVisible(false);
+		}
+
+
+		if (Brush.isMaterialModifyingBrush(brush) && brush != Brush.ERASE) {
+			e.opts.gui_material.setVisible(true);
+		} else {
+			e.opts.gui_material.setVisible(false);
+		}
+
+		if (e.opts.gui_carriers.isSelected()) {
+			e.opts.gui_carrierlbl.setVisible(true);
+			e.opts.gui_carrier_density.setVisible(true);
+		} else {
+			e.opts.gui_carrierlbl.setVisible(false);
+			e.opts.gui_carrier_density.setVisible(false);
+		}
+
+		if (brush == Brush.PROBEPLOT) {
+			e.opts.gui_plotinterval.setVisible(true);
+			e.opts.gui_plotinterval_text.setVisible(true);
+		} else {
+			e.opts.gui_plotinterval.setVisible(false);
+			e.opts.gui_plotinterval_text.setVisible(false);
+		}
+
+		if (brush == Brush.LIGHT) {
+			e.opts.gui_light.setVisible(true);
+			e.opts.gui_light_text.setVisible(true);
+		} else {
+			e.opts.gui_light.setVisible(false);
+			e.opts.gui_light_text.setVisible(false);
+		}
+
+		if (brush == Brush.PROBE) {
+			e.opts.gui_probetype.setVisible(true);
+		} else {
+			e.opts.gui_probetype.setVisible(false);
+		}
+	}
+
+	public void applyTool() {
+
+		Brush brush = (Brush) e.opts.gui_brush.getSelectedItem();
+		BrushShape brushshape = (BrushShape) e.opts.gui_brush_1.getSelectedItem();
+
+		if (Keyboard.isKeyPressed(KeyEvent.VK_SHIFT) && !shift_down) {
+			shift_down = true;
+
+			if ((Brush) e.opts.gui_brush.getSelectedItem() == Brush.DRAW) {
+				shift_draw_override = true;
+				e.opts.gui_brush.setSelectedItem(Brush.LINE);
+			}
+		} else if (!Keyboard.isKeyPressed(KeyEvent.VK_SHIFT) && shift_down) {
+			shift_down = false;
+
+			if (shift_draw_override) {
+				shift_draw_override = false;
+				if ((Brush) e.opts.gui_brush.getSelectedItem() == Brush.LINE) {
+					e.opts.gui_brush.setSelectedItem(Brush.DRAW);
+				}
+			}
+		}
+
+		shift_down = Keyboard.isKeyPressed(KeyEvent.VK_SHIFT);
+		alt_down = Keyboard.isKeyPressed(KeyEvent.VK_ALT);
+		ctrl_down = Keyboard.isKeyPressed(KeyEvent.VK_CONTROL) || Keyboard.isKeyPressed(KeyEvent.VK_META);
 
 		switch(brush) {
 		case DRAW:
@@ -404,30 +602,19 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 		case REPLACE:
 		case ERASE:
 		case FILL:
+		case LIGHT:
 
-			if (pressing && shift_down) {
-				e.renderer.pitch_start =  e.renderer.pitch;
-				e.renderer.yaw_start = e.renderer.yaw;
+			boolean pick_material = alt_down && mx-mx_start == 0 && my-my_start == 0;
 
-				break;
-			}  else if (mouse_pressed && shift_down) {
-				e.renderer.pitch = e.renderer.pitch_start + 2*(float)(my_3d - my_3d_start)/e.renderer.imgheight;
-				e.renderer.yaw = e.renderer.yaw_start - 2*(float)(mx_3d - mx_3d_start)/e.renderer.imgwidth;
-
-				if (e.renderer.pitch > Math.PI/2) e.renderer.pitch = (float)Math.PI/2;
-				if (e.renderer.pitch < -Math.PI/2) e.renderer.pitch = -(float)Math.PI/2;
-
-				break;
+			if (releasing_middle || (pick_material && releasing_left)) {
+				e.opts.gui_material.setSelectedItem(new GeneralMaterialType(e.materials[mx][my][mz]));
 			}
 
-			if ((mousebutton == MouseEvent.BUTTON2 || alt_down) && pressing) {
-				e.opts.gui_material.setSelectedItem(e.materials[mx_index][my_index][mz_index].type);
-			}
-
+			double angle = 0;
+			GeneralMaterialType mat = (GeneralMaterialType) e.opts.gui_material.getSelectedItem();
+			
 			int angleSetting = e.opts.gui_parameter2.getValue()/4;
-			MaterialType mat = (mousebutton == MouseEvent.BUTTON3 || brush == Brush.ERASE)? MaterialType.VACUUM :(MaterialType) e.opts.gui_material.getSelectedItem();
-
-			if (mat == MaterialType.EMF || mat == MaterialType.AC_EMF) {
+			if (mat.type.hasEMF() && brush != Brush.LIGHT) {
 				e.opts.gui_parameter2.setVisible(true);
 				e.opts.gui_parameter2_text.setVisible(true);
 
@@ -449,114 +636,132 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 				else if (angleSetting == 5) {
 					e.opts.gui_parameter2_text.setText("EMF direction: -z");
 				}
-				//opts.gui_parameter2_text.setText("Brush orientation: " + directionval*(360/24) + " deg");
-				//angle = Math.PI * directionval/12.0;
 			} else {
 				e.opts.gui_parameter2.setVisible(false);
 				e.opts.gui_parameter2_text.setVisible(false);
 				e.opts.gui_parameter2_text.setText("");
 			}
 
-			Brush brush2 = brush;
-			
-			if (!(mousebutton == MouseEvent.BUTTON2 || alt_down)) {
-				if (brush == Brush.LINE) {
-					if (releasing) {
-						setLine(mx_start_realspace, my_start_realspace, mz_start_realspace, mx_realspace, my_realspace, mz_realspace, brush, brushshape, new SetFunc() {
+			if (brush == Brush.LIGHT) {
+				flashlight_strength = e.default_flashlight_strength*Math.pow(10, e.opts.gui_light.getValue()/10.0);
+				e.opts.gui_light_text.setText("Light: " + e.units.toString(flashlight_strength*e.Eg_semi*e.depth, Quantity.INTENSITY));
+			}
 
+
+			if (mouse_pressed_right || releasing_right || brush == Brush.ERASE)
+				mat = GeneralMaterialType.EMPTY;
+
+
+			if (!(mouse_pressed_middle || pick_material)) {
+				if (brush == Brush.LINE) {
+					if (releasing_left || releasing_right) {
+						GeneralMaterialType final_mat = mat;
+						double final_angle = angle;
+						applyBrush(mx_start, my_start, mz_start, mx, my, mz, brushshape, brushsize, new BrushAction() {
 							@Override
-							public void set(int i, int j, int k) {
-								if (mat == MaterialType.VACUUM) {
-									e.materials[i][j][k].erase();
-								} else if (e.materials[i][j][k].type == MaterialType.VACUUM || brush2 == Brush.REPLACE) {
-									e.materials[i][j][k].erase();
-									e.initializeMaterial(i, j, k, mat);
-									if (mat == MaterialType.EMF || mat == MaterialType.AC_EMF) updateEMFdirection(i, j, k, angleSetting);
+							public void perform(int i, int j, int k, boolean in_bounds) {
+								if (in_bounds) {
+									if (final_mat.type == MaterialType.VACUUM) {
+										e.eraseMaterial(i, j, k);
+									} else if (e.materials[i][j][k].type == MaterialType.VACUUM ^ brush == Brush.REPLACE) {
+										e.eraseMaterial(i, j, k);
+										e.initializeMaterial(i, j, k, final_mat);
+										if (final_mat.type.hasEMF()) updateEMFdirection(i, j, k, angleSetting);
+									}
 								}
 							}
-							
+
 						});
+						flagChanges(true);
 					}
 				} else if (brush == Brush.FILL) {
-					if (pressing) {
-						MaterialType old_mat = e.materials[mx_index][my_index][mz_index].type;
-						MaterialType new_mat = mat;
-						this.floodFill(mx_index, my_index, mz_index, new FloodFillFunc() {
-							@Override
-							public boolean isValid(int i, int j, int k) {
-								return e.materials[i][j][k].type == old_mat && e.materials[i][j][k].type != new_mat;
-							}
+					currentCursor = this.CROSSHAIR_CURSOR;
+					if (pressing_left) {
+						GeneralMaterialType old_mat = new GeneralMaterialType(e.materials[mx][my][mz]);
+						GeneralMaterialType new_mat = mat;
+						double new_angle = angle;
+						if (!new_mat.equals(old_mat)) {
+							this.floodFill(mx, my, mz, new FloodFillFunc() {
+								@Override
+								public boolean isValid(int i, int j, int k) {
+									return e.materials[i][j][k].type == old_mat.type && e.materials[i][j][k].cust_id == old_mat.cust_id;
+								}
 
+								@Override
+								public void fill(int i, int j, int k) {
+									e.eraseMaterial(i, j, k);
+									e.initializeMaterial(e.materials[i][j][k], new_mat);
+									if (new_mat.type.hasEMF()) updateEMFdirection(i, j, k, angleSetting);
+								}
+							});
+							flagChanges(true);
+						}
+					}
+				} else if (brush == Brush.LIGHT) {
+					if (mouse_pressed_left) {
+						applyBrush(mxp, myp, mzp, mx, my, mz, brushshape, brushsize, new BrushAction() {
 							@Override
-							public void fill(int i, int j, int k) {
-								e.materials[i][j][k].erase();
-								e.initializeMaterial(i, j, k, new_mat);
-								if (new_mat == MaterialType.EMF || new_mat == MaterialType.AC_EMF) updateEMFdirection(i, j, k, angleSetting);
+							public void perform(int i, int j, int k, boolean in_bounds) {
+								e.L[i][j][k] = in_bounds? flashlight_strength : 0;
 							}
 						});
-					}
-				} else if (!e.renderer.threeD_mode && mouse_pressed || e.renderer.threeD_mode && pressing) {
-					setLine(mx_start_realspace, my_start_realspace, mz_start_realspace, mx_realspace, my_realspace, mz_realspace, brush, brushshape, new SetFunc() {
+					} else if (releasing_left) {
 
-						@Override
-						public void set(int i, int j, int k) {
-							if (mat == MaterialType.VACUUM) {
-								e.materials[i][j][k].erase();
-							} else if (e.materials[i][j][k].type == MaterialType.VACUUM || brush2 == Brush.REPLACE) {
-								e.materials[i][j][k].erase();
-								e.initializeMaterial(i, j, k, mat);
-								if (mat == MaterialType.EMF || mat == MaterialType.AC_EMF) updateEMFdirection(i, j, k, angleSetting);
+						for (int i = 0; i < e.nx; i++)
+						{
+							for (int j = 0; j < e.ny; j++)
+							{
+								for (int k = 0; k < e.nz; k++)
+								{
+									e.L[i][j][k] = 0;
+								}
 							}
 						}
-						
-					});
+					}
+				}
+				else {
+					if (mouse_pressed_left || mouse_pressed_right) {
+						GeneralMaterialType final_mat = mat;
+						double final_angle = angle;
+						applyBrush(mxp, myp, mzp, mx, my, mz, brushshape, brushsize, new BrushAction() {
+							@Override
+							public void perform(int i, int j, int k, boolean in_bounds) {
+								if (in_bounds) {
+									if (final_mat.type == MaterialType.VACUUM) {
+										e.eraseMaterial(i, j, k);
+									} else if (e.materials[i][j][k].type == MaterialType.VACUUM ^ brush == Brush.REPLACE) {
+										e.eraseMaterial(i, j, k);
+										e.initializeMaterial(i, j, k, final_mat);
+										if (final_mat.type.hasEMF()) updateEMFdirection(i, j, k, angleSetting);
+									}
+								}
+							}
+
+						});
+					} else if (releasing_left || releasing_right) {
+						flagChanges(true);
+					}
 				}
 			}
 
 			if (Brush.isBrushShapeImportant(brush)) {
-				for (int i = 0; i < e.nx; i++)
-				{
-					for (int j = 0; j < e.ny; j++)
-					{
-						for (int k = 0; k < e.nz; k++)
-						{
-							if (e.opts.gui_brush_highlight.isSelected()) {
-								double cx = 0;
-								double cy = 0;
-								double cz = 0;
-								cx = i*e.ds;
-								cy = j*e.ds;
-								cz = k*e.ds;
-
-								double px = (cx-mx_realspace);
-								double py = (cy-my_realspace);
-								double pz = (cz-mz_realspace);
-								double r = 0;
-
-								if (brushshape == BrushShape.CIRCLE)
-									r = Math.sqrt(px*px+py*py+pz*pz);
-								else if (brushshape == BrushShape.SQUARE)
-									r = Math.max(Math.max(Math.abs(px), Math.abs(py)), Math.abs(pz));
-								under_brush[i][j][k] = (r <= brushsize);
-							}
-							else {
-								under_brush[i][j][k] = false;
-							}
-						}
+				applyBrush(mxp, myp, mzp, mx, my, mz, brushshape, brushsize, new BrushAction() {
+					@Override
+					public void perform(int i, int j, int k, boolean in_bounds) {
+						under_brush[i][j][k] = in_bounds;
 					}
-				}
+
+				});
 			}
 
 			break;
 
 		case INTERACT:
-			if (e.materials[mx_index][my_index][mz_index].type == MaterialType.EMF || e.materials[mx_index][my_index][mz_index].type == MaterialType.AC_EMF || e.materials[mx_index][my_index][mz_index].type == MaterialType.SWITCH)
-				updateCursor(HAND_CURSOR);
-			else
-				updateCursor(DEFAULT_CURSOR);
+			if (e.materials[mx][my][mz].type.isInteractable())
+				currentCursor = HAND_CURSOR;
 
-			if (pressing) {
-				boolean turn_on_EMF = !selected_EMF[mx_index][my_index][mz_index];
+			if (pressing_left) {
+				boolean turn_on_EMF = !selected_EMF[mx][my][mz];
 
 				for (int i = 0; i < e.nx; i++)
 				{
@@ -570,11 +775,11 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 				}
 				EMF_selected = false;
 
-				if ((e.materials[mx_index][my_index][mz_index].type == MaterialType.EMF || e.materials[mx_index][my_index][mz_index].type == MaterialType.AC_EMF) && turn_on_EMF) {
-					this.floodFill(mx_index, my_index, mz_index, new FloodFillFunc() {
+				if ((e.materials[mx][my][mz].type.hasEMF()) && turn_on_EMF) {
+					this.floodFill(mx, my, mz, new FloodFillFunc() {
 						@Override
 						public boolean isValid(int i, int j, int k) {
-							return e.materials[i][j][k].type == e.materials[mx_index][my_index][mz_index].type && selected_EMF[i][j][k] != true;
+							return e.materials[i][j][k].type == e.materials[mx][my][mz].type && selected_EMF[i][j][k] != true;
 						}
 
 						@Override
@@ -582,16 +787,25 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 							selected_EMF[i][j][k] = true;
 						}
 					});
+
 					EMF_selected = true;
-					int setting = (int)(Math.round(50*e.materials[mx_index][my_index][mz_index].emf/max_EMF));
+					iscurrentselected = e.materials[mx][my][mz].type == MaterialType.CURRENT;
+
+					int setting = 0;
+					if (!iscurrentselected)
+						setting = (int)(Math.round(50*e.materials[mx][my][mz].emf/e.max_EMF));
+					else {
+						setting = (int)(Math.round(50*e.materials[mx][my][mz].emf/(e.max_current/e.currentsource_sigma)));
+					}
+
 					e.opts.gui_parameter3.setValue(setting);
 					prev_EMF_setting = setting;
 				}
 
-				if (e.materials[mx_index][my_index][mz_index].type == MaterialType.SWITCH) {
-					int active = 1-e.materials[mx_index][my_index][mz_index].activated;
-					
-					this.floodFill(mx_index, my_index, mz_index, new FloodFillFunc() {
+				if (e.materials[mx][my][mz].type == MaterialType.SWITCH) {
+					int active = 1-e.materials[mx][my][mz].activated;
+
+					this.floodFill(mx, my, mz, new FloodFillFunc() {
 						@Override
 						public boolean isValid(int i, int j, int k) {
 							return e.materials[i][j][k].type == MaterialType.SWITCH && e.materials[i][j][k].activated != active;
@@ -602,90 +816,92 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 							e.materials[i][j][k].activated = active;
 						}
 					});
-					update = true;
+
+					updatematerials = true;
 				}
+			}
+			break;
+		case ZOOM:
+			if (pressing_left && shift_down || pressing_middle) {
+				zoom_i1_pan = zoom_i1;
+				zoom_j1_pan = zoom_j1;
+				zoom_k1_pan = zoom_k1;
+				zoom_i2_pan = zoom_i2;
+				zoom_j2_pan = zoom_j2;
+				zoom_k2_pan = zoom_k2;
+			} else if (mouse_pressed_left && shift_down || mouse_pressed_middle) {
+				/*double sf_x = (zoom_i2_pan-zoom_i1_pan+1)/(double)e.canvas.zoom_bound_x;
+				double sf_y = (zoom_j2_pan-zoom_j1_pan+1)/(double)e.canvas.zoom_bound_y;
 
-				e.renderer.pitch_start =  e.renderer.pitch;
-				e.renderer.yaw_start = e.renderer.yaw;
-			}  else if (mouse_pressed) {
-				e.renderer.pitch = e.renderer.pitch_start + 2*(float)(my_3d - my_3d_start)/e.renderer.imgheight;
-				e.renderer.yaw = e.renderer.yaw_start - 2*(float)(mx_3d - mx_3d_start)/e.renderer.imgwidth;
+				int mx_tmp = (int)Math.round(zoom_i1_pan + (mx_screen-e.canvas.offset_x - 1)*sf_x - 0.5);
+				int my_tmp = (int)Math.round(zoom_j1_pan + (my_screen-e.canvas.offset_y - 2)*sf_y - 0.5);
 
-				if (e.renderer.pitch > Math.PI/2) e.renderer.pitch = (float)Math.PI/2;
-				if (e.renderer.pitch < -Math.PI/2) e.renderer.pitch = -(float)Math.PI/2;
+				int mx_start_tmp = (int)Math.round(zoom_i1_pan + (mx_start_screen-e.canvas.offset_x - 1)*sf_x - 0.5);
+				int my_start_tmp = (int)Math.round(zoom_j1_pan + (my_start_screen-e.canvas.offset_y - 2)*sf_y - 0.5);
+
+				zoom_i1 = zoom_i1_pan - (mx_tmp - mx_start_tmp);
+				zoom_j1 = zoom_j1_pan - (my_tmp - my_start_tmp);
+				zoom_i2 = zoom_i2_pan - (mx_tmp - mx_start_tmp);
+				zoom_j2 = zoom_j2_pan - (my_tmp - my_start_tmp);*/
+				//TODO
+			}
+
+			if (releasing_left && !shift_down) {
+				if (mx == mx_start && my == my_start) {
+					resetZoom();
+				} else {
+					zoom_i1 = Math.min(mx_start, mx);
+					zoom_j1 = Math.min(my_start, my);
+					zoom_i2 = Math.max(mx_start, mx);
+					zoom_j2 = Math.max(my_start, my);
+					zoomed = true;
+				}
 			}
 			break;
 		case FLOODSELECT:
 		case SELECT:
-			if (pressing) {
+			if (pressing_left) {
 				if (brush == Brush.FLOODSELECT && !moving_selection) {
-					this.floodFill(mx_index, my_index, mz_index, new FloodFillFunc() {
+
+					boolean isselected = selected[mx][my][mz];
+					this.floodFill(mx, my, mz, new FloodFillFunc() {
 						@Override
 						public boolean isValid(int i, int j, int k) {
-							return e.materials[i][j][k].type == e.materials[mx_index][my_index][mz_index].type && selected[i][j][k] != !selected[mx_index][my_index][mz_index];
+							return e.materials[i][j][k].type == e.materials[mx][my][mz].type && selected[i][j][k] == isselected;
 						}
 
 						@Override
 						public void fill(int i, int j, int k) {
-							selected[i][j][k] = !selected[mx_index][my_index][mz_index];
+							selected[i][j][k] = !isselected;
 						}
 					});
 				}
 				else if (moving_selection && !dragging_selection) {
-					for (int i = 0; i < e.nx; i++)
-					{
-						for (int j = 0; j < e.ny; j++)
-						{
-							for (int k = 0; k < e.nz; k++)
-							{
-								int si = i-delta_mx_index;
-								int sj = j-delta_my_index;
-								int sk = k-delta_mz_index;
-								if (si >= 0 && sj >= 0 && sk >= 0 && si < e.nx && sj < e.ny && sk < e.nz && selection[si][sj][sk].type != MaterialType.VACUUM) {
-									e.materials[i][j][k].erase();
-									e.materials[i][j][k] = selection[si][sj][sk].clone();
-									selected[i][j][k] = true;
-								}
-							}
-						}
-					}
+					selection.paste(delta_mx, delta_my, delta_mz); 
+					flagChanges(true);
 					moving_selection = false;
 					dragging_selection = false;
-				} else if (!moving_selection && selected[mx_index][my_index][mz_index]) {
-					for (int i = 0; i < e.nx; i++)
-					{
-						for (int j = 0; j < e.ny; j++)
-						{
-							for (int k = 0; k < e.nz; k++)
-							{
-								selection[i][j][k].erase();
-								if (selected[i][j][k]) {
-									selection[i][j][k] = e.materials[i][j][k].clone();
-									selected[i][j][k] = false;
-									e.materials[i][j][k].erase();
-								}
-							}
-						}
-					}
+				} else if (!moving_selection && selected[mx][my][mz]) {
+					selection.cut();
+					flagChanges(true);
 					moving_selection = true;
 					dragging_selection = true;
-					delta_mx_index = 0;
-					delta_my_index = 0;
-					delta_mz_index = 0;
+					delta_mx = 0;
+					delta_my = 0;
 				}
-			} else if (mouse_pressed) {
+			} else if (mouse_pressed_left) {
 				if (brush != Brush.FLOODSELECT) {
 					if (dragging_selection) {
-						delta_mx_index = mx_index - mx_start_index;
-						delta_my_index = my_index - my_start_index;
-						delta_mz_index = mz_index - mz_start_index;
+						delta_mx = mx - mx_start;
+						delta_my = my - my_start;
+						delta_mz = mz - mz_start;
 					} else {
-						int mx0 = Math.min(mx_start_index, mx_index);
-						int my0 = Math.min(my_start_index, my_index);
-						int mz0 = Math.min(mz_start_index, mz_index);
-						int mx1 = Math.max(mx_start_index, mx_index);
-						int my1 = Math.max(my_start_index, my_index);
-						int mz1 = Math.max(mz_start_index, mz_index);
+						int mx0 = Math.min(mx_start, mx);
+						int my0 = Math.min(my_start, my);
+						int mz0 = Math.min(mz_start, mz);
+						int mx1 = Math.max(mx_start, mx);
+						int my1 = Math.max(my_start, my);
+						int mz1 = Math.max(mz_start, mz);
 
 						for (int i = 0; i < e.nx; i++)
 						{
@@ -693,42 +909,30 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 							{
 								for (int k = 0; k < e.nz; k++)
 								{
-									if (i >= mx0 && i <= mx1 && j >= my0 && j <= my1 && k >= mz0 && k <= mz1)
+									if (i >= mx0 && i <= mx1 && j >= my0 && j <= my1)
 										selected[i][j][k] = true;
 									else
 										selected[i][j][k] = false;
 								}
 							}
 						}
+						for (Probe p : e.probes) {
+							p.selected = p.intersects(mx0, my0, mz0, mx1, my1, mz1);
+						}
 					}
 				}
-			} else if (releasing) {
+			} else if (releasing_left) {
 				if (brush != Brush.FLOODSELECT) {
-					delta_mx_index = mx_index - mx_start_index;
-					delta_my_index = my_index - my_start_index;
-					delta_mz_index = mz_index - mz_start_index;
+					delta_mx = mx - mx_start;
+					delta_my = my - my_start;
+					delta_mz = mz - mz_start;
 					if (dragging_selection) {
-						for (int i = 0; i < e.nx; i++)
-						{
-							for (int j = 0; j < e.ny; j++)
-							{
-								for (int k = 0; k < e.nz; k++)
-								{
-									int si = i-delta_mx_index;
-									int sj = j-delta_my_index;
-									int sk = k-delta_mz_index;
-									if (si >= 0 && sj >= 0 && sk >= 0 && si < e.nx && sj < e.ny && sk < e.nz && selection[si][sj][sk].type != MaterialType.VACUUM) {
-										e.materials[i][j][k].erase();
-										e.materials[i][j][k] = selection[si][sj][sk].clone();
-										selected[i][j][k] = true;
-									}
-								}
-							}
-						}
+						selection.paste(delta_mx, delta_my, delta_mz); 
 						moving_selection = false;
 						dragging_selection = false;
+						flagChanges(true);
 					} else {
-						if (delta_mx_index == 0 && delta_my_index == 0 && delta_mz_index == 0) {
+						if (delta_mx == 0 && delta_my == 0 && delta_mz == 0) {
 							for (int i = 0; i < e.nx; i++)
 							{
 								for (int j = 0; j < e.ny; j++)
@@ -739,116 +943,426 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 									}
 								}
 							}
+							e.probes.forEach((p) -> p.selected = false);
 						}
 					}
 				}
 			} else {
-				delta_mx_index = mx_index;
-				delta_my_index = my_index;
-				delta_mz_index = mz_index;
+				delta_mx = mx;
+				delta_my = my;
+				delta_mz = mz;
 			}
 			break;
 		case CURRENT:
-			if (!RenderMode.is3d((RenderMode) e.opts.gui_3d_view.getSelectedItem())) {
-				if (pressing) {
-					CurrentProbe p = new CurrentProbe();
-					p.x1 = mx_start_index;
-					p.y1 = my_start_index;
-					p.z1 = mz_start_index;
-					p.x2 = mx_index;
-					p.y2 = my_index;
-					p.z2 = mz_index;
-					p.normal_x = e.renderer.slice_x;
-					p.normal_y = e.renderer.slice_y;
-					p.normal_z = e.renderer.slice_z;
-					e.currentprobes.add(p);
-				} else if (mouse_pressed) {
-					e.currentprobes.get(e.currentprobes.size()-1).x2 = mx_index;
-					e.currentprobes.get(e.currentprobes.size()-1).y2 = my_index;
-					e.currentprobes.get(e.currentprobes.size()-1).z2 = mz_index;
-				}
+			if (pressing_left) {
+				CurrentProbe p = new CurrentProbe(mx_start, my_start, mz_start);
+				p.name = e.getProbeName(); e.probe_index++;
+				e.addProbe(p);
+			} else if (mouse_pressed_left) {
+				e.probes.get(e.probes.size()-1).drag(mx, my, mz);
+			} else if (releasing_left) {
+				flagChanges(false);
 			}
 			break;
 		case VOLTAGE:
-			if (pressing) {
-				VoltageProbe p = new VoltageProbe();
-				p.x = mx_start_index;
-				p.y = my_start_index;
-				p.z = mz_start_index;
-				e.voltageprobes.add(p);
-			} else if (mouse_pressed) {
-				e.voltageprobes.get(e.voltageprobes.size()-1).x = mx_index;
-				e.voltageprobes.get(e.voltageprobes.size()-1).y = my_index;
-				e.voltageprobes.get(e.voltageprobes.size()-1).z = mz_index;
+			if (pressing_left) {
+				VoltageProbe p = new VoltageProbe(mx_start, my_start, mz_start);
+				p.name = e.getProbeName(); e.probe_index++;
+				e.addProbe(p);
+			} else if (mouse_pressed_left) {
+				e.probes.get(e.probes.size()-1).drag(mx, my, mz);
+			} else if (releasing_left) {
+				flagChanges(false);
+			}
+			break;
+		case CHARGE:
+			if (pressing_left) {
+				ChargeProbe p = new ChargeProbe(mx_start, my_start, mz_start);
+				p.name = e.getProbeName(); e.probe_index++;
+				e.addProbe(p);
+			} else if (mouse_pressed_left) {
+				e.probes.get(e.probes.size()-1).drag(mx, my, mz);
+			} else if (releasing_left) {
+				flagChanges(false);
+			}
+			break;
+		case FLUX:
+			if (pressing_left) {
+				FluxProbe p = new FluxProbe(mx_start, my_start, mz_start);
+				p.name = e.getProbeName(); e.probe_index++;
+				e.addProbe(p);
+			} else if (mouse_pressed_left) {
+				e.probes.get(e.probes.size()-1).drag(mx, my, mz);
+			} else if (releasing_left) {
+				flagChanges(false);
+			}
+			break;
+		case PROBE:
+			if (pressing_left) {
+				Probe p = null;
+				switch ((CustProbeType) e.opts.gui_probetype.getSelectedItem()) {
+				case AREA:
+					p = new AreaProbe(mx_start, my_start, mz_start);
+					break;
+				case LINE:
+					p = new LineProbe(mx_start, my_start, mz_start);
+					break;
+				case POINT:
+					p = new PointProbe(mx_start, my_start, mz_start);
+					break;
+				default:
+					break;
+				}
+				if (p != null) {
+					p.name = e.getProbeName(); e.probe_index++;
+					e.addProbe(p);
+				}
+			} else if (mouse_pressed_left) {
+				Probe p = e.probes.get(e.probes.size()-1);
+				if (p != null) {
+					p.drag(mx, my, mz);
+				}
+			} else if (releasing_left) {
+				Probe p = e.probes.get(e.probes.size()-1);
+				if (p != null) {
+					if (p instanceof AreaProbe) {
+
+						JList<ScalarView> tmplist = new JList<>(ScalarView.values());
+
+						tmplist.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+						tmplist.setVisibleRowCount(5);
+						tmplist.setSelectedValue(Preset.DEFAULT, true);
+						JScrollPane scrollPane = new JScrollPane(tmplist);
+						scrollPane.setPreferredSize(new Dimension(300, 250));
+						int result = JOptionPane.showConfirmDialog(null, scrollPane, "Select quantity", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+						if (result == JOptionPane.OK_OPTION) {
+							ScalarView selected = tmplist.getSelectedValue();
+
+							if (selected != null) {
+								Quantity quantity = selected.unit;
+								QuantityType quantitytype = QuantityType.SCALAR;
+
+								Quantity new_quantity = quantity.multiplyArea();
+								if (new_quantity != null) {
+									quantity = new_quantity;
+									quantitytype = QuantityType.FLUX_DENSITY;
+								} else {
+									new_quantity = quantity.multiplyVolume();
+									if (new_quantity != null) {
+										quantity = new_quantity;
+										quantitytype = QuantityType.DENSITY;
+									} 
+								}
+
+								if (quantity != null)
+								{
+									((AreaProbe)p).scalarname = selected;
+									((AreaProbe)p).shorthand = quantity.shorthand;
+									((AreaProbe)p).quantity = quantity;
+									((AreaProbe)p).quantitytype = quantitytype;
+									((AreaProbe)p).custom = true;
+								}
+							}
+						} else {
+							e.removeProbe(p);
+						}
+					} else if (p instanceof PointProbe) {
+						JList<ScalarView> tmplist = new JList<>(ScalarView.values());
+
+						tmplist.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+						tmplist.setVisibleRowCount(5);
+						tmplist.setSelectedValue(Preset.DEFAULT, true);
+						JScrollPane scrollPane = new JScrollPane(tmplist);
+						scrollPane.setPreferredSize(new Dimension(300, 250));
+						int result = JOptionPane.showConfirmDialog(null, scrollPane, "Select quantity", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+						if (result == JOptionPane.OK_OPTION) {
+							ScalarView selected = tmplist.getSelectedValue();
+
+							if (selected != null) {
+								((PointProbe)p).scalarname = selected;
+								((PointProbe)p).shorthand = selected.shorthand;
+								((PointProbe)p).quantity = selected.unit;
+								((PointProbe)p).custom = true;
+							}
+						} else {
+							e.removeProbe(p);
+						}
+					} else if (p instanceof LineProbe) {
+						JList<VectorView> tmplist = new JList<>(VectorView.values());
+
+						tmplist.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+						tmplist.setVisibleRowCount(5);
+						tmplist.setSelectedValue(Preset.DEFAULT, true);
+						JScrollPane scrollPane = new JScrollPane(tmplist);
+						int result = JOptionPane.showConfirmDialog(null, scrollPane, "Select quantity", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+						if (result == JOptionPane.OK_OPTION) {
+							VectorView selected = tmplist.getSelectedValue();
+
+							if (selected != null) {
+								Quantity quantity = selected.unit;
+								quantity = quantity.multiplyArea();
+								if (quantity != null)
+								{
+									((LineProbe)p).vectorname = selected;
+									((LineProbe)p).shorthand = quantity.shorthand;
+									((LineProbe)p).quantity = quantity;
+									((LineProbe)p).custom = true;
+								} else {
+									e.removeProbe(p);
+								}
+							}
+						} else {
+							e.removeProbe(p);
+						}
+					}
+				}
+				flagChanges(false);
 			}
 			break;
 		case DELETEPROBE:
-			updateCursor(DEFAULT_CURSOR);
 			int i = 0;
-			while(i < e.voltageprobes.size()) {
-				VoltageProbe p = e.voltageprobes.get(i);
-				if (Utils.length(p.x-mx_index, p.y-my_index, p.z-mz_index) < 3) {
-					updateCursor(HAND_CURSOR);
-					if (pressing) {
-						e.voltageprobes.remove(i);
+			while(i < e.probes.size()) {
+				Probe p = e.probes.get(i);
+				if (p.isMouseHovering(mx, my, mz)) {
+					currentCursor = HAND_CURSOR;
+					if (pressing_left) {
+						e.removeProbe(p);
+						flagChanges(false);
 						i--;
 					}
 				}
 				i++;
 			}
+			break;
+		case MOVELABEL:
+			if (pressing_left) {
+				Probe.LabelCoord coord = null;
+				for (Probe p : e.probes)
+					coord = selectLabel(p.labelcoord, coord);
 
-			i = 0;
-			while(i < e.currentprobes.size()) {
-				CurrentProbe p = e.currentprobes.get(i);
-				if (Utils.length(p.x1-mx_index, p.y1-my_index, p.z1-mz_index) < 3 || Utils.length(p.x2-mx_index, p.y2-my_index, p.z2-mz_index) < 3) {
-					updateCursor(HAND_CURSOR);
-					if (pressing) {
-						e.currentprobes.remove(i);
-						i--;
-					}
+				if (coord != null)
+					labelcoord = coord;
+			} else if (mouse_pressed_left) {
+				if (labelcoord != null) {
+					labelcoord.x = mx;
+					labelcoord.y = my;
+					labelcoord.z = mz;
 				}
-				i++;
-			}
+			} else if (releasing_left) {
+				labelcoord = null;
+				flagChanges(false);
+			} else {
+				Probe.LabelCoord coord = null;
+				for (Probe p : e.probes)
+					coord = selectLabel(p.labelcoord, coord);
 
-			if (e.ground != null && Utils.length(e.ground.x-mx_index, e.ground.y-my_index, e.ground.z-mz_index) < 3) {
-				updateCursor(HAND_CURSOR);
-				if (pressing) {
-					e.ground = null;
-				}
+				if (coord != null)
+					currentCursor = HAND_CURSOR;
 			}
-
+			break;
+		case TEXT:
+			currentCursor = TEXT_CURSOR;
+			if (mouse_pressed_left) {
+				startTextInput();
+				text_x = mx;
+				text_y = my-3;
+			}
 			break;
 		case GROUND:
-			if (pressing) {
-				if (e.ground == null)
-					e.ground = new VoltageProbe();
-				e.ground.x = mx_start_index;
-				e.ground.y = my_start_index;
-				e.ground.z = mz_start_index;
-			} else if (mouse_pressed) {
-				e.ground.x = mx_index;
-				e.ground.y = my_index;
-				e.ground.z = mz_index;
+			if (pressing_left) {
+				if (!e.hasGround()) {
+					Ground ground = new Ground(mx_start, my_start, mz_start);
+					e.addProbe(ground);
+				}
+			} else if (mouse_pressed_left) {
+				e.getGround().drag(mx, my, mz);
+			} else if (releasing_left) {
+				flagChanges(false);
 			}
 			break;
+		case RULER:
+			if (pressing_left) {
+				if (!e.hasRuler()) {
+					Ruler p = new Ruler(mx_start, my_start, mz_start);
+					e.addProbe(p);
+				} else {
+					Ruler p = e.getRuler();
+					p.x1 = mx_start;
+					p.y1 = my_start;
+					p.z1 = mz_start;
+					p.x2 = mx_start;
+					p.y2 = my_start;
+					p.z2 = mz_start;
+					p.calculateDefaultLabelCoords();
+				}
+			} else if (mouse_pressed_left) {
+				e.getRuler().drag(mx, my, mz);
+			} else if (releasing_left) {
+				Ruler p = e.getRuler();
+				if (p.x1 == p.x2 && p.y1 == p.y2 && p.z1 == p.z2) {
+					e.removeProbe(e.getRuler());
+				}
+				flagChanges(false);
+			}
+			break;
+		case BANDS:
+			createPath();
+			if (plotpath != null && plotpath.completed) {
+				e.bandplot.createPlot(e, plotpath);
+				plotpath = null;
+			}
+			break;
+		case SCALARPLOT:
+			createPath();
+			if (plotpath != null && plotpath.completed) {
+				e.scalarplot.createPlot(e, plotpath);
+				plotpath = null;
+			}
+			break;
+		case CARRIERPLOT:
+			createPath();
+			if (plotpath != null && plotpath.completed) {
+				e.carrierplot.createPlot(e, plotpath);
+				plotpath = null;
+			}
+			break;
+		default:
+			break;
 		}
+
+		if (brush != Brush.TEXT)
+		{
+			endTextInput();
+		}
+
+		if (e.canvas.getCursor() != currentCursor) {
+			e.canvas.setCursor(currentCursor);
+		}
+
+		SwingUtilities.invokeLater(() -> { //TODO
+			for (Plot p : e.plots) {
+				p.updatePlot(e);
+			}
+		});
 
 		setEMFs();
 
-		if ((releasing && Brush.isMaterialModifyingBrush(brush)) || (BoundaryCondition)e.opts.gui_bc.getSelectedItem() != prev_boundary || update) {
-			e.updateAllMaterials();
-			e.multigridSolve(true, false);
-			undoredo.captureState(e);
-		}
+		if ((BoundaryCondition)e.opts.gui_bc.getSelectedItem() != prev_boundary)
+			updatematerials = true;
 
 		prev_boundary = (BoundaryCondition)e.opts.gui_bc.getSelectedItem();
 
-		mxp_realspace = mx_realspace;
-		myp_realspace = my_realspace;
-		mzp_realspace = mz_realspace;
+		if (updatematerials) {
+			e.updateAllMaterials(false);
+			e.multigridSolve(true, false);
+
+			updatematerials = false;
+		}
+
+		if (undocaptureneeded) {
+			undoredo.captureState(e);
+			undocaptureneeded = false;
+		}
+
+		mxp = mx;
+		myp = my;
+		mzp = mz;
 	}
 
-	public void setLine(double x1, double y1, double z1, double x2, double y2, double z2, Brush brush, BrushShape brushshape, SetFunc func) {
+	public void createPath() {
+		if (plotpath == null) {
+			if (mouse_pressed_left) {
+				if (mx_start != mx || my_start != my || mz_start != mz) {
+					plotpath = new LinePath();
+					((LinePath) plotpath).x1 = mx_start;
+					((LinePath) plotpath).y1 = my_start;
+					((LinePath) plotpath).z1 = mz_start;
+					((LinePath) plotpath).x2 = mx;
+					((LinePath) plotpath).y2 = my;
+					((LinePath) plotpath).z2 = mz;
+				}
+			} else if (releasing_left) {
+				if (mx_start == mx && my_start == my && mz_start == mz) {
+					plotpath = new SegmentedPath();
+					((SegmentedPath) plotpath).addNewJoint(mx_start, my_start, mz_start);
+				}
+			}
+		} else if (plotpath instanceof LinePath) {
+			if (mouse_pressed_left) {
+				((LinePath) plotpath).x2 = mx;
+				((LinePath) plotpath).y2 = my;
+				((LinePath) plotpath).z2 = mz;
+			} else if (releasing_left) {
+				plotpath.completed = true;
+			}
+		} else if (plotpath instanceof SegmentedPath) {
+			if (releasing_left) {
+				((SegmentedPath) plotpath).addNewJoint(mx, my, mz);
+			}
+		}
+	}
+
+	public boolean updatematerials = false;
+
+	public void flagChanges(boolean updateMaterials) {
+		changesmade = true;
+		undocaptureneeded = true;
+		if (!e.opts.getTitle().endsWith("*"))
+			e.opts.setTitle(e.opts.getTitle() + " *");
+
+		updatematerials = updatematerials || updateMaterials;
+	}
+
+	public Probe.LabelCoord selectLabel(Probe.LabelCoord c_in, Probe.LabelCoord c_opt) {
+		//TODO
+		if (c_opt == null) {
+			if (Math.abs(c_in.x - mx) < 15 && Math.abs(c_in.y - my) < 4) {
+				return c_in;
+			} else {
+				return null;
+			}
+		}
+
+		return c_opt;
+		//if (Utils.length(c_in.x - mx, c_in.y - my) < Utils.length(c_opt.x - mx, c_opt.y - my)) {
+		//	return c_in;
+		//} else {
+		//	return c_opt;
+		//}
+	}
+
+	public void resetZoom() {
+		zoom_i1 = 0;
+		zoom_j1 = 0;
+		zoom_k1 = 0;
+		zoom_i2 = e.nx-1;
+		zoom_j2 = e.ny-1;
+		zoom_k2 = e.nz-1;
+		zoomed = false;
+	}
+
+	public void startTextInput() {
+		if (!texting) {
+			removeKeyBinds(e.canvas);
+			removeKeyBinds(e.opts.panel);
+			e.opts.menuBar.setEnabled(false);
+			texting = true;
+		}
+	}
+
+	public void endTextInput() {
+		if (texting) {
+			addKeyBinds(e.canvas);
+			addKeyBinds(e.opts.panel);
+			e.opts.menuBar.setEnabled(true);
+			texting = false;
+		}
+	}
+
+	public void applyBrush(double x1, double y1, double z1, double x2, double y2, double z2, BrushShape brushshape, double brushsize, BrushAction action) {
 		Vector3 a = new Vector3(0, 0, 0);
 		Vector3 b = new Vector3(0, 0, 0);
 		Vector3 p = new Vector3(0, 0, 0);
@@ -862,9 +1376,9 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 					double cx = 0;
 					double cy = 0;
 					double cz = 0;
-					cx = i*e.ds;
-					cy = j*e.ds;
-					cz = k*e.ds;
+					cx = i;
+					cy = j;
+					cz = j;
 
 					a.initialize(x1, y1, z1);
 					b.initialize(x2, y2, z2);
@@ -880,18 +1394,404 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 					ab.scalarmult(t);
 					p.addmult(ab, -1);
 					double r = 0;
+
 					if (brushshape == BrushShape.CIRCLE)
 						r = Math.sqrt(p.dot(p));
 					else if (brushshape == BrushShape.SQUARE)
-						r = Math.max(Math.max(Math.abs(p.x), Math.abs(p.y)), Math.abs(p.z));
-					if (r <= brushsize) {
-						func.set(i, j, k);
-					}
+						r = Utils.max(Math.abs(p.x), Math.abs(p.y), Math.abs(p.z));
+
+					action.perform(i, j, k, r <= brushsize);
 				}
 			}
 		}
 	}
+
+	public interface BrushAction {
+		public void perform(int i, int j, int k, boolean in_bounds);
+	}
+
+	public void setEMFs() {
+		int EMF_setting = e.opts.gui_parameter3.getValue();
+
+		double new_EMF = 0;
+		if (!iscurrentselected) {
+			new_EMF = e.max_EMF*EMF_setting/50.0;
+		} else {
+			new_EMF = (e.max_current/e.currentsource_sigma)*EMF_setting/50.0;
+		}
+
+		if (e.opts.gui_brush.getSelectedItem() == Brush.INTERACT && EMF_selected) {
+			e.opts.gui_parameter3.setVisible(true);
+			e.opts.gui_parameter3_text.setVisible(true);
+			if (!iscurrentselected)
+				e.opts.gui_parameter3_text.setText("EMF: " + e.units.toString(new_EMF, Quantity.ELECTRIC_FIELD));
+			else
+				e.opts.gui_parameter3_text.setText("J: " + e.units.toString(new_EMF*e.currentsource_sigma, Quantity.CURRENT_DENSITY));
+		} else {
+			e.opts.gui_parameter3.setVisible(false);
+			e.opts.gui_parameter3_text.setVisible(false);
+			e.opts.gui_parameter3_text.setText("");
+		}
+
+		if (EMF_setting != prev_EMF_setting && EMF_selected) {
+			for (int i = 0; i < e.nx; i++)
+			{
+				for (int j = 0; j < e.ny; j++)
+				{
+					for (int k = 0; k < e.nz; k++)
+					{
+						if (e.materials[i][j][k].type.hasEMF() && selected_EMF[i][j][k]) {
+							e.materials[i][j][k].emf = new_EMF;
+						}
+					}
+				}
+			}
+
+			e.updateJustEMFs();
+		}
+
+		prev_EMF_setting = EMF_setting;
+
+
+		e.AC_freq = e.default_AC_freq*Math.pow(10, e.opts.gui_parameter1.getValue()/10.0);
+		if (e.AC_source_exists) {
+			e.opts.gui_parameter1.setEnabled(true);
+			e.opts.gui_parameter1.setVisible(true);
+			e.opts.gui_parameter1_text.setVisible(true);
+		} else {
+			e.opts.gui_parameter1.setEnabled(false);
+			e.opts.gui_parameter1.setVisible(false);
+			e.opts.gui_parameter1_text.setVisible(false);
+		}
+
+		e.opts.gui_parameter1_text.setText("AC Freq: " + e.units.toString(e.AC_freq, Quantity.FREQUENCY));
+
+	}
+
+	public void floodFill(int i, int j, int k, FloodFillFunc f) {
+		Queue<FloodFillCoordinate> queue = new LinkedList<>();
+		queue.add(new FloodFillCoordinate(i, j, k));
+
+		while (queue.size() > 0) {
+			FloodFillCoordinate coord = queue.remove();
+			if (coord.i >= 0 && coord.i < e.nx && coord.j >= 0 && coord.j < e.ny && coord.k >= 0 && coord.k < e.nz && f.isValid(coord.i, coord.j, coord.k)) {
+				f.fill(coord.i, coord.j, coord.k);
+				queue.add(new FloodFillCoordinate(coord.i-1, coord.j, coord.k));
+				queue.add(new FloodFillCoordinate(coord.i+1, coord.j, coord.k));
+				queue.add(new FloodFillCoordinate(coord.i, coord.j-1, coord.k));
+				queue.add(new FloodFillCoordinate(coord.i, coord.j+1, coord.k));
+				queue.add(new FloodFillCoordinate(coord.i, coord.j, coord.k-1));
+				queue.add(new FloodFillCoordinate(coord.i, coord.j, coord.k+1));
+			}
+		}
+	}
+
+	@Override
+	public void actionPerformed(ActionEvent ev) {
+		switch (ev.getActionCommand()) {
+		case "gui_reset":
+			clear = true;
+			break;
+		case "menu_new":
+			reset = true;
+			break;
+		case "menu_saveas":
+			saveas = true;
+			break;
+		case "menu_save":
+			save = true;
+			break;
+		case "menu_open":
+			load = true;
+			break;
+		case "menu_help":
+			try {
+				File helpfile = SemiSim.getRootFile("README.html");
+				java.awt.Desktop.getDesktop().browse(helpfile.toURI());
+				Steam.setAchievement("MANUAL");
+			} catch (IOException ex) {
+				ex.printStackTrace();
+			}
+			break;
+		case "menu_github":
+			try {
+				java.awt.Desktop.getDesktop().browse(new URI("https://github.com/StunningLlama/SemiSim/tree/SemiSim"));
+			} catch (IOException | URISyntaxException ex) {
+				ex.printStackTrace();
+			}
+			break;
+		case "menu_editdesc":
+			SwingUtilities.invokeLater(() -> {
+				new DescDialog();
+			});
+			break;
+		case "gui_brush":
+
+			Brush brush = (Brush) e.opts.gui_brush.getSelectedItem();
+
+			if (brush == Brush.PROBEPLOT) {
+				plotinterval = e.opts.gui_plotinterval.getValue();
+				e.opts.gui_plotinterval_text.setText("Time resolution: " + e.units.toString(plotinterval*e.dt*e.iteration_multiplier, Quantity.TIME));
+
+				for (int i = e.plots.size()-1; i >= 0; i--) {
+					Plot p = e.plots.get(i);
+					if (p instanceof ProbePlot) {
+						if (((ProbePlot)p).customprobe == true && !p.frame.isVisible()) {
+							p.frame.dispose();
+							e.plots.remove(i);
+						}
+					}
+				}
+
+				for (Probe p : e.probes) {
+					if (p.custom) {
+						ProbePlot newplot = new ProbePlot("Custom probe plot", "", p.quantity.shorthand, 1, p.quantity, (pr) -> (pr == p), 0);
+						newplot.customprobe = true;
+						newplot.initialize();
+						e.plots.add(newplot);
+					}
+				}
+
+				for (Plot p : e.plots) {
+					if (p instanceof ProbePlot) {
+						if (!p.frame.isVisible() && ((ProbePlot)p).checkProbesExist(e))
+							p.createPlot(e, null);
+					}
+				}
+			} else if (brush == Brush.XYPLOT) {
+				e.xyplot.createPlot(e, null);
+
+				JList<Probe> tmplist = new JList<>(e.probes.toArray(new Probe[0]));
+
+				tmplist.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+				tmplist.setVisibleRowCount(5);
+				tmplist.setSelectedValue(Preset.DEFAULT, true);
+				JScrollPane scrollPane = new JScrollPane(tmplist);
+				scrollPane.setPreferredSize(new Dimension(300, 250));
+				int result = JOptionPane.showConfirmDialog(null, scrollPane, "Select X variable (must be probe)", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+				if (result == JOptionPane.OK_OPTION) {
+					Probe selected = tmplist.getSelectedValue();
+
+					if (selected != null) {
+						e.xyplot.x = selected;
+					}
+				}
+
+				tmplist = new JList<>(e.probes.toArray(new Probe[0]));
+
+				tmplist.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+				tmplist.setVisibleRowCount(5);
+				tmplist.setSelectedValue(Preset.DEFAULT, true);
+				scrollPane = new JScrollPane(tmplist);
+				scrollPane.setPreferredSize(new Dimension(300, 250));
+				result = JOptionPane.showConfirmDialog(null, scrollPane, "Select Y variable (must be probe)", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+				if (result == JOptionPane.OK_OPTION) {
+					Probe selected = tmplist.getSelectedValue();
+
+					if (selected != null) {
+						e.xyplot.y = selected;
+					}
+				}
+			}
+			e.controls.brush_changed = true;
+			break;
+		case "menu_advancedsettings":
+			e.adv_opts.storeAdvancedSettings();
+			e.adv_opts.setVisible(true);
+			break;
+		case "gui_carriers":
+			e.opts.menu_carriers.setSelected(e.opts.gui_carriers.isSelected());
+			break;
+		case "menu_carriers":
+			e.opts.gui_carriers.setSelected(e.opts.menu_carriers.isSelected());
+			break;
+		case "menu_cut":
+			cut = true;
+			break;
+		case "menu_copy":
+			copy = true;
+			break;
+		case "menu_paste":
+			paste = true;
+			break;
+		case "menu_rotate":
+			rotate_selection = true;
+			break;
+		case "menu_flip_h":
+			flip_h_selection = true;
+			break;
+		case "menu_flip_v":
+			flip_v_selection = true;
+			break;
+		case "menu_undo":
+			undo = true;
+			break;
+		case "menu_redo":
+			redo = true;
+			break;
+		case "menu_selectall":
+			selectall = true;
+			break;
+		case "menu_deselectall":
+			deselectall = true;
+			break;
+		case "menu_about":
+			JOptionPane.showMessageDialog(e.opts, SemiSim.about, "About", JOptionPane.INFORMATION_MESSAGE);
+			break;
+		case "menu_report":
+			JOptionPane.showMessageDialog(e.opts, "<html><body><p style='width: 300px;'>Please contact Brandon at brandonli.lex@gmail.com or go to https://github.com/StunningLlama/SemiSim/issues.</p></body></html>", "Report a bug", JOptionPane.INFORMATION_MESSAGE);
+			break;
+		case "menu_pref":
+			e.prefs.getPrefs();
+			e.prefs.setVisible(true);
+			break;
+		case "menu_debug":
+			key_dbg.actionPerformed(null);
+			break;
+		case "menu_exit":
+			exit = true;
+			break;
+		case "menu_cust_material":
+			e.materialmanager.valueChanged(null);
+			e.materialmanager.setVisible(true);
+			break;
+		case "menu_view_materials":
+			e.materialviewer.updateUI();
+			e.materialviewer.setVisible(true);
+			break;
+		case "menu_workshop":
+			Steam.createWorkshopItem();
+			break;
+		case "menu_load_workshop":
+			Steam.loadUGCs();
+			break;
+		case "gui_3d_view":
+			e.renderer.set3Dmode();
+			break;
+		}
+
+		if (ev.getActionCommand() == ScalarView.class.getName() || ev.getActionCommand() == VectorView.class.getName())
+			e.updateMiscFields = true;
+		if (ev.getActionCommand() == Brush.class.getName())
+			e.opts.gui_brush.setSelectedItem(brushes.getOption());
+	}
+
+	@Override
+	public void itemStateChanged(ItemEvent ev) {
+		if (ev.getSource() == e.opts.gui_brush) {
+			brushes.setOption((Brush) e.opts.gui_brush.getSelectedItem());
+		}
+	}
+
+	@Override
+	public void mouseClicked(MouseEvent arg0) {}
+
+	@Override
+	public void mouseEntered(MouseEvent arg0) {}
+
+	@Override
+	public void mouseExited(MouseEvent arg0) {}
+
+	@Override
+	public void mousePressed(MouseEvent ev) {
+		if (ev.getButton() == MouseEvent.BUTTON1) {
+			mouse_pressed_left = true;
+		} else if (ev.getButton() == MouseEvent.BUTTON3) {
+			mouse_pressed_right = true;
+		} else if (ev.getButton() == MouseEvent.BUTTON2) {
+			mouse_pressed_middle = true;
+		};
+		mx_screen = ev.getX();
+		my_screen = ev.getY();
+		mx_start_screen = ev.getX();
+		my_start_screen = ev.getY();
+
+		if (ev.getButton() == MouseEvent.BUTTON3 && !Brush.disableContextMenu((Brush) e.opts.gui_brush.getSelectedItem())) {
+			ContextMenu menu = new ContextMenu();
+			menu.show(ev.getComponent(), ev.getX(), ev.getY());
+		}
+
+		update3dCursor = true;
+	}
+
+	@Override
+	public void mouseReleased(MouseEvent ev) {
+		if (ev.getButton() == MouseEvent.BUTTON1) {
+			mouse_pressed_left = false;
+		} else if (ev.getButton() == MouseEvent.BUTTON3) {
+			mouse_pressed_right = false;
+		} else if (ev.getButton() == MouseEvent.BUTTON2) {
+			mouse_pressed_middle = false;
+		}
+
+		update3dCursor = true;
+	}
+
+	@Override
+	public void mouseDragged(MouseEvent ev) {
+		mx_screen = ev.getX();
+		my_screen = ev.getY();
+		
+		update3dCursor = true;
+	}
+
+	@Override
+	public void mouseMoved(MouseEvent arg0) {
+		mx_screen = arg0.getX();
+		my_screen = arg0.getY();
+		
+		update3dCursor = true;
+	}
+
+	public void snapToCardinals(int mx, int my, int mz) {
+		int dx = mx - mx_start;
+		int dy = my - my_start;
+		int dz = mz - mz_start;
+		//TODO
+		int min = Math.abs(dx) > Math.abs(dy)? dx : dy;
+		int[] xc = {min, 0, min, min, -min, -min};
+		int[] yc = {0, min, min, -min, min, -min};
+		int dmin = Integer.MAX_VALUE;
+		int imin = -1;
+
+		for (int i = 0; i < 6; i++) {
+			int d = (xc[i]-dx)*(xc[i]-dx) + (yc[i]-dy)*(yc[i]-dy);
+			if (d < dmin) {
+				dmin = d;
+				imin = i;
+			}
+		}
+
+		if (imin != -1) {
+			this.mx = mx_start + xc[imin];
+			this.my = my_start + yc[imin];
+		}
+	}
 	
+	boolean update3dCursor = false;
+
+	public int indexToCoord(int n) {
+		return (int)(e.renderer.scalefactor*(n + 0.5) + 1);
+	}
+
+	@Override
+	public void adjustmentValueChanged(AdjustmentEvent ev) {
+		if (ev.getSource() == e.opts.gui_slice) {
+			if (e.renderer.slice_x) {
+				e.opts.gui_slicelabel.setText("Slice: x = " + Utils.getSI(e.opts.gui_slice.getValue()*e.ds, "m"));
+			} else if (e.renderer.slice_y) {
+				e.opts.gui_slicelabel.setText("Slice: y = " + Utils.getSI(e.opts.gui_slice.getValue()*e.ds, "m"));
+			} else if (e.renderer.slice_z) {
+				e.opts.gui_slicelabel.setText("Slice: z = " + Utils.getSI(e.opts.gui_slice.getValue()*e.ds, "m"));
+			}
+		}
+		if (ev.getSource() == e.opts.gui_parallax) {
+			e.renderer.updateParallax();
+		}
+	}
+
 	public void updateEMFdirection(int i, int j, int k, int angleSetting) {
 		e.materials[i][j][k].emf_x = 0;
 		e.materials[i][j][k].emf_y = 0;
@@ -913,633 +1813,426 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 	}
 
 	public void updateCursor(Cursor c) {
-		e.renderer.canvas.setCursor(c);
+		e.canvas.setCursor(c);
 		e.renderer.renderer_left_eye.canvas.setCursor(c);
 		e.renderer.renderer_right_eye.canvas.setCursor(c);
 	}
 
-	public void setEMFs() {
-		int EMF_setting = e.opts.gui_parameter3.getValue();
-		double new_EMF = max_EMF*EMF_setting/50.0;
-
-		if (e.opts.gui_brush.getSelectedItem() == Brush.INTERACT && EMF_selected) {
-			e.opts.gui_parameter3.setVisible(true);
-			e.opts.gui_parameter3_text.setVisible(true);
-			e.opts.gui_parameter3_text.setText("EMF: " + Utils.getSI(new_EMF, "V/m"));
-		} else {
-			e.opts.gui_parameter3.setVisible(false);
-			e.opts.gui_parameter3_text.setVisible(false);
-			e.opts.gui_parameter3_text.setText("");
-		}
-
-		if (EMF_setting != prev_EMF_setting && EMF_selected) {
-			for (int i = 0; i < e.nx; i++)
-			{
-				for (int j = 0; j < e.ny; j++)
-				{
-					for (int k = 0; k < e.nz; k++)
-					{
-						if ((e.materials[i][j][k].type == MaterialType.EMF || e.materials[i][j][k].type == MaterialType.AC_EMF) && selected_EMF[i][j][k]) {
-							e.materials[i][j][k].emf = new_EMF;
-						}
-					}
-				}
-			}
-
-			e.updateJustEMFs();
-		}
-
-		prev_EMF_setting = EMF_setting;
-		
-
-		e.AC_freq = 1e13*Math.pow(10, e.opts.gui_parameter1.getValue()/10.0);
-		if (e.AC_source_exists) {
-			e.opts.gui_parameter1.setEnabled(true);
-			e.opts.gui_parameter1.setVisible(true);
-			e.opts.gui_parameter1_text.setVisible(true);
-		} else {
-			e.opts.gui_parameter1.setEnabled(false);
-			e.opts.gui_parameter1.setVisible(false);
-			e.opts.gui_parameter1_text.setVisible(false);
-		}
-		
-		e.opts.gui_parameter1_text.setText("AC Freq: " + Utils.getSI(e.AC_freq, "Hz"));
-	}
-
-
-	public void floodFill(int i, int j, int k, FloodFillFunc f) {
-		Queue<FloodFillCoordinate> queue = new LinkedList<>();
-		queue.add(new FloodFillCoordinate(i, j, k));
-
-		while (queue.size() > 0) {
-			FloodFillCoordinate coord = queue.remove();
-			if (coord.i >= 0 && coord.i < e.nx && coord.j >= 0 && coord.j < e.ny && coord.k >= 0 && coord.k < e.nz && f.isValid(coord.i, coord.j, coord.k)) {
-				f.fill(coord.i, coord.j, coord.k);
-				queue.add(new FloodFillCoordinate(coord.i-1, coord.j, coord.k));
-				queue.add(new FloodFillCoordinate(coord.i+1, coord.j, coord.k));
-				queue.add(new FloodFillCoordinate(coord.i, coord.j-1, coord.k));
-				queue.add(new FloodFillCoordinate(coord.i, coord.j+1, coord.k));
-				queue.add(new FloodFillCoordinate(coord.i, coord.j, coord.k-1));
-				queue.add(new FloodFillCoordinate(coord.i, coord.j, coord.k+1));
-			}
-		}
-	}
-
-	public void addKeyBinds(JPanel contentPane) {
-		InputMap map = contentPane.getInputMap(JComponent.WHEN_FOCUSED);
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_P, 0), key_pause);
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), key_pause);
-		contentPane.getActionMap().put(key_pause, key_pause);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_F, 0), key_frame);
-		contentPane.getActionMap().put(key_frame, key_frame);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_D, 0), key_dbg);
-		contentPane.getActionMap().put(key_dbg, key_dbg);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_Q, 0), key_changebrush);
-		contentPane.getActionMap().put(key_changebrush, key_changebrush);
-
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_X, InputEvent.CTRL_DOWN_MASK), key_cut);
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_X, InputEvent.META_DOWN_MASK), key_cut);
-		contentPane.getActionMap().put(key_cut, key_cut);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK), key_copy);
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.META_DOWN_MASK), key_copy);
-		contentPane.getActionMap().put(key_copy, key_copy);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.CTRL_DOWN_MASK), key_paste);
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.META_DOWN_MASK), key_paste);
-		contentPane.getActionMap().put(key_paste, key_paste);
-		
-    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK), key_undo);
-    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.META_DOWN_MASK), key_undo);
-    	contentPane.getActionMap().put(key_undo, key_undo);
-
-    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK), key_redo);
-    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.META_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK), key_redo);
-    	contentPane.getActionMap().put(key_redo, key_redo);
-
-    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK), key_save);
-    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.META_DOWN_MASK), key_save);
-    	contentPane.getActionMap().put(key_save, key_save);
-
-    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK), key_open);
-    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.META_DOWN_MASK), key_open);
-    	contentPane.getActionMap().put(key_open, key_open);
-
-    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK), key_new);
-    	map.put(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.META_DOWN_MASK), key_new);
-    	contentPane.getActionMap().put(key_new, key_new);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_BACK_SPACE, 0), key_delete);
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), key_delete);
-		contentPane.getActionMap().put(key_delete, key_delete);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_C, 0), key_color);
-		contentPane.getActionMap().put(key_color, key_color);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0), key_scalar_view);
-		contentPane.getActionMap().put(key_scalar_view, key_scalar_view);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_V, 0), key_vector_view);
-		contentPane.getActionMap().put(key_vector_view, key_vector_view);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_T, 0), key_tooltip);
-		contentPane.getActionMap().put(key_tooltip, key_tooltip);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_G, 0), key_textbg);
-		contentPane.getActionMap().put(key_textbg, key_textbg);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_W, 0), key_3d);
-		contentPane.getActionMap().put(key_3d, key_3d);
-
-
-		map = contentPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_SHIFT, InputEvent.SHIFT_DOWN_MASK), key_shift);
-		contentPane.getActionMap().put(key_shift, key_shift);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_SHIFT, 0, true), key_shift_up);
-		contentPane.getActionMap().put(key_shift_up, key_shift_up);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_CONTROL, InputEvent.CTRL_DOWN_MASK), key_ctrl);
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_META, InputEvent.META_DOWN_MASK), key_ctrl);
-		contentPane.getActionMap().put(key_ctrl, key_ctrl);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_CONTROL, 0, true), key_ctrl_up);
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_META, 0, true), key_ctrl_up);
-		contentPane.getActionMap().put(key_ctrl_up, key_ctrl_up);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_ALT, InputEvent.ALT_DOWN_MASK), key_alt);
-		contentPane.getActionMap().put(key_alt, key_alt);
-
-		map.put(KeyStroke.getKeyStroke(KeyEvent.VK_ALT, 0, true), key_alt_up);
-		contentPane.getActionMap().put(key_alt_up, key_alt_up);
-
-
-	}
-
-	@Override
-	public void mouseWheelMoved(MouseWheelEvent ev) {
-		if (!shift_down)
-			e.opts.gui_brushsize.setValue(e.opts.gui_brushsize.getValue() - (int)(10*ev.getPreciseWheelRotation()));
-		else
-			e.renderer.scale *= Math.exp(-(int)(10*ev.getPreciseWheelRotation())/100.0);
-	}
-
-	@Override
-	public void actionPerformed(ActionEvent ev) {
-		if (ev.getSource() instanceof javax.swing.Timer)
-			e.run();
-		else if (ev.getSource() == e.opts.gui_reset)
-			clear = true;
-		else if (ev.getSource() == e.opts.menu_new || ev.getSource() == e.opts.gui_new)
-			reset = true;
-		else if (ev.getSource() == e.opts.menu_save)
-			save = true;
-		else if (ev.getSource() == e.opts.menu_open)
-			load = true;
-		else if (ev.getSource() == e.opts.menu_help)
-			try {
-				File helpfile = new File("README.html");
-				java.awt.Desktop.getDesktop().browse(helpfile.toURI());
-			} catch (IOException ex) {
-				ex.printStackTrace();
-			}
-		else if (ev.getSource() == e.opts.menu_editdesc) {
-			SwingUtilities.invokeLater(() -> {
-				String text = e.opts.textPane.getText();
-				JFrame frame = new JFrame();
-				JTextArea area = new JTextArea();
-				JButton b = new JButton("Save");
-				frame.setSize(500, 500);
-				area.setText(text);
-				area.setEditable(true);
-				area.setLineWrap(true);
-				frame.add(area);
-				frame.add(b, BorderLayout.SOUTH);
-				b.addActionListener(new ActionListener() {
-					@Override
-					public void actionPerformed(ActionEvent ev) {
-						e.opts.textPane.setText(area.getText());
-						e.opts.textPane.setEditable(false);
-						frame.dispose();
-					}
-				});
-				frame.setVisible(true);
-				
-			});
-		} else if (ev.getSource() == e.opts.gui_view) {
-			//updateMiscFields = true;
-		} else if (ev.getSource() == e.opts.gui_view_vec) {
-			//updateMiscFields = true;
-		} else if (ev.getSource() == e.opts.gui_brush) {
-			brush_changed = true;
-		} else if (ev.getSource() == e.opts.gui_3d_view) {
-			e.renderer.set3Dmode();
-		}  else if (ev.getSource() == e.opts.menu_cut) {
-			cut = true;
-		} else if (ev.getSource() == e.opts.menu_copy) {
-			copy = true;
-		} else if (ev.getSource() == e.opts.menu_paste) {
-			paste = true;
-		} else if (ev.getSource() == e.opts.menu_undo) {
-			undo = true;
-		} else if (ev.getSource() == e.opts.menu_redo) {
-			redo = true;
-		} else if (ev.getSource() == e.opts.menu_about) {
-			JOptionPane.showConfirmDialog(e.opts, "Brandon's Electromagnetic Simulation 3D.\n (c) 2026 Brandon Li", "About", JOptionPane.OK_OPTION);
-		} else if (ev.getSource() instanceof JRadioButtonMenuItem) {
-			for (Brush b : brushbuttonmap.keySet())
-				if (ev.getSource() == brushbuttonmap.get(b))
-					e.opts.gui_brush.setSelectedItem(b);
-		}
-	}
-	
-	@Override
-	public void itemStateChanged(ItemEvent ev) {
-		if (ev.getSource() == e.opts.gui_brush) {
-			buttongroup.setSelected(brushbuttonmap.get((Brush) e.opts.gui_brush.getSelectedItem()).getModel(), true);
-		}
-	}
-	
-	@Override
-	public void mouseClicked(MouseEvent arg0) {}
-
-	@Override
-	public void mouseEntered(MouseEvent arg0) {}
-
-	@Override
-	public void mouseExited(MouseEvent arg0) {}
-
-	@Override
-	public void mousePressed(MouseEvent e) {
-		mouse_pressed = true;
-		mousebutton = e.getButton();
-
-		setMousePos(e.getX(), e.getY());
-
-		mx_start = mx;
-		my_start = my;
-		mz_start = mz;
-
-		mx_3d = e.getX();
-		my_3d = e.getY();
-
-		mx_3d_start = mx_3d;
-		my_3d_start = my_3d;
-	}
-	@Override
-	public void mouseReleased(MouseEvent e) {
-		mouse_pressed = false;
-		update3dCursor = true;
-	}
-
-	int mx_3d;
-	int my_3d;
-
-	int mx_3d_start;
-	int my_3d_start;
-
-	@Override
-	public void mouseDragged(MouseEvent e) {
-		setMousePos(e.getX(), e.getY());
-
-		mx_3d = e.getX();
-		my_3d = e.getY();
-
-		update3dCursor = true;
-	}
-
-	@Override
-	public void mouseMoved(MouseEvent e) {
-		setMousePos(e.getX(), e.getY());
-
-		mx_3d = e.getX();
-		my_3d = e.getY();
-
-		update3dCursor = true;
-	}
-
-	public void setMousePos(int eventX, int eventY) {
-		if (!e.renderer.threeD_mode) {
-			if (e.renderer.slice_x) {
-				my = eventX;
-				mz = e.renderer.imgheight - 1 - eventY;
-				mx = indexToCoord(e.opts.gui_slice.getValue());
-			} else if (e.renderer.slice_y) {
-				mx = eventX;
-				mz = e.renderer.imgheight - 1 - eventY;
-				my = indexToCoord(e.opts.gui_slice.getValue());
-			} else if (e.renderer.slice_z) {
-				mx = eventX;
-				my = e.renderer.imgheight - 1 - eventY;
-				mz = indexToCoord(e.opts.gui_slice.getValue());
-			}
-		}
-	}
-
-	boolean update3dCursor = false;
-
-	public int indexToCoord(int n) {
-		return (int)(e.renderer.scalefactor*(n + 0.5) + 1);
-	}
-
-	@SuppressWarnings("serial")
-	private Action key_pause = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			if (texting) return;
-			e.opts.gui_paused.setSelected(!e.opts.gui_paused.isSelected());
-		}
-	};
-
-	@SuppressWarnings("serial")
-	private Action key_frame = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			if (texting) return;
-			advanceframe = true;
-		}
-	};
+	boolean shift_draw_override = false;
+	ScalarMode prev_scalar_mode = ScalarMode.NONE;
+	VectorMode prev_vector_mode = VectorMode.NONE;
 
 	@SuppressWarnings("serial")
 	private Action key_dbg = new AbstractAction(null) {
 		@Override
 		public void actionPerformed(ActionEvent ev) {
-			if (texting) return;
 			debugging = !debugging;
-		}
-	};
 
-	@SuppressWarnings("serial")
-	private Action key_changebrush = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			if (texting) return;
-			e.opts.gui_brush_1.setSelectedIndex((e.opts.gui_brush_1.getSelectedIndex()+1)%2);
-		}
-	};
-
-	@SuppressWarnings("serial")
-	private Action key_shift = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			shift_down = true;
-		}
-	};
-	@SuppressWarnings("serial")
-	private Action key_shift_up = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			shift_down = false;
-		}
-	};
-	@SuppressWarnings("serial")
-	private Action key_ctrl = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			ctrl_down = true;
-		}
-	};
-	@SuppressWarnings("serial")
-	private Action key_ctrl_up = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			ctrl_down = false;
-		}
-	};
-
-	@SuppressWarnings("serial")
-	private Action key_cut = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			cut = true;
-		}
-	};
-
-	@SuppressWarnings("serial")
-	private Action key_copy = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			copy = true;
-		}
-	};
-
-	@SuppressWarnings("serial")
-	private Action key_paste = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			paste = true;
-		}
-	};
-	
-    @SuppressWarnings("serial")
-    private Action key_undo = new AbstractAction(null) {
-		@Override
-        public void actionPerformed(ActionEvent ev) {
-    		undo = true;
-        }
-    };
-    
-    @SuppressWarnings("serial")
-    private Action key_redo = new AbstractAction(null) {
-		@Override
-        public void actionPerformed(ActionEvent ev) {
-    		redo = true;
-        }
-    };
-
-	@SuppressWarnings("serial")
-	private Action key_delete = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			if (texting) return;
-			delete = true;
-		}
-	};
-
-	@SuppressWarnings("serial")
-	private Action key_color = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			if (texting) return;
-			e.opts.gui_elem_colors.setSelected(!e.opts.gui_elem_colors.isSelected());
-		}
-	};
-
-	ScalarView prev_scalar_view = ScalarView.NONE;
-	VectorView prev_vector_view = VectorView.NONE;
-
-	@SuppressWarnings("serial")
-	private Action key_scalar_view = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			if (texting) return;
-			if (e.opts.gui_view.getSelectedItem() == ScalarView.NONE)
-				e.opts.gui_view.setSelectedItem(prev_scalar_view);
-			else
-			{
-				prev_scalar_view = (ScalarView) e.opts.gui_view.getSelectedItem();
-				e.opts.gui_view.setSelectedItem(ScalarView.NONE);
+			if (!debugging) {
+				e.opts.textPane.setText(e.description);
 			}
+			if (ev != null)
+				e.opts.menu_debug.setSelected(debugging);
 		}
 	};
 
 	@SuppressWarnings("serial")
-	private Action key_vector_view = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			if (texting) return;
-			if (e.opts.gui_view_vec.getSelectedItem() == VectorView.NONE)
-				e.opts.gui_view_vec.setSelectedItem(prev_vector_view);
-			else
-			{
-				prev_vector_view = (VectorView) e.opts.gui_view_vec.getSelectedItem();
-				e.opts.gui_view_vec.setSelectedItem(VectorView.NONE);
+	public void addKeyBinds(JPanel contentPane) {
+		addKeyBinds(contentPane, KeyEvent.VK_P, KeyEvent.VK_SPACE, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				e.opts.gui_paused.setSelected(!e.opts.gui_paused.isSelected());
 			}
-		}
-	};
+		});
+		addKeyBind(contentPane, KeyEvent.VK_F, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				advanceframe = true;
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_D, 0, key_dbg);
+		addKeyBind(contentPane, KeyEvent.VK_Q, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				e.opts.gui_brush_1.setSelectedIndex((e.opts.gui_brush_1.getSelectedIndex()+1)%2);
+			}
+		});
+		addKeyBindCtrl(contentPane, KeyEvent.VK_X, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				cut = true;
+			}
+		});
+		addKeyBindCtrl(contentPane, KeyEvent.VK_C, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				copy = true;
+			}
+		});
+		addKeyBindCtrl(contentPane, KeyEvent.VK_V, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				paste = true;
+			}
+		});
+		addKeyBindCtrl(contentPane, KeyEvent.VK_Z, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				undo = true;
+			}
+		});
+		addKeyBindCtrl(contentPane, KeyEvent.VK_Z, InputEvent.SHIFT_DOWN_MASK, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				redo = true;
+			}
+		});
+		addKeyBindCtrl(contentPane, KeyEvent.VK_S, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				save = true;
+			}
+		});
+		addKeyBindCtrl(contentPane, KeyEvent.VK_S, InputEvent.SHIFT_DOWN_MASK, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				saveas = true;
+			}
+		});
+		addKeyBindCtrl(contentPane, KeyEvent.VK_O, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				load = true;
+			}
+		});
+		addKeyBindCtrl(contentPane, KeyEvent.VK_N, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				reset = true;
+			}
+		});
+		addKeyBindCtrl(contentPane, KeyEvent.VK_R, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				rotate_selection = true;
+			}
+		});
+		addKeyBindCtrl(contentPane, KeyEvent.VK_G, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				flip_v_selection = true;
+			}
+		});
+		addKeyBindCtrl(contentPane, KeyEvent.VK_F, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				flip_h_selection = true;
+			}
+		});
+		addKeyBindCtrl(contentPane, KeyEvent.VK_A, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				selectall = true;
+			}
+		});
+		addKeyBindCtrl(contentPane, KeyEvent.VK_D, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				deselectall = true;
+			}
+		});
+		addKeyBinds(contentPane, KeyEvent.VK_BACK_SPACE, KeyEvent.VK_DELETE, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				delete = true;
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_C, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				e.opts.menu_elem_colors.setSelected(!e.opts.menu_elem_colors.isSelected());
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_S, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				if (e.controls.scalarmode.getOption() == ScalarMode.NONE)
+					e.controls.scalarmode.setOption(prev_scalar_mode);
+				else
+				{
+					prev_scalar_mode = e.controls.scalarmode.getOption();
+					e.controls.scalarmode.setOption(ScalarMode.NONE);
+				}
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_V, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				if (e.controls.vectormode.getOption()  == VectorMode.NONE)
+					e.controls.vectormode.setOption(prev_vector_mode);
+				else
+				{
+					prev_vector_mode = e.controls.vectormode.getOption();
+					e.controls.vectormode.setOption(VectorMode.NONE);
+				}
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_T, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				e.opts.menu_tooltip.setSelected(!e.opts.menu_tooltip.isSelected());
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_G, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				e.opts.menu_text_bg.setSelected(!e.opts.menu_text_bg.isSelected());
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_R, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				logdata = true;
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_H, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				e.opts.menu_interface.setSelected(!e.opts.menu_interface.isSelected());
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_1, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				e.opts.gui_brush.setSelectedItem(Brush.INTERACT);
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_2, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				e.opts.gui_brush.setSelectedItem(Brush.DRAW);
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_3, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				e.opts.gui_brush.setSelectedItem(Brush.LINE);
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_4, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				e.opts.gui_brush.setSelectedItem(Brush.FILL);
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_5, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				e.opts.gui_brush.setSelectedItem(Brush.SELECT);
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_6, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				e.opts.gui_brush.setSelectedItem(Brush.ZOOM);
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_OPEN_BRACKET, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				if (e.opts.gui_brush.getSelectedIndex() > 0)
+					e.opts.gui_brush.setSelectedIndex(e.opts.gui_brush.getSelectedIndex()-1);
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_CLOSE_BRACKET, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				if (e.opts.gui_brush.getSelectedIndex() < e.opts.gui_brush.getItemCount()-1)
+					e.opts.gui_brush.setSelectedIndex(e.opts.gui_brush.getSelectedIndex()+1);
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_F12, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				takeScreenshot();
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_I, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				Steam.setAchievement("TEST");
+			}
+		});
+	}
 
-	@SuppressWarnings("serial")
-	private Action key_tooltip = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			if (texting) return;
-			e.opts.gui_tooltip.setSelected(!e.opts.gui_tooltip.isSelected());
-		}
-	};
+	public void takeScreenshot() {
+		try {
+			LocalDate date = LocalDate.now();
+			DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+			String datetext = date.format(formatter);
+			int id = 1;
+			File outputfile = SemiSim.getUserFile("screenshots/" + datetext + ".png");
+			while (outputfile.exists()) {
+				outputfile = SemiSim.getUserFile("screenshots/" + datetext + "_" + id + ".png");
+				id++;
+			}
 
-	@SuppressWarnings("serial")
-	private Action key_textbg = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			if (texting) return;
-			e.opts.gui_text_bg.setSelected(!e.opts.gui_text_bg.isSelected());
-		}
-	};
+			outputfile.createNewFile();
 
-	@SuppressWarnings("serial")
-	private Action key_alt = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			alt_down = true;
-		}
-	};
+			BufferedImage screenshot = (BufferedImage)e.opts.createImage(e.renderer.img_back.getWidth(), e.renderer.img_back.getHeight());
+			Graphics2D g = screenshot.createGraphics();
+			//TODO
+			//e.canvas.draw(g, screenshot.getWidth(), screenshot.getHeight());
+			g.dispose();
 
-	@SuppressWarnings("serial")
-	private Action key_alt_up = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			alt_down = false;
-		}
-	};
+			ImageIO.write(screenshot, "png", outputfile);
+			e.renderer.screenshot_name = "Screenshot added: " + outputfile.getAbsolutePath();
+			e.renderer.screenshot_timer = 60;
 
-	@SuppressWarnings("serial")
-	private Action key_3d = new AbstractAction(null) {
-		@Override
-		public void actionPerformed(ActionEvent ev) {
-			if (texting) return;
-			//set3Dmode(threeD_mode);
+			Steam.addSteamScreenshot(outputfile.getAbsolutePath(), e.renderer.img_front.getWidth(), e.renderer.img_front.getHeight());
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
-	};
-	
-    @SuppressWarnings("serial")
-    private Action key_save = new AbstractAction(null) {
-		@Override
-        public void actionPerformed(ActionEvent ev) {
-    		save = true;
-        }
-    };
-    
-    @SuppressWarnings("serial")
-    private Action key_open = new AbstractAction(null) {
-		@Override
-        public void actionPerformed(ActionEvent ev) {
-    		load = true;
-        }
-    };
-    
-    @SuppressWarnings("serial")
-    private Action key_new = new AbstractAction(null) {
-		@Override
-        public void actionPerformed(ActionEvent ev) {
-    		reset = true;
-        }
-    };
-	
+	}
+
+	public void addKeyBind(JPanel contentPane, int keyCode, int modifiers, Action action) {
+		InputMap map = contentPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+		map.put(KeyStroke.getKeyStroke(keyCode, modifiers), action);
+		contentPane.getActionMap().put(action, action);
+	}
+
+	public void addKeyBindCtrl(JPanel contentPane, int keyCode, int modifiers, Action action) {
+		InputMap map = contentPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+		map.put(KeyStroke.getKeyStroke(keyCode, modifiers | InputEvent.CTRL_DOWN_MASK), action);
+		map.put(KeyStroke.getKeyStroke(keyCode, modifiers | InputEvent.META_DOWN_MASK), action);
+		contentPane.getActionMap().put(action, action);
+	}
+
+	public void addKeyBinds(JPanel contentPane, int keyCode1, int keyCode2, Action action) {
+		InputMap map = contentPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+		map.put(KeyStroke.getKeyStroke(keyCode1, 0), action);
+		map.put(KeyStroke.getKeyStroke(keyCode2, 0), action);
+		contentPane.getActionMap().put(action, action);
+
+	}
+
+
+	public void removeKeyBinds(JPanel contentPane) {
+		InputMap map = contentPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+		InputMap map2 = contentPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+
+		map.clear();
+		map2.clear();
+	}
+
 	@Override
-	public void keyTyped(KeyEvent e) {
-		if (texting) {
-			/*if (Font7x5.getCharacter(e.getKeyChar()) != null) {
+	public void mouseWheelMoved(MouseWheelEvent ev) {
+		e.opts.gui_brushsize.setValue(e.opts.gui_brushsize.getValue() - (int)(5*ev.getPreciseWheelRotation()));
+	}
+
+
+	@Override
+	public void keyTyped(KeyEvent ev) {
+		/*if (texting) {
+			if (Font7x5.getCharacter(ev.getKeyChar()) != null) {
 				for (int i = 0; i < 5; i++) {
 					for (int j = 0; j < 7; j++) {
-						if (text_x+i+1 >= 0 && text_x+i+1 < nx && text_y+j >= 0 && text_y+j < ny
-								&& Font7x5.getPixel(e.getKeyChar(), 4-i, j) == 1 && materials[text_x+i+1][text_y+j].type == MaterialType.VACUUM) {
-							initializeMaterial(text_x+i+1, text_y+j, MaterialType.DECO);
+						if (text_x+i+1 >= 0 && text_x+i+1 < e.nx && text_y+j >= 0 && text_y+j < e.ny
+						&& Font7x5.getPixel(ev.getKeyChar(), 4-i, j, k) == 1 && e.materials[text_x+i+1][text_y+j].type == MaterialType.VACUUM) {
+							e.initializeMaterial(e.materials[text_x+i+1][text_y+j], MaterialType.DECO);
 						}
 					}
 				}
 				text_x += 6;
+				flagChanges(false);
+				e.updateAllMaterials(false);
 			}
-			updateAllMaterials();*/
-		}
+		}*/
 	}
 
 	@Override
-	public void keyPressed(KeyEvent e) {
-		if (texting) {
-			/*if (e.getKeyCode() == KeyEvent.VK_BACK_SPACE || e.getKeyCode() == KeyEvent.VK_DELETE) {
+	public void keyPressed(KeyEvent ev) {
+		/*if (texting) {
+			if (ev.getKeyCode() == KeyEvent.VK_ESCAPE || ev.getKeyCode() == KeyEvent.VK_ENTER) {
+				endTextInput();
+				return;
+			}
+
+			if (ev.getKeyCode() == KeyEvent.VK_BACK_SPACE || ev.getKeyCode() == KeyEvent.VK_DELETE) {
 				text_x -= 6;
 				for (int i = 0; i < 5; i++) {
 					for (int j = 0; j < 7; j++) {
-						if (text_x+i+1 >= 0 && text_x+i+1 < nx && text_y+j >= 0 && text_y+j < ny
-								&& materials[text_x+i+1][text_y+j].type == MaterialType.DECO) {
-							materials[text_x+i+1][text_y+j].erase();
+						if (text_x+i+1 >= 0 && text_x+i+1 < e.nx && text_y+j >= 0 && text_y+j < e.ny
+						&& e.materials[text_x+i+1][text_y+j].type == MaterialType.DECO) {
+							e.eraseMaterial(text_x+i+1,text_y+j);
 						}
 					}
 				}
+				flagChanges(false);
+				e.updateAllMaterials(false);
 			}
-			updateAllMaterials();*/
-		}
+		}*/
 	}
 
 	@Override
-	public void keyReleased(KeyEvent e) {}
+	public void keyReleased(KeyEvent ev) {}
 
-	@Override
-	public void adjustmentValueChanged(AdjustmentEvent ev) {
-		if (ev.getSource() == e.opts.gui_slice) {
-			if (e.renderer.slice_x) {
-				e.opts.gui_slicelabel.setText("Slice: x = " + Utils.getSI(e.opts.gui_slice.getValue()*e.ds, "m"));
-			} else if (e.renderer.slice_y) {
-				e.opts.gui_slicelabel.setText("Slice: y = " + Utils.getSI(e.opts.gui_slice.getValue()*e.ds, "m"));
-			} else if (e.renderer.slice_z) {
-				e.opts.gui_slicelabel.setText("Slice: z = " + Utils.getSI(e.opts.gui_slice.getValue()*e.ds, "m"));
-			}
-		}
-		if (ev.getSource() == e.opts.gui_parallax) {
-			e.renderer.updateParallax();
+	class FloodFillCoordinate {
+		int i;
+		int j;
+		int k;
+
+		public FloodFillCoordinate(int i, int j, int k) {
+			this.i = i;
+			this.j = j;
+			this.k = k;
 		}
 	}
-	
+
+	public enum BrushShape {
+		CIRCLE("Circle brush"),
+		SQUARE("Square brush");
+
+		public String name;
+		BrushShape(String name)
+		{
+			this.name = name;
+		}
+
+		@Override
+		public String toString() {
+			return name;
+		}
+	}
+
 	public enum Brush {
 		INTERACT("Interact"),
+		LIGHT("Flashlight"),
+		ZOOM("Zoom and Pan"),
 		DRAW("Draw"),
-		DELETEPROBE("Delete probe"),
 		REPLACE("Replace"),
 		LINE("Line"),
 		FILL("Fill"),
 		ERASE("Eraser"),
-		SELECT("Select & Move"),
-		FLOODSELECT("Select region"),
-		VOLTAGE("Add voltage probe"),
-		CURRENT("Add current probe"),
-		GROUND("Add ground");
+		SELECT("Select and Move"),
+		FLOODSELECT("Flood select"),
+		TEXT("Text"),
+		VOLTAGE("Voltage probe"),
+		CURRENT("Current probe"),
+		CHARGE("Charge probe"),
+		FLUX("Magnetic flux probe"),
+		GROUND("Ground"),
+		PROBE("Custom probe"),
+		DELETEPROBE("Delete probe"),
+		MOVELABEL("Move label"),
+		RULER("Ruler"),
+		BANDS("Plot bands"),
+		SCALARPLOT("Plot scalar field"),
+		CARRIERPLOT("Plot carriers"),
+		PROBEPLOT("Plot probe data"),
+		XYPLOT("Plot X/Y");
 
-		String name;
+		public String name;
 		Brush(String name)
 		{
 			this.name = name;
@@ -1562,16 +2255,26 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 			return (brush == Brush.DRAW
 			|| brush == Brush.LINE
 			|| brush == Brush.REPLACE
-			|| brush == Brush.ERASE);
+			|| brush == Brush.ERASE
+			|| brush == Brush.LIGHT);
+		}
+
+		public static boolean drawLine(Brush brush) {
+			return (brush == Brush.LINE || brush == Brush.BANDS || brush == Brush.SCALARPLOT || brush == Brush.CARRIERPLOT);
+		}
+
+		public static boolean disableContextMenu(Brush brush) {
+			return (brush == Brush.DRAW || brush == Brush.ERASE || brush == Brush.LINE || brush == Brush.REPLACE);
 		}
 	}
 
-	public enum BrushShape {
-		CIRCLE("Circle brush"),
-		SQUARE("Square brush");
+	public enum CustProbeType {
+		POINT("Type: Point"),
+		LINE("Type: Line"),
+		AREA("Type: Area");
 
-		String name;
-		BrushShape(String name)
+		public String name;
+		CustProbeType(String name)
 		{
 			this.name = name;
 		}
@@ -1582,25 +2285,240 @@ public class Controls implements MouseListener, MouseMotionListener, MouseWheelL
 		}
 	}
 
-	public class FloodFillCoordinate {
-		int i;
-		int j;
-		int k;
+	class DescDialog extends JDialog {
+		private static final long serialVersionUID = -1338819833865147129L;
+		public JButton okButton = new JButton("Apply");
+		public JButton cancelButton = new JButton("Cancel");
 
-		public FloodFillCoordinate(int i, int j, int k) {
-			this.i = i;
-			this.j = j;
-			this.k = k;
+		public DescDialog() {
+			String text = e.description;
+
+			getContentPane().setLayout(new BorderLayout());
+			JTextArea area = new JTextArea();
+			JScrollPane scroll = new JScrollPane(area);
+			setSize(500, 500);
+			area.setText(text);
+			area.setEditable(true);
+			area.setLineWrap(true);
+			area.setWrapStyleWord(true);
+			getContentPane().add(scroll);
+
+			JPanel buttonPane = new JPanel();
+			buttonPane.setLayout(new FlowLayout(FlowLayout.RIGHT));
+			getContentPane().add(buttonPane, BorderLayout.SOUTH);
+
+			buttonPane.add(okButton);
+			getRootPane().setDefaultButton(okButton);
+
+			buttonPane.add(cancelButton);
+
+			okButton.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent ev) {
+					e.description = area.getText();
+					e.opts.textPane.setText(e.description);
+					e.opts.textPane.setEditable(false);
+					flagChanges(false);
+					dispose();
+				}
+			});
+
+			cancelButton.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent ev) {
+					dispose();
+				}
+			});
+			setVisible(true);
 		}
 	}
 
-	public interface FloodFillFunc {
+	interface FloodFillFunc {
 		boolean isValid(int i, int j, int k);
 		void fill(int i, int j, int k);
 	}
 
-	public interface SetFunc {
-		void set(int i, int j, int k);
+	@Override
+	public void windowOpened(WindowEvent e) {}
+
+	@Override
+	public void windowClosing(WindowEvent ev) {
+		if (e.controls.changesmade) {
+			String[] options = {"Yes", "No"};
+			int result = JOptionPane.showOptionDialog(e.opts, "There are unsaved changes. Do you still wish to quit?", "Message", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, options[1]);
+			if (result == JOptionPane.OK_OPTION)
+			{
+				e.opts.dispose();
+				System.exit(0);
+			}
+		} else {
+			e.opts.dispose();
+			System.exit(0);
+		}
+	}
+
+	@Override
+	public void windowClosed(WindowEvent e) {}
+
+	@Override
+	public void windowIconified(WindowEvent e) {}
+
+	@Override
+	public void windowDeiconified(WindowEvent e) {}
+
+	@Override
+	public void windowActivated(WindowEvent e) {}
+
+	@Override
+	public void windowDeactivated(WindowEvent e) {}
+
+	class ContextMenu extends JPopupMenu {
+		private static final long serialVersionUID = 7530299890097595938L;
+
+		public ContextMenu() {
+			copyMenu(e.opts.menu_edit, true);
+			addImportantTools();
+			add(new JSeparator());
+			copyMenu(brushes, "Tools");
+			copyMenuDontClose(scalarview, "Scalar view");
+			copyMenuDontClose(vectorview, "Vector view");
+			copyMenuDontClose(scalarmode, "Scalar display mode");
+			copyMenuDontClose(vectormode, "Vector display mode");
+
+			JMenuItem close = new JMenuItem("Close menu");
+			close.addActionListener(new ActionListener() {
+
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					ContextMenu.this.setVisible(false);
+				}
+
+			});
+			add(new JSeparator());
+			add(close);
+		}
+
+		public void copyMenu(JMenu menu, String newmenuname, boolean needaccelerator) {
+			JMenu newbigmenu = new JMenu(newmenuname);
+			boolean repeat = false;
+			for (Component c : menu.getMenuComponents()) {
+				if (c instanceof JMenuItem && c.isEnabled()) {
+					JMenuItem old = (JMenuItem) c;
+					if (!needaccelerator || old.getAccelerator() != null) {
+						JMenuItem newitem = new JMenuItem(old.getText());
+						newitem.setActionCommand(old.getActionCommand());
+						newitem.addActionListener(Controls.this);
+						newbigmenu.add(newitem);
+						repeat = false;
+					}
+				} else if (c instanceof JSeparator) {
+					if (!repeat) {
+						newbigmenu.add(new JSeparator());
+						repeat = true;
+					}
+				}
+			}
+			add(newbigmenu);
+		}
+
+		public void copyMenu(JMenu menu, boolean needaccelerator) {
+			boolean repeat = false;
+			for (Component c : menu.getMenuComponents()) {
+				if (c instanceof JMenuItem && c.isEnabled()) {
+					JMenuItem old = (JMenuItem) c;
+					if (!needaccelerator || old.getAccelerator() != null) {
+						JMenuItem newitem = new JMenuItem(old.getText());
+						newitem.setActionCommand(old.getActionCommand());
+						newitem.addActionListener(Controls.this);
+						add(newitem);
+						repeat = false;
+					}
+				} else if (c instanceof JSeparator) {
+					if (!repeat) {
+						add(new JSeparator());
+						repeat = true;
+					}
+				}
+			}
+		}
+
+		public<T extends Enum<?>, U extends JRadioButtonMenuItem> void copyMenu(MenuCheckList<T, U> list, String newmenuname) {
+			JMenu newbigmenu = new JMenu(newmenuname);
+			for (T o : list.optionlist) {
+				JMenuItem newitem = new JMenuItem(o.toString());
+				newitem.setActionCommand(o.getClass().getName());
+				newitem.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						list.setOption((T) o);
+						Controls.this.actionPerformed(e);
+					}
+				});
+				newitem.addActionListener(Controls.this);
+				newbigmenu.add(newitem);
+
+				if (list.separators.contains(o)) {
+					newbigmenu.add(new JSeparator());
+				}
+			}
+			add(newbigmenu);
+		}
+
+		public<T extends Enum<?>, U extends JRadioButtonMenuItem> void copyMenuDontClose(MenuCheckList<T, U> list, String newmenuname) {
+			JMenu newbigmenu = new JMenu(newmenuname);
+			for (T o : list.optionlist) {
+				CustJMenuItem newitem = new CustJMenuItem(o.toString());
+				newitem.setActionCommand(o.getClass().getName());
+				newitem.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						list.setOption((T) o);
+						Controls.this.actionPerformed(e);
+					}
+				});
+				newitem.addActionListener(Controls.this);
+				newbigmenu.add(newitem);
+
+				if (list.separators.contains(o)) {
+					newbigmenu.add(new JSeparator());
+				}
+			}
+			add(newbigmenu);
+		}
+
+		public void addImportantTools() {
+			Brush[] importanttools = {Brush.INTERACT, Brush.DRAW, Brush.SELECT, Brush.ZOOM};
+			for (Brush b : importanttools) {
+				JMenuItem newitem = new JMenuItem(b.toString());
+				newitem.setActionCommand(b.getClass().getName());
+				newitem.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent e) {
+						brushes.setOption(b);
+						Controls.this.actionPerformed(e);
+					}
+				});
+				add(newitem);
+			}
+		}
 	}
 }
 
+class Keyboard {
+
+	private static final Map<Integer, Boolean> pressedKeys = new HashMap<>();
+
+	static {
+		KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(event -> {
+			synchronized (Keyboard.class) {
+				if (event.getID() == KeyEvent.KEY_PRESSED) pressedKeys.put(event.getKeyCode(), true);
+				else if (event.getID() == KeyEvent.KEY_RELEASED) pressedKeys.put(event.getKeyCode(), false);
+				return false;
+			}
+		});
+	}
+
+	public static boolean isKeyPressed(int keyCode) { // Any key code from the KeyEvent class
+		return pressedKeys.getOrDefault(keyCode, false);
+	}
+}

@@ -10,20 +10,24 @@ import electrodynamics.Simulation;
 import electrodynamics.units.Units;
 
 public class AreaProbe extends Probe {
-	public AreaProbe(int mx, int my) {
-		super(mx, my);
+	public AreaProbe(int mx, int my, int mz) {
+		super(mx, my, mz);
 		x1 = mx;
 		x2 = mx;
 		y1 = my;
 		y2 = my;
+		z1 = mz;
+		z2 = mz;
 		calculateDefaultLabelCoords();
 	}
 
 	public int x1;
 	public int y1;
+	public int z1;
 
 	public int x2;
 	public int y2;
+	public int z2;
 
 	public QuantityType quantitytype = QuantityType.SCALAR;
 	public ScalarView scalarname = ScalarView.NONE;
@@ -38,11 +42,12 @@ public class AreaProbe extends Probe {
 	public void calculateDefaultLabelCoords() {
 		labelcoord.x = (x1+x2)/2;
 		labelcoord.y = (y1+y2)/2;
+		labelcoord.z = (z1+z2)/2;
 	}
 
 	@Override
 	public void measure(Simulation e, boolean savedatapoint) {
-		double Q = 0;
+		/*double Q = 0;
 
 		int n_min = 0;
 		int n_max = 0;
@@ -77,12 +82,14 @@ public class AreaProbe extends Probe {
 			value = Q/((n_max-n_min+1)*(m_max-m_min+1)*e.ds*e.ds);
 			break;
 		}
-		if (savedatapoint) data.addData(value, e.time);
+		if (savedatapoint) data.addData(value, e.time);*/
+		
+		//TODO
 	}
 	
 	@Override
-	public boolean isMouseHovering(int mx, int my) {
-		return mx >= Math.min(x1, x2) && mx <= Math.max(x1, x2) && my >= Math.min(y1, y2) && my <= Math.max(y1, y2);
+	public boolean isMouseHovering(int mx, int my, int mz) {
+		return mx >= Math.min(x1, x2) && mx <= Math.max(x1, x2) && my >= Math.min(y1, y2) && my <= Math.max(y1, y2) && mz >= Math.min(z1, z2) && mz <= Math.max(z1, z2);
 	}
 	
 	@Override
@@ -95,12 +102,14 @@ public class AreaProbe extends Probe {
 	}
 	
 	@Override
-	public void translate(int dx, int dy) {
+	public void translate(int dx, int dy, int dz) {
 		x1 += dx;
 		y1 += dy;
+		z1 += dz;
 		x2 += dx;
 		y2 += dy;
-		labelcoord.translate(dx, dy);
+		z2 += dz;
+		labelcoord.translate(dx, dy, dz);
 	}
 	
 	@Override
@@ -131,8 +140,8 @@ public class AreaProbe extends Probe {
 	}
 
 	@Override
-	public boolean intersects(int xmin, int ymin, int xmax, int ymax) {
-		return (x1 >= xmin && x1 <= xmax && y1 >= ymin && y1 <= ymax) || (x2 >= xmin && x2 <= xmax && y2 >= ymin && y2 <= ymax);
+	public boolean intersects(int xmin, int ymin, int zmin, int xmax, int ymax, int zmax) {
+		return (x1 >= xmin && x1 <= xmax && y1 >= ymin && y1 <= ymax && z1 >= zmin && z1 <= zmax) || (x2 >= xmin && x2 <= xmax && y2 >= ymin && y2 <= ymax || z2 >= zmin || z2 <= zmax);
 	}
 
 	@Override
@@ -141,9 +150,10 @@ public class AreaProbe extends Probe {
 	}
 
 	@Override
-	public void drag(int mx, int my) {
+	public void drag(int mx, int my, int mz) {
 		x2 = mx;
 		y2 = my;
+		z2 = mz;
 		calculateDefaultLabelCoords();
 	}
 
@@ -155,14 +165,11 @@ public class AreaProbe extends Probe {
 
 		r.setalphaFG(0.3);
 		r.setColorFloat(0.5f, 1.0f, 1.0f);
-		r.drawPixelLine(x1, y1, x2, y1);
-		r.drawPixelLine(x2, y1, x2, y2);
-		r.drawPixelLine(x2, y2, x1, y2);
-		r.drawPixelLine(x1, y2, x1, y1);
+		r.drawPixelRectangle(x1, y1, z1, x2-x1+1, y2-y1+1, z2-z1+1);
 		
-		r.setalphaFG(0.1);
-		r.setColorFloat(1.0f, 1.0f, 1.0f);
-		r.drawPixelLine((x1 + x2)/2, (y1+y2)/2, labelcoord.x, labelcoord.y);
+		//r.setalphaFG(0.1);
+		//r.setColorFloat(1.0f, 1.0f, 1.0f);
+		//r.drawPixelLine((x1 + x2)/2, (y1+y2)/2, labelcoord.x, labelcoord.y);
 	}
 
 	@Override

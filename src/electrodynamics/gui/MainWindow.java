@@ -3,34 +3,50 @@
 // See LICENSE.txt for full license details.
 
 package electrodynamics.gui;
+import java.awt.Adjustable;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.EventQueue;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
+import javax.swing.JRadioButtonMenuItem;
 import javax.swing.border.EmptyBorder;
 
 import electrodynamics.Controls.Brush;
 import electrodynamics.Controls.BrushShape;
+import electrodynamics.Controls.CustProbeType;
+import electrodynamics.BuildFlags;
+import electrodynamics.Controls;
 import electrodynamics.MaterialType;
 import electrodynamics.Renderer;
+import electrodynamics.SemiSim;
+import electrodynamics.Simulation;
 import electrodynamics.Renderer.RenderMode;
+import electrodynamics.Renderer.ScalarMode;
 import electrodynamics.Renderer.ScalarView;
 import electrodynamics.Renderer.VectorMode;
 import electrodynamics.Renderer.VectorView;
 import electrodynamics.Simulation.BoundaryCondition;
+import electrodynamics.gui.MainWindow.CustJCheckBoxMenuItem;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JScrollBar;
 import java.awt.event.ActionListener;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
 import java.awt.event.ActionEvent;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.imageio.ImageIO;
+import javax.swing.AbstractButton;
 import javax.swing.DefaultComboBoxModel;
+import javax.swing.InputMap;
+
 import java.awt.Dimension;
 import javax.swing.JToggleButton;
 import javax.swing.ListCellRenderer;
@@ -39,22 +55,37 @@ import javax.swing.JEditorPane;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.ScrollPaneConstants;
+import javax.swing.UIManager;
+import javax.swing.WindowConstants;
+
 import java.awt.Insets;
 import java.awt.Font;
+import java.awt.GridLayout;
+
 import javax.swing.JMenuBar;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JSeparator;
 import javax.swing.KeyStroke;
 import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.util.HashMap;
 import java.awt.event.InputEvent;
 
-public class MainWindow extends JFrame {
+public class MainWindow extends JFrame implements ComponentListener {
 
 	/**
 	 * 
 	 */
 	private static final long serialVersionUID = -5756219569007074449L;
+	
+	Simulation e;
+	public HashMap<String, AbstractButton> boolean_names = new HashMap<String, AbstractButton>();
+	public HashMap<String, Adjustable> integer_names = new HashMap<String, Adjustable>();
 	
 	public JPanel contentPane;
 	public JButton gui_reset;
@@ -94,95 +125,275 @@ public class MainWindow extends JFrame {
 	public JScrollBar gui_parallax;
 	public JLabel gui_parallaxlabel;
 	public JScrollBar gui_parameter1;
+	public JButton gui_new;
+	
+
 	public JMenuBar menuBar;
-	public JMenu mnNewMenu;
-	public JMenuItem menu_new;
+	public JMenu menu_examples;
+	public JMenu menu_tools;
+	public JMenu menu_view;
+	public JMenu menu_graphics;
+	public JMenu menu_help2;
+	public JMenu menu_edit;
+	public JMenu menu_file;
 	public JMenuItem menu_open;
-	public JMenuItem menu_save;
-	public JMenuItem menu_editdesc;
-	public JSeparator separator;
+	public JMenuItem menu_saveas;
 	public JMenuItem menu_about;
 	public JMenuItem menu_help;
-	public JMenu menu_asdf;
 	public JMenuItem menu_cut;
 	public JMenuItem menu_copy;
 	public JMenuItem menu_paste;
-	public JSeparator separator_1;
 	public JMenuItem menu_undo;
 	public JMenuItem menu_redo;
-	public JMenu menu_tools;
-	public JMenu menu_examples;
-	public JButton gui_new;
+	public JMenuItem menu_editdesc;
+	public JMenuItem menu_new;
+	public JMenuItem menu_rotate;
+	public JMenuItem menu_flip_h;
+	public JMenuItem menu_flip_v;
+	public JMenuItem menu_pref;
+	public JMenuItem menu_selectall;
+	public JMenuItem menu_deselectall;
+	public JMenuItem menu_save;
+	public JMenuItem menu_exit;
+	public JMenuItem menu_github;
+	public JMenuItem menu_report;
+	public JMenuItem menu_advancedsettings;
+	public JMenuItem menu_cust_material;
+	public JMenuItem menu_view_materials;
+	private JMenuItem menu_workshop;
+	private JMenuItem menu_load_workshop;
+	public JSeparator separator_3;
+	private JSeparator separator_1;
+	public JSeparator separator_2;
+	private JSeparator separator_6;
+	public CustJCheckBoxMenuItem menu_hide_carriers_metal;
+	public CustJCheckBoxMenuItem menu_carrier_diffusion;
+	public CustJCheckBoxMenuItem menu_gen_recomb;
+	public CustJCheckBoxMenuItem menu_materialname;
+	public CustJCheckBoxMenuItem menu_interface;
+	public CustJCheckBoxMenuItem menu_tooltip;
+	public CustJCheckBoxMenuItem menu_text_bg;
+	public CustJCheckBoxMenuItem menu_elem_colors;
+	public CustJCheckBoxMenuItem menu_borders;
+	public CustJCheckBoxMenuItem menu_carriers;
+	public CustJCheckBoxMenuItem menu_probes;
+	public CustJCheckBoxMenuItem menu_time;
+	public CustJCheckBoxMenuItem menu_colormap;
+	public CustJCheckBoxMenuItem menu_debug;
+
+	public JScrollBar gui_plotinterval;
+	public JLabel gui_plotinterval_text;
+	public JLabel gui_carrierlbl;
+	public JScrollBar gui_carrier_density;
+	public JCheckBox gui_carriers;
+	public JLabel gui_light_text;
+	public JScrollBar gui_light;
+	public JComboBox<CustProbeType> gui_probetype;
 
 	/**
 	 * Create the frame.
 	 */
-	public MainWindow() {
+	public MainWindow(Simulation e) {
+		this.e = e;
 		setTitle("Brandon's semiconductor simulator");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setBounds(100, 100, 589, 830);
 		
 		menuBar = new JMenuBar();
 		setJMenuBar(menuBar);
-		
-		mnNewMenu = new JMenu("File");
-		menuBar.add(mnNewMenu);
-		
+
+		menu_file = new JMenu("File");
+		menuBar.add(menu_file);
+
 		menu_new = new JMenuItem("New simulation...");
 		menu_new.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_N, InputEvent.CTRL_DOWN_MASK));
-		mnNewMenu.add(menu_new);
-		
+		menu_file.add(menu_new);
+
 		menu_open = new JMenuItem("Open file...");
 		menu_open.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, InputEvent.CTRL_DOWN_MASK));
-		mnNewMenu.add(menu_open);
-		
-		menu_save = new JMenuItem("Save as...");
+		menu_file.add(menu_open);
+
+		menu_save = new JMenuItem("Save");
 		menu_save.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK));
-		mnNewMenu.add(menu_save);
-		
+		menu_file.add(menu_save);
+
+		menu_saveas = new JMenuItem("Save as...");
+		menu_saveas.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK));
+		menu_file.add(menu_saveas);
+
 		menu_editdesc = new JMenuItem("Edit description...");
-		mnNewMenu.add(menu_editdesc);
-		
-		separator = new JSeparator();
-		mnNewMenu.add(separator);
-		
-		menu_about = new JMenuItem("About");
-		mnNewMenu.add(menu_about);
-		
-		menu_help = new JMenuItem("Open manual");
-		mnNewMenu.add(menu_help);
-		
-		menu_asdf = new JMenu("Edit");
-		menuBar.add(menu_asdf);
-		
-		menu_cut = new JMenuItem("Cut");
-		menu_cut.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_X, InputEvent.CTRL_DOWN_MASK));
-		menu_asdf.add(menu_cut);
-		
-		menu_copy = new JMenuItem("Copy");
-		menu_copy.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK));
-		menu_asdf.add(menu_copy);
-		
-		menu_paste = new JMenuItem("Paste");
-		menu_paste.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.CTRL_DOWN_MASK));
-		menu_asdf.add(menu_paste);
-		
+		menu_file.add(menu_editdesc);
+
+		menu_pref = new JMenuItem("Preferences");
+		menu_file.add(menu_pref);
+
 		separator_1 = new JSeparator();
-		menu_asdf.add(separator_1);
-		
+		menu_file.add(separator_1);
+
+		menu_load_workshop = new JMenuItem("Load workshop item...");
+		menu_file.add(menu_load_workshop);
+
+		menu_workshop = new JMenuItem("Upload to workshop...");
+		menu_file.add(menu_workshop);
+
+		separator_6 = new JSeparator();
+		menu_file.add(separator_6);
+
+		menu_exit = new JMenuItem("Exit");
+		menu_file.add(menu_exit);
+
+		menu_edit = new JMenu("Edit");
+		menuBar.add(menu_edit);
+
 		menu_undo = new JMenuItem("Undo");
 		menu_undo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK));
-		menu_asdf.add(menu_undo);
-		
+		menu_edit.add(menu_undo);
+
 		menu_redo = new JMenuItem("Redo");
 		menu_redo.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK));
-		menu_asdf.add(menu_redo);
-		
+		menu_edit.add(menu_redo);
+
+		JSeparator separator = new JSeparator();
+		menu_edit.add(separator);
+
+		menu_cut = new JMenuItem("Cut");
+		menu_cut.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_X, InputEvent.CTRL_DOWN_MASK));
+		menu_edit.add(menu_cut);
+
+		menu_copy = new JMenuItem("Copy");
+		menu_copy.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C, InputEvent.CTRL_DOWN_MASK));
+		menu_edit.add(menu_copy);
+
+		menu_paste = new JMenuItem("Paste");
+		menu_paste.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.CTRL_DOWN_MASK));
+		menu_edit.add(menu_paste);
+
+		menu_rotate = new JMenuItem("Rotate");
+		menu_rotate.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_R, InputEvent.CTRL_DOWN_MASK));
+		menu_edit.add(menu_rotate);
+
+		menu_flip_h = new JMenuItem("Flip horizontally");
+		menu_flip_h.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK));
+		menu_edit.add(menu_flip_h);
+
+		menu_flip_v = new JMenuItem("Flip vertically");
+		menu_flip_v.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_G, InputEvent.CTRL_DOWN_MASK));
+		menu_edit.add(menu_flip_v);
+
+		separator_3 = new JSeparator();
+		menu_edit.add(separator_3);
+
+		menu_selectall = new JMenuItem("Select all");
+		menu_selectall.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_A, InputEvent.CTRL_DOWN_MASK));
+		menu_edit.add(menu_selectall);
+
+		menu_deselectall = new JMenuItem("Deselect all");
+		menu_deselectall.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_D, InputEvent.CTRL_DOWN_MASK));
+		menu_edit.add(menu_deselectall);
+
+		separator_2 = new JSeparator();
+		menu_edit.add(separator_2);
+
+		menu_advancedsettings = new JMenuItem("Simulation settings");
+		menu_edit.add(menu_advancedsettings);
+
+		menu_cust_material = new JMenuItem("Material editor");
+		menu_edit.add(menu_cust_material);
+
+		menu_view_materials = new JMenuItem("Material property viewer");
+		menu_edit.add(menu_view_materials);
+
 		menu_tools = new JMenu("Tools");
 		menuBar.add(menu_tools);
-		
+
+		menu_view = new JMenu("View");
+		menuBar.add(menu_view);
+
+		menu_graphics = new JMenu("Graphics");
+		menuBar.add(menu_graphics);
+
+		menu_interface = new CustJCheckBoxMenuItem("Display interface");
+		menu_interface.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_H, 0));
+		menu_interface.setSelected(true);
+		menu_graphics.add(menu_interface);
+
+		menu_time = new CustJCheckBoxMenuItem("Show time");
+		menu_time.setSelected(true);
+		menu_graphics.add(menu_time);
+
+		menu_materialname = new CustJCheckBoxMenuItem("Show material name");
+		menu_materialname.setSelected(true);
+		menu_graphics.add(menu_materialname);
+
+		menu_tooltip = new CustJCheckBoxMenuItem("Show simulation variables");
+		menu_tooltip.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_T, 0));
+		menu_graphics.add(menu_tooltip);
+
+		menu_probes = new CustJCheckBoxMenuItem("Show probes");
+		menu_probes.setSelected(true);
+		menu_graphics.add(menu_probes);
+
+		menu_elem_colors = new CustJCheckBoxMenuItem("Show material colors");
+		menu_elem_colors.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C, 0));
+		menu_elem_colors.setSelected(true);
+		menu_graphics.add(menu_elem_colors);
+
+		menu_borders = new CustJCheckBoxMenuItem("Show material borders");
+		menu_borders.setSelected(true);
+		menu_graphics.add(menu_borders);
+
+		menu_text_bg = new CustJCheckBoxMenuItem("Show text background");
+		menu_text_bg.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_G, 0));
+		menu_text_bg.setSelected(true);
+		menu_graphics.add(menu_text_bg);
+
+		menu_colormap = new CustJCheckBoxMenuItem("Show color scale");
+		menu_colormap.setSelected(true);
+		menu_graphics.add(menu_colormap);
+
+		JSeparator separator_4 = new JSeparator();
+		menu_graphics.add(separator_4);
+
+		menu_carriers = new CustJCheckBoxMenuItem("Show charge carriers");
+		menu_graphics.add(menu_carriers);
+
+		menu_hide_carriers_metal = new CustJCheckBoxMenuItem("Hide carriers in metal");
+		menu_hide_carriers_metal.setSelected(true);
+		menu_graphics.add(menu_hide_carriers_metal);
+
+		menu_gen_recomb = new CustJCheckBoxMenuItem("Show generation and recombination");
+		menu_gen_recomb.setSelected(true);
+		menu_graphics.add(menu_gen_recomb);
+
+		menu_carrier_diffusion = new CustJCheckBoxMenuItem("Show carrier diffusion");
+		menu_graphics.add(menu_carrier_diffusion);
+
+		JSeparator separator_5 = new JSeparator();
+		menu_graphics.add(separator_5);
+
+		menu_debug = new CustJCheckBoxMenuItem("Debug mode");
+		menu_debug.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_D, 0));
+		menu_graphics.add(menu_debug);
+
 		menu_examples = new JMenu("Examples");
 		menuBar.add(menu_examples);
+
+		menu_help2 = new JMenu("Help");
+		menuBar.add(menu_help2);
+
+		menu_help = new JMenuItem("Open manual");
+		menu_help2.add(menu_help);
+
+		menu_github = new JMenuItem("Github");
+		menu_help2.add(menu_github);
+
+		menu_report = new JMenuItem("Report a bug...");
+		menu_help2.add(menu_report);
+
+		menu_about = new JMenuItem("About...");
+		menu_help2.add(menu_about);
+		
+		
 		contentPane = new JPanel();
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 		contentPane.setLayout(new BorderLayout(0, 0));
@@ -243,7 +454,6 @@ public class MainWindow extends JFrame {
 		gui_brush.setSelectedIndex(0);
 		gui_brush.setBounds(201, 151, 171, 22);
 		panel.add(gui_brush);
-		addTooltips(gui_brush);
 		
 		gui_view = new JComboBox();
 		gui_view.setMaximumRowCount(16);
@@ -252,7 +462,6 @@ public class MainWindow extends JFrame {
 		gui_view.setSelectedIndex(3);
 		gui_view.setBounds(10, 117, 171, 22);
 		panel.add(gui_view);
-		addTooltips(gui_view);
 		
 		gui_stepsizelbl = new JLabel("Step size");
 		gui_stepsizelbl.setBounds(20, 311, 161, 14);
@@ -276,7 +485,6 @@ public class MainWindow extends JFrame {
 		gui_view_vec.setSelectedIndex(1);
 		gui_view_vec.setBounds(10, 151, 171, 22);
 		panel.add(gui_view_vec);
-		addTooltips(gui_view_vec);
 		
 		gui_parameter2_text = new JLabel("Direction");
 		gui_parameter2_text.setBounds(211, 367, 161, 14);
@@ -307,7 +515,6 @@ public class MainWindow extends JFrame {
 		gui_brush_1.setSelectedIndex(1);
 		gui_brush_1.setBounds(201, 219, 171, 22);
 		panel.add(gui_brush_1);
-		addTooltips(gui_brush_1);
 		
 		gui_stepslbl = new JLabel("Steps/Frame");
 		gui_stepslbl.setBounds(20, 364, 144, 14);
@@ -359,7 +566,6 @@ public class MainWindow extends JFrame {
 		gui_view_vec_mode.setSelectedIndex(0);
 		gui_view_vec_mode.setBounds(10, 185, 171, 22);
 		panel.add(gui_view_vec_mode);
-		addTooltips(gui_view_vec_mode);
 		
 		gui_brush_highlight = new JCheckBox("Brush highlight");
 		gui_brush_highlight.setSelected(true);
@@ -377,14 +583,31 @@ public class MainWindow extends JFrame {
 		gui_material.setSelectedIndex(0);
 		gui_material.setBounds(201, 185, 171, 22);
 		panel.add(gui_material);
-		addTooltips(gui_material);
 		
 		gui_bc = new JComboBox();
 		gui_bc.setModel(new DefaultComboBoxModel(BoundaryCondition.values()));
 		gui_bc.setSelectedIndex(0);
 		gui_bc.setBounds(201, 70, 171, 22);
 		panel.add(gui_bc);
-		addTooltips(gui_bc);
+		
+
+		gui_carrierlbl = new JLabel("Charge carrier density");
+		gui_carrierlbl.setBounds(21, 340, 150, 14);
+		panel.add(gui_carrierlbl);
+
+		gui_carrier_density = new JScrollBar();
+		gui_carrier_density.setValue(-45);
+		gui_carrier_density.setOrientation(JScrollBar.HORIZONTAL);
+		gui_carrier_density.setMinimum(-45);
+		gui_carrier_density.setMaximum(45);
+		gui_carrier_density.setBlockIncrement(1);
+		gui_carrier_density.setBounds(11, 361, 171, 17);
+		panel.add(gui_carrier_density);
+
+		gui_carriers = new JCheckBox("Show charge carriers");
+		gui_carriers.setSelected(false);
+		gui_carriers.setBounds(11, 300, 171, 23);
+		panel.add(gui_carriers);
 		
 		gui_text_bg = new JCheckBox("Black text background");
 		gui_text_bg.setSelected(true);
@@ -398,7 +621,6 @@ public class MainWindow extends JFrame {
 		gui_3d_view.setMaximumRowCount(16);
 		gui_3d_view.setBounds(10, 221, 171, 22);
 		panel.add(gui_3d_view);
-		addTooltips(gui_3d_view);
 		
 		gui_slicelabel = new JLabel("Slice");
 		gui_slicelabel.setBounds(211, 526, 150, 14);
@@ -431,23 +653,351 @@ public class MainWindow extends JFrame {
 		gui_new = new JButton("New simulation");
 		gui_new.setBounds(201, 13, 171, 23);
 		panel.add(gui_new);
+		
+
+		gui_plotinterval_text = new JLabel("Probe plot interval");
+		gui_plotinterval_text.setBounds(206, 242, 167, 14);
+		panel.add(gui_plotinterval_text);
+
+		gui_plotinterval = new JScrollBar();
+		gui_plotinterval.setValue(10);
+		gui_plotinterval.setMinimum(1);
+		gui_plotinterval.setOrientation(JScrollBar.HORIZONTAL);
+		gui_plotinterval.setMaximum(60);
+		gui_plotinterval.setBounds(202, 263, 171, 17);
+		panel.add(gui_plotinterval);
+
+		gui_light_text = new JLabel("Light");
+		gui_light_text.setBounds(202, 242, 172, 14);
+		panel.add(gui_light_text);
+
+		gui_light = new JScrollBar();
+		gui_light.setMinimum(-15);
+		gui_light.setOrientation(JScrollBar.HORIZONTAL);
+		gui_light.setMaximum(25);
+		gui_light.setBounds(202, 261, 171, 17);
+		panel.add(gui_light);
+		
+		gui_probetype = new JComboBox<CustProbeType>();
+		gui_probetype.setModel(new DefaultComboBoxModel<>(CustProbeType.values()));
+		gui_probetype.setMaximumRowCount(16);
+		gui_probetype.setBounds(202, 82, 171, 22);
+		panel.add(gui_probetype);
+	}
+
+
+	public void listSettings() {
+		boolean_names.put("gui_paused", gui_paused);
+		boolean_names.put("gui_tooltip", menu_tooltip);
+		boolean_names.put("gui_text_bg", menu_text_bg);
+		boolean_names.put("gui_elem_colors", menu_elem_colors);
+		boolean_names.put("gui_interface", menu_interface);
+		boolean_names.put("gui_borders", menu_borders);
+		boolean_names.put("show_material", menu_materialname);
+		boolean_names.put("show_probes", menu_probes);
+		boolean_names.put("show_time", menu_time);
+		boolean_names.put("show_colormap", menu_colormap);
+		boolean_names.put("gui_carriers", gui_carriers);
+		boolean_names.put("gui_hide_carriers_metal", menu_hide_carriers_metal);
+		boolean_names.put("show_carrier_diffusion", menu_carrier_diffusion);
+		boolean_names.put("show_gen_recomb", menu_gen_recomb);
+
+		integer_names.put("gui_simspeed", gui_simspeed);
+		integer_names.put("gui_simspeed_2", gui_simspeed_2);
+		integer_names.put("gui_brightness", gui_brightness);
+		integer_names.put("gui_brightness_vec", gui_brightness_vec);
+		integer_names.put("gui_carrier_density", gui_carrier_density);
+		integer_names.put("gui_parameter1", gui_parameter1);
 	}
 	
-	public void addTooltips(JComboBox box) {
-		ListCellRenderer<? super Object> originalRenderer = box.getRenderer();
+	public void setDefaults(Simulation e) {
+		setTitle(SemiSim.name);
 
-		box.setRenderer(new ListCellRenderer<Object>() {
-		    @Override
-		    public Component getListCellRendererComponent(JList<?> list, Object value, int index,
-		                                                  boolean isSelected, boolean cellHasFocus) {
-		        Component c = originalRenderer.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+		menu_tooltip.setSelected(false);
+		menu_text_bg.setSelected(true);
+		menu_elem_colors.setSelected(true);
+		menu_interface.setSelected(true);
+		menu_borders.setSelected(true);
+		menu_materialname.setSelected(true);
+		menu_probes.setSelected(true);
+		menu_time.setSelected(true);
+		menu_colormap.setSelected(false);
+		gui_carriers.setSelected(false);
+		menu_hide_carriers_metal.setSelected(true);
+		menu_carrier_diffusion.setSelected(false);
+		menu_gen_recomb.setSelected(true);
 
-		        if (c instanceof JComponent && value != null) {
-		            ((JComponent) c).setToolTipText(value.toString());
-		        }
+		gui_simspeed.setValue(20);
+		gui_simspeed_2.setValue(25);
+		gui_brightness.setValue(0);
+		gui_brightness_vec.setValue(0);
+		gui_carrier_density.setValue(10);
+		gui_parameter1.setValue(0);
+		
+		gui_paused.setSelected(false);
+		gui_brush.setSelectedItem(Brush.INTERACT);
+		gui_brushsize.setValue(250);
+		gui_brush_1.setSelectedIndex(1);
+		//gui_material.setSelectedIndex(0);
 
-		        return c;
-		    }
-		});
+		e.controls.brushes.setOption(Controls.Brush.INTERACT);
+		e.controls.scalarview.setOption(ScalarView.CHARGE);
+		e.controls.scalarmode.setOption(ScalarMode.COLORS);
+		e.controls.vectorview.setOption(VectorView.E_FIELD);
+		e.controls.vectormode.setOption(VectorMode.ARROWS);
+		
+		setRedundantOptions();
 	}
+	
+	public void setRedundantOptions() {
+		menu_carriers.setSelected(gui_carriers.isSelected());
+	}
+	
+	public void initialize() {
+		//TODO
+		listSettings();
+		
+		e.canvas.addMouseListener(e.controls);
+		e.canvas.addMouseMotionListener(e.controls);
+		e.canvas.addMouseWheelListener(e.controls);
+		e.canvas.addKeyListener(e.controls);
+		this.getRootPane().addComponentListener(this);
+
+		gui_reset.addActionListener(e.controls);
+		gui_brush.addActionListener(e.controls);
+		gui_material.addActionListener(e.controls);
+		gui_carriers.addActionListener(e.controls);
+		menu_advancedsettings.addActionListener(e.controls);
+		menu_open.addActionListener(e.controls);
+		menu_saveas.addActionListener(e.controls);
+		menu_save.addActionListener(e.controls);
+		menu_about.addActionListener(e.controls);
+		menu_help.addActionListener(e.controls);
+		menu_undo.addActionListener(e.controls);
+		menu_redo.addActionListener(e.controls);
+		menu_saveas.addActionListener(e.controls);
+		menu_cut.addActionListener(e.controls);
+		menu_copy.addActionListener(e.controls);
+		menu_paste.addActionListener(e.controls);
+		menu_editdesc.addActionListener(e.controls);
+		menu_new.addActionListener(e.controls);
+		menu_rotate.addActionListener(e.controls);
+		menu_flip_v.addActionListener(e.controls);
+		menu_flip_h.addActionListener(e.controls);
+		menu_selectall.addActionListener(e.controls);
+		menu_deselectall.addActionListener(e.controls);
+		menu_pref.addActionListener(e.controls);
+		menu_carriers.addActionListener(e.controls);
+		menu_debug.addActionListener(e.controls);
+		menu_exit.addActionListener(e.controls);
+		menu_github.addActionListener(e.controls);
+		menu_report.addActionListener(e.controls);
+		menu_cust_material.addActionListener(e.controls);
+		menu_view_materials.addActionListener(e.controls);
+		menu_workshop.addActionListener(e.controls);
+		menu_load_workshop.addActionListener(e.controls);
+		gui_3d_view.addActionListener(e.controls);
+		gui_slice.addAdjustmentListener(e.controls);
+
+		gui_reset				.setActionCommand("gui_reset");
+		gui_brush				.setActionCommand("gui_brush");
+		gui_material			.setActionCommand("gui_material");
+		gui_carriers			.setActionCommand("gui_carriers");
+		gui_3d_view			.setActionCommand("gui_3d_view");
+		menu_advancedsettings	.setActionCommand("menu_advancedsettings");
+		menu_open				.setActionCommand("menu_open");
+		menu_saveas				.setActionCommand("menu_saveas");
+		menu_save				.setActionCommand("menu_save");
+		menu_about				.setActionCommand("menu_about");
+		menu_help				.setActionCommand("menu_help");
+		menu_undo				.setActionCommand("menu_undo");
+		menu_redo				.setActionCommand("menu_redo");
+		menu_saveas				.setActionCommand("menu_saveas");
+		menu_cut				.setActionCommand("menu_cut");
+		menu_copy				.setActionCommand("menu_copy");
+		menu_paste				.setActionCommand("menu_paste");
+		menu_editdesc			.setActionCommand("menu_editdesc");
+		menu_new				.setActionCommand("menu_new");
+		menu_rotate				.setActionCommand("menu_rotate");
+		menu_flip_v				.setActionCommand("menu_flip_v");
+		menu_flip_h				.setActionCommand("menu_flip_h");
+		menu_selectall			.setActionCommand("menu_selectall");
+		menu_deselectall		.setActionCommand("menu_deselectall");
+		menu_pref				.setActionCommand("menu_pref");
+		menu_carriers			.setActionCommand("menu_carriers");
+		menu_debug				.setActionCommand("menu_debug");
+		menu_exit				.setActionCommand("menu_exit");
+		menu_github				.setActionCommand("menu_github");
+		menu_report				.setActionCommand("menu_report");
+		menu_cust_material		.setActionCommand("menu_cust_material");
+		menu_view_materials		.setActionCommand("menu_view_materials");
+		menu_workshop			.setActionCommand("menu_workshop");
+		menu_load_workshop			.setActionCommand("menu_load_workshop");
+
+		removeKeyListeners(gui_brush);
+		removeKeyListeners(gui_bc);
+		removeKeyListeners(gui_material);
+		removeKeyListeners(gui_brush_1);
+		
+		gui_brush.addItemListener(e.controls);
+		
+		if (!BuildFlags.steam_enabled) {
+			menu_file.remove(menu_load_workshop);
+			menu_file.remove(menu_workshop);
+			menu_file.remove(separator_6);
+		}
+		
+		e.controls.brushes.initialize(Controls.Brush.values(), menu_tools, e.controls, Controls.Brush.INTERACT, new Controls.Brush[] {Controls.Brush.DRAW, Controls.Brush.VOLTAGE, Controls.Brush.BANDS}, () -> new JRadioButtonMenuItem());
+
+		e.controls.scalarview.initialize(ScalarView.values(), menu_view, e.controls, ScalarView.CHARGE, null, () -> new CustJRadioButtonMenuItem());
+		
+		
+		
+		MenuCheckList<ScalarView, ?> c = e.controls.scalarview;
+
+        JMenu thermo = new JMenu("Thermodynamics");
+        c.menu.add(thermo);
+        JMenu carrier = new JMenu("Carrier dynamics");
+        c.menu.add(carrier);
+        JMenu recomb = new JMenu("Recombination");
+        c.menu.add(recomb);
+		c.removeOption(ScalarView.ELECTRON_POTENTIAL); thermo.add(c.getButton(ScalarView.ELECTRON_POTENTIAL));
+		c.removeOption(ScalarView.ELECTRON_VOLTAGE); thermo.add(c.getButton(ScalarView.ELECTRON_VOLTAGE));
+		c.removeOption(ScalarView.HOLE_POTENTIAL); thermo.add(c.getButton(ScalarView.HOLE_POTENTIAL));
+		c.removeOption(ScalarView.HOLE_VOLTAGE); thermo.add(c.getButton(ScalarView.HOLE_VOLTAGE));
+		c.removeOption(ScalarView.HEAT); thermo.add(c.getButton(ScalarView.HEAT));
+		c.removeOption(ScalarView.ENTROPY); thermo.add(c.getButton(ScalarView.ENTROPY));
+
+		c.removeOption(ScalarView.ELECTRON_DENSITY); carrier.add(c.getButton(ScalarView.ELECTRON_DENSITY));
+		c.removeOption(ScalarView.ELECTRON_VEL); carrier.add(c.getButton(ScalarView.ELECTRON_VEL));
+		c.removeOption(ScalarView.HOLE_DENSITY); carrier.add(c.getButton(ScalarView.HOLE_DENSITY));
+		c.removeOption(ScalarView.HOLE_VEL); carrier.add(c.getButton(ScalarView.HOLE_VEL));
+
+		c.removeOption(ScalarView.RECOMB_RAD); recomb.add(c.getButton(ScalarView.RECOMB_RAD));
+		c.removeOption(ScalarView.RECOMB_SRH); recomb.add(c.getButton(ScalarView.RECOMB_SRH));
+		c.removeOption(ScalarView.RECOMB_AUGER); recomb.add(c.getButton(ScalarView.RECOMB_AUGER));
+		c.removeOption(ScalarView.LIGHT); recomb.add(c.getButton(ScalarView.LIGHT));
+		//menu_view.remove();
+		
+		menu_view.add(new JSeparator());
+		e.controls.scalarmode.initialize(ScalarMode.values(), menu_view, e.controls, ScalarMode.COLORS, null, () -> new CustJRadioButtonMenuItem());
+		menu_view.add(new JSeparator());
+		e.controls.vectorview.initialize(VectorView.values(), menu_view, e.controls, VectorView.E_FIELD, null, () -> new CustJRadioButtonMenuItem());
+		
+
+		MenuCheckList<VectorView, ?> v = e.controls.vectorview;
+        JMenu dd = new JMenu("Diffusion and drift");
+        v.menu.add(dd);
+
+		v.removeOption(VectorView.ELECTRON_DIFFUSION); dd.add(v.getButton(VectorView.ELECTRON_DIFFUSION));
+		v.removeOption(VectorView.ELECTRON_DRIFT); dd.add(v.getButton(VectorView.ELECTRON_DRIFT));
+		v.removeOption(VectorView.ELECTRON_VELOCITY); dd.add(v.getButton(VectorView.ELECTRON_VELOCITY));
+		v.removeOption(VectorView.HOLE_DIFFUSION); dd.add(v.getButton(VectorView.HOLE_DIFFUSION));
+		v.removeOption(VectorView.HOLE_DRIFT); dd.add(v.getButton(VectorView.HOLE_DRIFT));
+		v.removeOption(VectorView.HOLE_VELOCITY); dd.add(v.getButton(VectorView.HOLE_VELOCITY));
+		
+		menu_view.add(new JSeparator());
+		e.controls.vectormode.initialize(VectorMode.values(), menu_view, e.controls, VectorMode.ARROWS, null, () -> new CustJRadioButtonMenuItem());
+
+		e.controls.brushes.buttonmap.get(Controls.Brush.INTERACT).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_1, 0));
+		e.controls.brushes.buttonmap.get(Controls.Brush.DRAW).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_2, 0));
+		e.controls.brushes.buttonmap.get(Controls.Brush.LINE).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_3, 0));
+		e.controls.brushes.buttonmap.get(Controls.Brush.FILL).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_4, 0));
+		e.controls.brushes.buttonmap.get(Controls.Brush.SELECT).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_5, 0));
+		e.controls.brushes.buttonmap.get(Controls.Brush.ZOOM).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_6, 0));
+
+		e.controls.scalarmode.buttonmap.get(ScalarMode.NONE).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0));
+		e.controls.vectormode.buttonmap.get(VectorMode.NONE).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V, 0));
+		
+		MenuBuilder.addDirectoryToMenu(menu_examples, SemiSim.getRootFile("examples"), e.savemanager.fileextension, (File f) -> e.savemanager.readFile(f));
+
+		//gui_material.removeItem(MaterialType.ABSORBER);
+		if (!BuildFlags.debugging)
+			e.controls.scalarview.removeOption(ScalarView.DEBUG);
+		
+		e.controls.scalarview.removeOption(ScalarView.NONE);
+		e.controls.vectorview.removeOption(VectorView.NONE);
+
+		gui_parameter1.setEnabled(true);
+		gui_parameter1.setVisible(true);
+		gui_parameter1_text.setEnabled(true);
+		gui_parameter1_text.setVisible(true);
+
+		e.controls.addKeyBinds(e.canvas);
+		e.controls.addKeyBinds(panel);
+		
+		InputMap im = (InputMap)UIManager.get("Button.focusInputMap");
+		im.put(KeyStroke.getKeyStroke("pressed SPACE"), "none");
+		im.put(KeyStroke.getKeyStroke("released SPACE"), "none");
+		
+		setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+		addWindowListener(e.controls);
+		//setLocationRelativeTo(null);
+
+		e.renderer.create3dCanvas();
+		e.renderer.imgpanel = new JPanel();
+		e.renderer.imgpanel.setLayout(new GridLayout(1,2));
+		e.renderer.imgpanel.setPreferredSize(new Dimension(768, 768));
+		add(e.renderer.imgpanel, BorderLayout.CENTER);
+
+		e.renderer.renderer_left_eye.canvas.addMouseListener(e.controls);
+		e.renderer.renderer_left_eye.canvas.addMouseMotionListener(e.controls);
+		e.renderer.renderer_left_eye.canvas.addMouseWheelListener(e.controls);
+		e.renderer.renderer_left_eye.canvas.addKeyListener(e.controls);
+
+		e.renderer.renderer_right_eye.canvas.addMouseListener(e.controls);
+		e.renderer.renderer_right_eye.canvas.addMouseMotionListener(e.controls);
+		e.renderer.renderer_right_eye.canvas.addMouseWheelListener(e.controls);
+		e.renderer.renderer_right_eye.canvas.addKeyListener(e.controls);
+
+		try {
+			BufferedImage icon = ImageIO.read(SemiSim.getRootFile("images/icon.png"));
+			if (icon != null) {
+				setIconImage(icon);
+			}
+		} catch (IOException e1) {}
+		
+		setDefaults(e);
+	}
+	
+	public void removeKeyListeners(Component c) {
+		KeyListener[] list = c.getKeyListeners();
+		for (int i = 0; i < list.length; i++) {
+			c.removeKeyListener(list[i]);
+		}
+	}
+	
+	public class CustJCheckBoxMenuItem extends JCheckBoxMenuItem {
+
+		private static final long serialVersionUID = 760172179099467782L;
+
+		public CustJCheckBoxMenuItem(String text) {
+			super(text);
+		}
+
+		@Override
+		protected void processMouseEvent(MouseEvent evt) {
+			if (evt.getID() == MouseEvent.MOUSE_RELEASED  && contains(evt.getPoint())) {
+				doClick();
+				setArmed(true);
+			} else
+				super.processMouseEvent(evt);
+		}
+
+	}
+	
+
+	@Override
+	public void componentResized(ComponentEvent ev) {
+		e.controls.updateimagesize = true;
+	}
+
+	@Override
+	public void componentMoved(ComponentEvent e) {}
+
+	@Override
+	public void componentShown(ComponentEvent e) {}
+
+	@Override
+	public void componentHidden(ComponentEvent e) {}
 }

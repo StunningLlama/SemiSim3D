@@ -11,18 +11,20 @@ import electrodynamics.units.Units;
 import electrodynamics.util.Utils;
 
 public class PointProbe extends Probe {
-	public PointProbe(int mx, int my) {
-		super(mx, my);
+	public PointProbe(int mx, int my, int mz) {
+		super(mx, my, mz);
 		x = mx;
 		y = my;
+		z = mz;
 		calculateDefaultLabelCoords();
 	}
 
 	public int x = 0;
 	public int y = 0;
+	public int z = 0;
 
 	public ScalarView scalarname = ScalarView.NONE;
-	public double[][] scalarfield = new double[][] {{0}};
+	public double[][][] scalarfield = new double[][][] {{{0}}};
 	
 	@Override
 	public void reset() {
@@ -31,20 +33,21 @@ public class PointProbe extends Probe {
 
 	@Override
 	public void calculateDefaultLabelCoords() {
-		labelcoord.x = x-2;
-		labelcoord.y = y-5;
+		labelcoord.x = x;
+		labelcoord.y = y;
+		labelcoord.z = z;
 	}
 
 	@Override
 	public void measure(Simulation e, boolean savedatapoint) {
-		e.computeScalarField(scalarfield, x, y, scalarname);
-		value = scalarfield[0][0];
+		e.computeScalarField(scalarfield, x, y, z, scalarname);
+		value = scalarfield[0][0][0];
 		if (savedatapoint) data.addData(value, e.time);
 	}
 	
 	@Override
-	public boolean isMouseHovering(int mx, int my) {
-		return Utils.length(x-mx, y-my) < 3;
+	public boolean isMouseHovering(int mx, int my, int mz) {
+		return Utils.length(x-mx, y-my, z-mz) < 3;
 	}
 	
 	@Override
@@ -57,10 +60,10 @@ public class PointProbe extends Probe {
 	}
 
 	@Override
-	public void translate(int dx, int dy) {
+	public void translate(int dx, int dy, int dz) {
 		x += dx;
 		y += dy;
-		labelcoord.translate(dx, dy);
+		labelcoord.translate(dx, dy, dz);
 	}
 
 	@Override
@@ -85,19 +88,20 @@ public class PointProbe extends Probe {
 	}
 	
 	@Override
-	public boolean intersects(int xmin, int ymin, int xmax, int ymax) {
-		return (x >= xmin && x <= xmax && y >= ymin && y <= ymax);
+	public boolean intersects(int xmin, int ymin, int zmin, int xmax, int ymax, int zmax) {
+		return (x >= xmin && x <= xmax && y >= ymin && y <= ymax && z >= zmin && z <= zmax);
 	}
 	
 	@Override
 	public boolean checkInBounds(Simulation e) {
-		return (x >= 0 && x < e.nx && y >= 0 && y < e.ny);
+		return (x >= 0 && x < e.nx && y >= 0 && y < e.ny && z >= 0 && z < e.nz);
 	}
 
 	@Override
-	public void drag(int mx, int my) {
+	public void drag(int mx, int my, int mz) {
 		x = mx;
 		y = my;
+		z = mz;
 		calculateDefaultLabelCoords();
 	}
 
@@ -106,11 +110,11 @@ public class PointProbe extends Probe {
 		r.setalphaBG(1);
 		r.setalphaFG(1.0);
 		r.setColorFloat(0.5f, 1.0f, 1.0f);
-		r.drawPixelRectangle(x-1, y-1, 3, 3);
+		r.drawPixelRectangle(x-1, y-1, z-1, 3, 3, 3);
 		
 		r.setalphaFG(0.1);
 		r.setColorFloat(1.0f, 1.0f, 1.0f);
-		r.drawPixelLine(x, y, labelcoord.x, labelcoord.y);
+		r.drawPixelLine(x, y, z, labelcoord.x, labelcoord.y, labelcoord.z);
 	}
 
 	@Override

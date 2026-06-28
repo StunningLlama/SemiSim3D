@@ -1,4 +1,4 @@
-package electrodynamics.gui;
+ package electrodynamics.gui;
 
 import java.awt.Component;
 import java.awt.Dimension;

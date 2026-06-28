@@ -44,9 +44,10 @@ public class ScalarPlot extends Plot {
 				double t = n/100.0;
 				double x = path.getX(t);
 				double y = path.getY(t);
+				double z = path.getZ(t);
 				double len = t*path.getArclength()*e.ds/xunitquantity;
 
-				data.add(len, Utils.bilinearinterp_extrap(e.renderer.scalarfield, x, y, e.nx, e.ny)/yunitquantity);
+				data.add(len, Utils.bilinearinterp_extrap(e.renderer.scalarfield, x, y, z)/yunitquantity);
 			}
 
 			data.setNotify(true);

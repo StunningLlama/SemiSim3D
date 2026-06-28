@@ -17,52 +17,59 @@ public class DistributionSampler {
 	}*/
 
 
-	private double[][] rho;				// Physical density function, unnormalized
+	private double[][][] rho;				// Physical density function, unnormalized
 	private double rho_tot = 0;			// Total amount
-	private double[][] p_dual;			// Probability distribution on dual grid
-	private double[][] p_dual_cdf;		// Cumulative probability on dual grid
+	private double[][][] p_dual;			// Probability distribution on dual grid
+	private double[][][] p_dual_cdf;		// Cumulative probability on dual grid
 
 	private int nx;
 	private int ny;
+	private int nz;
 
 	private int mx;
 	private int my;
+	private int mz;
 
 	FastRandom rand = new FastRandom();
 
-	public void init(int nx, int ny) {
+	public void init(int nx, int ny, int nz) {
 		this.nx = nx;
 		this.ny = ny;
+		this.nz = nz;
 		mx = nx-1;
 		my = ny-1;
+		mz = nz-1;
 
-		rho = new double[nx][ny];
+		rho = new double[nx][ny][nz];
 
-		p_dual = new double[nx-1][ny-1];
-		p_dual_cdf = new double[nx-1][ny-1];
+		p_dual = new double[nx-1][ny-1][nz-1];
+		p_dual_cdf = new double[nx-1][ny-1][nz-1];
 	}
 
-	public void prepare(double[][] rho_in) {
+	public void prepare(double[][][] rho_in) {
 		for (int i = 0; i < nx; i++) {
 			for (int j = 0; j < ny; j++) {
-				rho[i][j] = (rho_in[i][j] < 0) ? -rho_in[i][j]: rho_in[i][j];
+				for (int k = 0; k < nz; k++) {
+					rho[i][j][k] = (rho_in[i][j][k] < 0) ? -rho_in[i][j][k]: rho_in[i][j][k];
+				}
 			}
 		}
 
 		rho_tot = 0;
 		for (int i = 0; i < mx; i++) {
 			for (int j = 0; j < my; j++) {
-				p_dual[i][j] = 0.25*(rho[i][j] + rho[i+1][j] + rho[i][j+1] + rho[i+1][j+1]);
-				rho_tot += p_dual[i][j];
+				for (int k = 0; k < mz; k++) {
+					p_dual[i][j][k] = 0.125*(rho[i][j][k] + rho[i+1][j][k] + rho[i][j+1][k] + rho[i+1][j+1][k] + rho[i][j][k+1] + rho[i+1][j][k+1] + rho[i][j+1][k+1] + rho[i+1][j+1][k+1]);
+					rho_tot += p_dual[i][j][k];
+				}
 			}
 		}
 
 		for (int i = 0; i < mx; i++) {
-			for (int j = 1; j < my; j++) {
-				p_dual_cdf[i][j] = p_dual_cdf[i][j-1] + p_dual[i][j]/rho_tot;
-			}
-			if (i < mx-1) {
-				p_dual_cdf[i+1][0] = p_dual_cdf[i][my-1] + p_dual[i+1][0]/rho_tot;
+			for (int j = 0; j < my; j++) {
+				for (int k = 0; k < mz; k++) {
+					p_dual_cdf[i][j][k] = lin_index(p_dual_cdf, to_linear(i, j, k)-1) + p_dual[i][j][k]/rho_tot;
+				}
 			}
 		}
 	}
@@ -79,12 +86,12 @@ public class DistributionSampler {
 
 		while (lower != upper) {
 			mid = (lower+upper)/2;
-			if (p <= p_dual_cdf[(mid-1)/my][(mid-1)%my])
+			if (p <= lin_index(p_dual_cdf, mid-1))
 			{
 				if (upper-lower == 1)
 					mid = lower+1;
 				upper = mid;
-			} else if (p > p_dual_cdf[mid/my][mid%my]){
+			} else if (p > lin_index(p_dual_cdf, mid)){
 				lower = mid;
 			} else {
 				break;
@@ -93,18 +100,31 @@ public class DistributionSampler {
 
 		return mid;
 	}
+	
+	public double lin_index(double[][][] arr, int index) {
+		if (index < 0)
+			return 0;
+		
+		return arr[index/(my*mz)][(index/mz)%my][index%mz];
+	}
+	
+	public int to_linear(int x, int y, int z) {
+		return x*my*mz + y*mz + z;
+	}
 
 	private Coord generateSample() {
 		
 		while (true) {
 			int index = binarySearch(rand.next());
-			int i = index/my;
-			int j = index%my;
-			double rhomax = Math.max(Math.max(rho[i][j], rho[i+1][j]), Math.max(rho[i][j+1], rho[i+1][j+1]));
+			int i = index/(my*mz);
+			int j = (index/mz)%my;
+			int k = index%mz;
+			double rhomax = Math.max(Utils.max(rho[i][j][k], rho[i+1][j][k], rho[i][j+1][k], rho[i+1][j+1][k]), Utils.max(rho[i][j][k+1], rho[i+1][j][k+1], rho[i][j+1][k+1], rho[i+1][j+1][k+1]));
 			double di = rand.next();
 			double dj = rand.next();
-			if (rand.next() < bilinearinterp(rho, i+di, j+dj)/rhomax) {
-				return new Coord(i+di, j+dj);
+			double dk = rand.next();
+			if (rand.next() < Utils.bilinearinterp(rho, i+di, j+dj, k+dk)/rhomax) {
+				return new Coord(i+di, j+dj, k+dk);
 			}
 		}
 	}
@@ -125,39 +145,15 @@ public class DistributionSampler {
 		}
 	}
 
-	public double bilinearinterp(double[][] array, double x, double y) {
-		int xfloor = (int)Math.floor(x);
-		int yfloor = (int)Math.floor(y);
-		double fx = x - xfloor;
-		double fy = y - yfloor;
-
-		if (xfloor < 0) {
-			xfloor = 0;
-			fx = 0.0;
-		} else if (xfloor >= nx - 1) {
-			xfloor = nx - 2;
-			fx = 1.0;
-		}
-		if (yfloor < 0) {
-			yfloor = 0;
-			fy = 0.0;
-		} else if (yfloor >= ny - 1) {
-			yfloor = ny - 2;
-			fy = 1.0;
-		}
-		double va = array[xfloor][yfloor]*(1.0-fx) + array[xfloor+1][yfloor]*fx;
-		double vb = array[xfloor][yfloor+1]*(1.0-fx) + array[xfloor+1][yfloor+1]*fx;
-
-		return va*(1.0-fy) + vb*fy;
-	}
-
 	public class Coord {
 		public double x;
 		public double y;
+		public double z;
 
-		public Coord(double x, double y) {
+		public Coord(double x, double y, double z) {
 			this.x = x;
 			this.y = y;
+			this.z = z;
 		}
 	}
 

@@ -8,8 +8,8 @@ import electrodynamics.Simulation;
 import electrodynamics.units.Quantity;
 
 public class VoltageProbe extends PointProbe {
-	public VoltageProbe(int mx, int my) {
-		super(mx, my);
+	public VoltageProbe(int mx, int my, int mz) {
+		super(mx, my, mz);
 		shorthand = "V";
 		quantity = Quantity.ELECTRIC_POTENTIAL;
 	}
@@ -17,7 +17,7 @@ public class VoltageProbe extends PointProbe {
 
 	@Override
 	public void measure(Simulation e, boolean savedatapoint) {
-		value = e.V_avg[x][y];
+		value = e.V_avg[x][y][z];
 		if (e.hasGround() && this != e.getGround())
 			value -= e.getGround().value;
 		

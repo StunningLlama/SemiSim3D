@@ -225,7 +225,7 @@ public class Steam {
 			UGC.getItemInstallInfo(id, info);
 			File file = Paths.get(info.getFolder(), "workshop_item.semisim").toFile();
 			SwingUtilities.invokeLater(() -> {
-				e.savemanager.readfile(file);
+				e.savemanager.readFile(file);
 			});
 		}
 	}

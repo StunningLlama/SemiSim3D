@@ -15,17 +15,30 @@ import electrodynamics.Renderer.ScalarView;
 import electrodynamics.Renderer.VectorMode;
 import electrodynamics.Renderer.VectorView;
 import electrodynamics.Simulation.BoundaryCondition;
+import electrodynamics.probe.Probe;
+import electrodynamics.util.Utils;
 
 public class UndoRedo {
 	
 	public List<Snapshot> prev_states = new ArrayList<Snapshot>();
 	public int undoredo_pointer = 0;
 	public int history_size = 0;
+	public boolean tracksettings = false;
 	
 	public UndoRedo(int history_size) {
 		this.history_size = history_size;
 	}
 
+	public void setHistorySize(int new_history_size) {
+		this.history_size = new_history_size;
+		
+		while (prev_states.size() > history_size)
+		{
+			prev_states.remove(0);
+			undoredo_pointer--;
+		}
+	}
+	
 	public void resetUndoHistory(Simulation e) {
 		undoredo_pointer = 0;
 		prev_states.clear();
@@ -50,6 +63,14 @@ public class UndoRedo {
 
 		if (undoredo_pointer >= 0 && undoredo_pointer < prev_states.size())
 			prev_states.get(undoredo_pointer).load(e);
+	}
+
+	public boolean canRedo() {
+		return undoredo_pointer < prev_states.size()-1;
+	}
+	
+	public boolean canUndo() {
+		return undoredo_pointer > 0;
 	}
 	
 	public void captureState(Simulation e) {
@@ -77,28 +98,7 @@ class Snapshot {
 	double width;
 	double time;
 	
-	boolean gui_paused;
-	boolean gui_tooltip;
-	boolean gui_text_bg;
-	boolean gui_elem_colors;
-	boolean gui_interface;
-	int gui_simspeed;
-	int gui_simspeed_2;
-	int gui_brightness;
-	int gui_brightness_vec ;
-	String description;
-	ScalarView gui_view;
-	VectorView gui_view_vec;
-	VectorMode gui_view_vec_mode;
 	BoundaryCondition gui_bc;
-	int gui_parameter1;
-	RenderMode gui_3d_view;
-	int gui_zslice;
-	float pitch;
-	float yaw;
-	float zoom;
-	int gui_parallax;
-	boolean gui_rotate;
 	
 	double[][][] ex;
 	double[][][] ey;
@@ -124,36 +124,14 @@ class Snapshot {
 	double[][][] jy_p;
 	double[][][] jz_p;
 	Material[][][] materials;
-	
-	List<VoltageProbe> voltageprobes;
-	List<CurrentProbe> currentprobes;
-	VoltageProbe ground;
+
+	List<Probe> probes;
 	
 	public void store(Simulation e) {
 		//resolution = e.resolution;
 		//width = e.width;
 		time = e.time;
-		gui_paused = e.opts.gui_paused.isSelected();
-		gui_tooltip = e.opts.gui_tooltip.isSelected();
-		gui_text_bg = e.opts.gui_text_bg.isSelected();
-		gui_elem_colors = e.opts.gui_elem_colors.isSelected();
-		gui_simspeed = e.opts.gui_simspeed.getValue();
-		gui_simspeed_2 = e.opts.gui_simspeed_2.getValue();
-		gui_brightness = e.opts.gui_brightness.getValue();
-		gui_brightness_vec = e.opts.gui_brightness_vec.getValue();
-		description = e.opts.textPane.getText();
-		gui_view = (ScalarView) e.opts.gui_view.getSelectedItem();
-		gui_view_vec = (VectorView) e.opts.gui_view_vec.getSelectedItem();
-		gui_view_vec_mode = (VectorMode) e.opts.gui_view_vec_mode.getSelectedItem();
 		gui_bc = (BoundaryCondition) e.opts.gui_bc.getSelectedItem();
-		gui_parameter1 = e.opts.gui_parameter1.getValue();
-		gui_3d_view = (RenderMode) e.opts.gui_3d_view.getSelectedItem();
-		gui_zslice = e.opts.gui_slice.getValue();
-		pitch = e.renderer.pitch;
-		yaw = e.renderer.yaw;
-		zoom = e.renderer.scale;
-		gui_parallax = e.opts.gui_parallax.getValue();
-		gui_rotate = e.opts.gui_rotate.isSelected();
 
 		ex = copy(e.Ex);
 		ey = copy(e.Ey);
@@ -179,9 +157,7 @@ class Snapshot {
 		jy_p = copy(e.Jy_p);
 		jz_p = copy(e.Jz_p);
 		materials = copy(e.materials);
-		voltageprobes = new ArrayList<VoltageProbe>(e.voltageprobes);
-		currentprobes = new ArrayList<CurrentProbe>(e.currentprobes);
-		ground = e.ground;
+		probes = Utils.cloneList(e.probes, Probe::clone);
 	}
 
 
@@ -192,27 +168,7 @@ class Snapshot {
 				//int resolution_tmp = resolution;
 				//double width_tmp = width;
 				e.time = time;
-				e.opts.gui_paused.setSelected(gui_paused);
-				e.opts.gui_tooltip.setSelected(gui_tooltip);
-				e.opts.gui_text_bg.setSelected(gui_text_bg);
-				e.opts.gui_elem_colors.setSelected(gui_elem_colors);
-				e.opts.gui_simspeed.setValue(gui_simspeed);
-				e.opts.gui_simspeed_2.setValue(gui_simspeed_2);
-				e.opts.gui_brightness.setValue(gui_brightness);
-				e.opts.gui_brightness_vec.setValue(gui_brightness_vec);
-				e.opts.textPane.setText(description);
-				e.opts.gui_view.setSelectedItem(gui_view);
-				e.opts.gui_view_vec.setSelectedItem(gui_view_vec);
-				e.opts.gui_view_vec_mode.setSelectedItem(gui_view_vec_mode);
 				e.opts.gui_bc.setSelectedItem(gui_bc);
-				e.opts.gui_parameter1.setValue(gui_parameter1);
-				e.opts.gui_3d_view.setSelectedItem(gui_3d_view);
-				e.opts.gui_slice.setValue(gui_zslice);
-				e.renderer.pitch = pitch;
-				e.renderer.yaw = yaw;
-				e.renderer.scale = zoom;
-				e.opts.gui_parallax.setValue(gui_parallax);
-				e.opts.gui_rotate.setSelected(gui_rotate);
 
 				//e.setSize(resolution_tmp, width_tmp);
 				//e.resetFields(true);
@@ -245,14 +201,12 @@ class Snapshot {
 
 				e.materials = copy(materials);
 
-				e.voltageprobes = new ArrayList<VoltageProbe>(voltageprobes);
-				e.currentprobes = new ArrayList<CurrentProbe>(currentprobes);
-
-				e.ground = ground;
+				e.probes = Utils.cloneList(probes, Probe::clone);
 
 				e.opts.textPane.setEditable(false);
+				e.opts.textPane.setText(e.description);
 				e.opts.textPane.setCaretPosition(0);
-				e.updateAllMaterials();
+				e.updateAllMaterials(false);
 				e.calcMiscFields(true);
 
 				e.renderer.imgpanel.requestFocus();
@@ -289,7 +243,7 @@ class Snapshot {
 		    for (int j = 0; j < arr[i].length; j++) {
 		    	result[i][j] = new Material[arr[i][j].length];
 		    	for (int k = 0; k < arr[i][j].length; k++) {
-		    		result[i][j][k] = arr[i][j][k].clone();
+		    		result[i][j][k] = new Material(arr[i][j][k]);
 		    	}
 		    }
 	    }

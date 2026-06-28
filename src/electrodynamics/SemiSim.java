@@ -4,10 +4,16 @@
 
 package electrodynamics;
 
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.concurrent.RejectedExecutionHandler;
@@ -15,11 +21,14 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
+import javax.swing.filechooser.FileSystemView;
 
+import electrodynamics.Renderer.GraphicsThread;
 import electrodynamics.Simulation.SimulationThread;
 
 public class SemiSim {
@@ -27,7 +36,20 @@ public class SemiSim {
 	public static SemiSim instance;
 	public static int n_threads = Runtime.getRuntime().availableProcessors();
 
+	public static String name = "Brandon's semiconductor simulator";
+	public static String about = "<html><body><p style='width: 250px;'>Brandon's Semiconductor Simulator / SemiSim.<br>"
+									+ "Version 2.0<br>"
+									+ "(c) 2026 Brandon Li<br><br>"
+									+ "Thanks to Paul Falstad, Ariel Baksh, and retconaway for providing help, feedback, and suggestions.<br><br>"
+									+ "Data taken from:<br>"
+									+ "Sitlisky, Vadim. &ldquo;New Semiconductor Materials. Characteristics and Properties&rdquo;. <a href=\"http://www.ioffe.ru\"><em>www.ioffe.ru</em></a>.<br> Retrieved June 2026.<br>"
+									+ "Schroder, D. K. (2006). <em>Semiconductor material<br> and device characterization</em>. John Wiley &amp; Sons.</p></body></html>";
+
+	public static Path rootdir = Paths.get(".");
+	public static Path userdir = Paths.get(".");
+
 	ArrayList<SimulationThread> sim_threads = new ArrayList<>();
+	ArrayList<Renderer.GraphicsThread> graphics_threads = new ArrayList<>();
 	Timer master_timer = new Timer();
 	Timer graphics_timer = new Timer();
 	Timer misc_timer = new Timer();
@@ -44,11 +66,16 @@ public class SemiSim {
 	
 	public void startThreads() {
 		for (int i = 0; i < n_threads; i++) {
-			sim_threads.add(sim.new SimulationThread(i, n_threads, sim.nx));
+			sim_threads.add(sim.new SimulationThread(i, n_threads));
 		}
-		
+
+		for (int i = 0; i < n_threads; i++) {
+			graphics_threads.add(sim.renderer.new GraphicsThread(i, n_threads));
+		}
+
 		for (int i = 0; i < n_threads; i++) {
 			sim_threads.get(i).start();
+			graphics_threads.get(i).start();
 		}
 
 		threadPool.schedule(sim, 0, TimeUnit.MILLISECONDS);
@@ -65,7 +92,14 @@ public class SemiSim {
                                " | Queue size=" + executor.getQueue().size());
         }
     }
-	
+
+	public static File getRootFile(String path) {
+		return rootdir.resolve(Paths.get(path)).toFile();
+	}
+
+	public static File getUserFile(String path) {
+		return userdir.resolve(Paths.get(path)).toFile();
+	}
 	
 	public static void displayErrorMessage(Exception e) {
 		if (instance == null) return;
@@ -100,14 +134,79 @@ public class SemiSim {
 		}
 	}
 	
-	public static void main(String[] args) {
+	public static void setDirectory() {
+		try {
+			rootdir = Paths.get(SemiSim.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParent();
+		} catch (URISyntaxException e1) {
+			e1.printStackTrace();
+		}
+
+		userdir = new JFileChooser().getFileSystemView().getDefaultDirectory().toPath();
+		System.out.println(FileSystemView.getFileSystemView().getDefaultDirectory().toPath().toString());
+		
+		String os = System.getProperty("os.name").toLowerCase();
+		
+		if (os.contains("windows")) {
+			userdir = userdir.resolve(Paths.get("SemiSim"));
+		} else if (os.contains("mac")) {
+			userdir = userdir.resolve(Paths.get("Documents/SemiSim"));
+		} else if (os.contains("linux")) {
+			userdir = userdir.resolve(Paths.get("SemiSim"));
+		} else {
+			userdir = userdir.resolve(Paths.get("SemiSim"));
+		}
+		
+		if (!userdir.toFile().exists()) {
+			userdir.toFile().mkdir();
+		}
+
+		try {
+			File mat = getUserFile("materials");
+			if (!mat.exists()) {
+				mat.mkdir();
+				for (File f : getRootFile("materials").listFiles()) {
+					File dest = getUserFile("materials/" + f.getName());
+					if (!dest.exists()) {
+						Files.copy(f.toPath(), dest.toPath());
+					}
+				}
+			}
+
+			File screenshots = getUserFile("screenshots");
+			if (!screenshots.exists()) {
+				screenshots.mkdir();
+			}
+			
+			File simulations = getUserFile("simulations");
+			if (!simulations.exists()) {
+				simulations.mkdir();
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	public static void setLookAndFeel() {
 		try {
 			UIManager.setLookAndFeel(
 					UIManager.getSystemLookAndFeelClassName());
 		} catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) {
 			e.printStackTrace();
 		}
+	}
+
+	public static void main(String[] args)
+	{
+		setDirectory();
 		
+		setLookAndFeel();
+		
+		Steam.initialize();
+		
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+		    public void run() { Steam.shutdown(); }
+		});
+
 		try {
 			SwingUtilities.invokeAndWait(() -> {
 				instance = new SemiSim();

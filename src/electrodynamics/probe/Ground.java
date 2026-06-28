@@ -8,8 +8,8 @@ import electrodynamics.units.Quantity;
 import electrodynamics.units.Units;
 
 public class Ground extends VoltageProbe {
-	public Ground(int mx, int my) {
-		super(mx, my);
+	public Ground(int mx, int my, int mz) {
+		super(mx, my, mz);
 	}
 
 	@Override

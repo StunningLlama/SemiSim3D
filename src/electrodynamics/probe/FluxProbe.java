@@ -8,8 +8,8 @@ import electrodynamics.Renderer.ScalarView;
 import electrodynamics.units.Quantity;
 
 public class FluxProbe extends AreaProbe {
-	public FluxProbe(int mx, int my) {
-		super(mx, my);
+	public FluxProbe(int mx, int my, int mz) {
+		super(mx, my, mz);
 		quantity = Quantity.MAGNETIC_FLUX;
 		shorthand = "Φ";
 		quantitytype = QuantityType.DENSITY;

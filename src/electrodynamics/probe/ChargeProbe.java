@@ -8,8 +8,8 @@ import electrodynamics.Renderer.ScalarView;
 import electrodynamics.units.Quantity;
 
 public class ChargeProbe extends AreaProbe {
-	public ChargeProbe(int mx, int my) {
-		super(mx, my);
+	public ChargeProbe(int mx, int my, int mz) {
+		super(mx, my, mz);
 		quantity = Quantity.CHARGE;
 		shorthand = "Q";
 		quantitytype = QuantityType.DENSITY;

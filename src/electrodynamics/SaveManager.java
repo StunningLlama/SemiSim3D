@@ -11,8 +11,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.lang.reflect.Type;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Predicate;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -25,14 +31,29 @@ import javax.swing.filechooser.FileFilter;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.JsonSerializer;
+import com.google.gson.Strictness;
+import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 
+import electrodynamics.Compatibility.VectorMode_v1;
 import electrodynamics.Renderer.RenderMode;
 import electrodynamics.Renderer.ScalarView;
 import electrodynamics.Renderer.VectorMode;
 import electrodynamics.Renderer.VectorView;
 import electrodynamics.Simulation.BoundaryCondition;
+import electrodynamics.probe.ChargeProbe;
+import electrodynamics.probe.CurrentProbe;
+import electrodynamics.probe.FluxProbe;
+import electrodynamics.probe.Ground;
+import electrodynamics.probe.Probe;
+import electrodynamics.probe.VoltageProbe;
 
 public class SaveManager {
 	Simulation e;
@@ -41,9 +62,10 @@ public class SaveManager {
 
 	public static File infile;
 	public static File outfile;
-	int saveversion = 2;
-	String fileextension = ".semisim3d";
-	String startingpath = ".";
+	public static File currentfile;
+	int saveversion = 3;
+	public String fileextension = ".semisim3d";
+	Path startingpath;
 	
 	public SaveManager(Simulation e) {
 		this.e = e;
@@ -53,13 +75,13 @@ public class SaveManager {
 	public void readFile()
 	{
 		SwingUtilities.invokeLater(() -> {
-			File testfile = new File(startingpath);
+			File testfile = startingpath.toFile();
 			if (!testfile.canRead()) {
 				JOptionPane.showMessageDialog(e.opts,
 				"Error: Java does not have access to this folder. Please see instructions to fix this issue.");
 			}
 
-			JFileChooser fd = new JFileChooser(startingpath);
+			JFileChooser fd = new JFileChooser(startingpath.toFile());
 			fd.setFileFilter(new FileFilter(){
 				@Override
 				public boolean accept(File f) {
@@ -73,13 +95,13 @@ public class SaveManager {
 			});
 			fd.setVisible(true);
 			int result = fd.showOpenDialog(e.opts);
-			startingpath = fd.getCurrentDirectory().getPath();
+			startingpath = fd.getCurrentDirectory().toPath();
 
 			if (result == JFileChooser.APPROVE_OPTION)
 				infile = fd.getSelectedFile();
 			else
 				infile = null;
-
+			
 			readFile(infile);
 		});
 	}
@@ -90,7 +112,9 @@ public class SaveManager {
 			if (infile == null || !infile.exists()) return;
 			try {
 				JsonReader fstr = new JsonReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(infile))));
+				fstr.setStrictness(Strictness.LENIENT);
 				Gson gson = new GsonBuilder().serializeSpecialFloatingPointValues().create();
+				Gson gson_probe = new GsonBuilder().serializeSpecialFloatingPointValues().registerTypeHierarchyAdapter(Probe.class, new ProbeAdapter()).create();
 
 				fstr.beginObject();
 
@@ -108,37 +132,26 @@ public class SaveManager {
 				dialog.setModal(false);
 				dialog.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
 				dialog.setVisible(true);
+			
+			
 
 				if (version == saveversion) {
 
-					double ds_default = 0.1e-6;
-					int nx_default = 32;
-					int ny_default = 32;
-					int nz_default = 32;
-					
+					setDefaults();
 					assertNextObject(fstr, "header");
 					fstr.beginObject();
 					while (fstr.hasNext()) {
 						String name = fstr.nextName();
 						switch (name){
-						case "ds": ds_default = fstr.nextDouble(); break;
-						case "nx": nx_default = validateResolution(fstr.nextInt()); break;
-						case "ny": ny_default = validateResolution(fstr.nextInt()); break;
-						case "nz": nz_default = validateResolution(fstr.nextInt()); break;
+						case "resolution": e.default_resolution_x = fstr.nextInt(); e.default_resolution_y = e.default_resolution_x; break;
+						case "width": e.ds = fstr.nextDouble()/e.default_resolution_x; break;
+						case "nx": e.ds = e.default_resolution_x = fstr.nextInt(); break;
+						case "ny": e.ds = e.default_resolution_y = fstr.nextInt(); break;
+						case "ds": e.ds = e.ds = fstr.nextDouble(); break;
 						case "time": e.time = fstr.nextDouble(); break;
-						case "gui_paused": e.opts.gui_paused.setSelected(fstr.nextBoolean()); break;
-						case "gui_tooltip": e.opts.gui_tooltip.setSelected(fstr.nextBoolean()); break;
-						case "gui_text_bg": e.opts.gui_text_bg.setSelected(fstr.nextBoolean()); break;
-						case "gui_view": e.opts.gui_view.setSelectedItem(gson.fromJson(fstr, ScalarView.class)); break;
-						case "gui_view_vec": e.opts.gui_view_vec.setSelectedItem(gson.fromJson(fstr, VectorView.class)); break;
-						case "gui_view_vec_mode": e.opts.gui_view_vec_mode.setSelectedItem(gson.fromJson(fstr, VectorMode.class)); break;
-						case "gui_simspeed": e.opts.gui_simspeed.setValue(fstr.nextInt()); break;
-						case "gui_simspeed_2": e.opts.gui_simspeed_2.setValue(fstr.nextInt()); break;
-						case "gui_brightness": e.opts.gui_brightness.setValue(fstr.nextInt()); break;
-						case "gui_brightness_vec": e.opts.gui_brightness_vec.setValue(fstr.nextInt()); break;
-						case "gui_elem_colors": e.opts.gui_elem_colors.setSelected(fstr.nextBoolean()); break;
-						case "gui_bc": e.opts.gui_bc.setSelectedItem(gson.fromJson(fstr, BoundaryCondition.class)); break;
-						case "description": e.opts.textPane.setText(fstr.nextString()); break;
+						case "phase": e.AC_phase = fstr.nextDouble(); break;
+						case "description": e.description = fstr.nextString(); break;
+
 						case "gui_3d_view": e.opts.gui_3d_view.setSelectedItem(gson.fromJson(fstr, RenderMode.class)); break;
 						case "gui_zslice": e.opts.gui_slice.setValue(fstr.nextInt()); break;
 						case "pitch": e.renderer.pitch = (float)(fstr.nextDouble()); break;
@@ -146,94 +159,30 @@ public class SaveManager {
 						case "zoom": e.renderer.scale = (float)(fstr.nextDouble()); break;
 						case "parallax": e.opts.gui_parallax.setValue(fstr.nextInt()); break;
 						case "rotate": e.opts.gui_rotate.setSelected(fstr.nextBoolean()); break;
-						default: fstr.skipValue(); break; // skip others
+
+						case "scalarview": e.controls.scalarview.setOption(gson.fromJson(fstr, Renderer.ScalarView.class)); break;
+						case "vectorview": e.controls.vectorview.setOption(gson.fromJson(fstr, Renderer.VectorView.class)); break;
+						case "scalarmode": e.controls.scalarmode.setOption(gson.fromJson(fstr, Renderer.ScalarMode.class)); break;
+						case "vectormode": e.controls.vectormode.setOption(gson.fromJson(fstr, Renderer.VectorMode.class)); break;
+						case "gui_bc": e.opts.gui_bc.setSelectedItem(gson.fromJson(fstr, BoundaryCondition.class)); break;
+						
+						default:
+							if (e.opts.boolean_names.containsKey(name)) e.opts.boolean_names.get(name).setSelected(fstr.nextBoolean());
+							else if (e.opts.integer_names.containsKey(name)) e.opts.integer_names.get(name).setValue(fstr.nextInt());
+							break;
 						}
 					}
 					fstr.endObject();
-
-					e.initializeGrid(ds_default, nx_default, ny_default, nz_default);
-					
-					
-					e.resetFields(true);
+					e.opts.setRedundantOptions();
+					e.lock_resolution = true;
+					e.reset(true, null);
+					e.lock_resolution = false;
 
 					assertNextObject(fstr, "data");
 					fstr.beginObject();
 					while (fstr.hasNext()) {
 						String name = fstr.nextName();
 						switch (name){
-						case "ex": e.Ex = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "ey": e.Ey = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "ez": e.Ez = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "hx": e.Hx = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "hy": e.Hy = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "hz": e.Hz = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "bx": e.Bx = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class), e.nx, e.ny+1, e.nz+1); break;
-						case "by": e.By = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class), e.nx+1, e.ny, e.nz+1); break;
-						case "bz": e.Bz = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class), e.nx+1, e.ny+1, e.nz); break;
-
-						case "rho_c": e.rho_abs = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "rho_n": e.rho_n = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "rho_p": e.rho_p = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "rho_back": e.rho_back = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "rho_free": e.rho_free = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-
-						case "jx_c": e.Jx_abs = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "jy_c": e.Jy_abs = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "jz_c": e.Jz_abs = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "jx_n": e.Jx_n = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "jy_n": e.Jy_n = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "jz_n": e.Jz_n = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "jx_p": e.Jx_p = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "jy_p": e.Jy_p = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-						case "jz_p": e.Jz_p = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
-
-						case "materials": e.materials = validateArraySize((Material[][][]) gson.fromJson(fstr, Material[][][].class)); break;
-
-						case "voltageprobes": e.voltageprobes = new CopyOnWriteArrayList<>(Arrays.asList(
-						(VoltageProbe[]) gson.fromJson(fstr, VoltageProbe[].class))); break;
-						case "currentprobes": e.currentprobes = new CopyOnWriteArrayList<>(Arrays.asList(
-						(CurrentProbe[]) gson.fromJson(fstr, CurrentProbe[].class))); break;
-
-						case "ground": e.ground = (VoltageProbe) gson.fromJson(fstr, VoltageProbe.class); break;
-
-						default: fstr.skipValue(); break; // skip others
-						}
-					}
-					fstr.endObject();
-					fstr.close();
-
-					e.opts.textPane.setEditable(false);
-					e.opts.textPane.setCaretPosition(0);
-					e.updateAllMaterials();
-					e.calcMiscFields(true);
-					e.controls.undoredo.captureState(e);
-				} /*else if (version == 1) {
-
-					e.initializeGrid(0.1e-6, 32, 32, 32);
-					e.resetFields(true);
-
-					while (fstr.hasNext()) {
-						String name = fstr.nextName();
-						switch (name){
-						case "time": e.time = fstr.nextDouble(); break;
-						case "gui_paused": e.opts.gui_paused.setSelected(fstr.nextBoolean()); break;
-						case "gui_tooltip": e.opts.gui_tooltip.setSelected(fstr.nextBoolean()); break;
-						case "gui_text_bg": e.opts.gui_text_bg.setSelected(fstr.nextBoolean()); break;
-						case "gui_view": e.opts.gui_view.setSelectedIndex(fstr.nextInt()); break;
-						case "gui_view_vec": e.opts.gui_view_vec.setSelectedIndex(fstr.nextInt()); break;
-						case "gui_view_vec_mode": e.opts.gui_view_vec_mode.setSelectedIndex(fstr.nextInt()); break;
-						case "gui_simspeed": e.opts.gui_simspeed.setValue(fstr.nextInt()); break;
-						case "gui_simspeed_2": e.opts.gui_simspeed_2.setValue(fstr.nextInt()); break;
-						case "gui_brightness": e.opts.gui_brightness.setValue(fstr.nextInt()); break;
-						case "gui_brightness_vec": e.opts.gui_brightness_vec.setValue(fstr.nextInt()); break;
-						case "gui_elem_colors": e.opts.gui_elem_colors.setSelected(fstr.nextBoolean()); break;
-						case "gui_bc": e.opts.gui_bc.setSelectedIndex(fstr.nextInt()); break;
-						case "description": e.opts.textPane.setText(fstr.nextString()); break;
-						case "gui_3d_view": e.opts.gui_3d_view.setSelectedIndex(fstr.nextInt()); break;
-						case "gui_zslice": e.opts.gui_slice.setValue(fstr.nextInt()); break;
-						case "pitch": e.renderer.pitch = (float)(fstr.nextDouble()); break;
-						case "yaw": e.renderer.yaw = (float)(fstr.nextDouble()); break;
-						case "zoom": e.renderer.scale = (float)(fstr.nextDouble()); break;
 
 						case "ex": e.Ex = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
 						case "ey": e.Ey = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
@@ -262,28 +211,65 @@ public class SaveManager {
 						case "jz_p": e.Jz_p = validateArraySize((double[][][]) gson.fromJson(fstr, double[][][].class)); break;
 
 						case "materials": e.materials = validateArraySize((Material[][][]) gson.fromJson(fstr, Material[][][].class)); break;
+						case "materialmap": e.materialmanager.mat_map = (HashMap<Integer, Material>) gson.fromJson(fstr, new TypeToken<HashMap<Integer, Material>>(){}.getType()); break;
+						case "last_material_id": e.materialmanager.id_counter = fstr.nextInt(); break;
 
-						case "voltageprobes": e.voltageprobes = new CopyOnWriteArrayList<>(Arrays.asList(
+						case "all_probes": e.probes.addAll((ArrayList<Probe>) gson_probe.fromJson(fstr, new TypeToken<ArrayList<Probe>>() {}.getType())); break;
+						
+						case "voltageprobes": e.probes.addAll(Arrays.asList(
 						(VoltageProbe[]) gson.fromJson(fstr, VoltageProbe[].class))); break;
-						case "currentprobes": e.currentprobes = new CopyOnWriteArrayList<>(Arrays.asList(
+						case "currentprobes": e.probes.addAll(Arrays.asList(
 						(CurrentProbe[]) gson.fromJson(fstr, CurrentProbe[].class))); break;
-
-						case "ground": e.ground = (VoltageProbe) gson.fromJson(fstr, VoltageProbe.class); break;
+						case "chargeprobes": e.probes.addAll(Arrays.asList(
+						(ChargeProbe[]) gson.fromJson(fstr, ChargeProbe[].class))); break;
+						case "fluxprobes": e.probes.addAll(Arrays.asList(
+						(FluxProbe[]) gson.fromJson(fstr, FluxProbe[].class))); break;
+						case "ground": e.probes.add((Ground) gson.fromJson(fstr, Ground.class)); break;
 
 						default: fstr.skipValue(); break; // skip others
 						}
 					}
 					fstr.endObject();
+
+					for (Probe p : e.probes) {
+						p.eliminateNulls();
+						p.data.fixWeirdIssue();
+					}
+
+					e.relabelProbes();
+
+					if (testNextObject(fstr, "advsettings")) {
+						fstr.beginObject();
+						e.lock_resolution = true;
+						e.adv_opts.readAdvancedSettings(gson, fstr, version < 4? Preset.VERSION_1 : Preset.DEFAULT);
+						e.calculateDependentConstants();
+						e.calculateMaxTimestep();
+						e.lock_resolution = false;
+						fstr.endObject();
+						e.advsettings_tweaked = true;
+					} else {
+						e.advsettings_tweaked = false;
+					}
+
 					fstr.close();
 
+					e.opts.textPane.setText(e.description);
 					e.opts.textPane.setEditable(false);
 					e.opts.textPane.setCaretPosition(0);
+					e.materialmanager.updateUI();
+					if (version < 4) {
+						e.initializeAllMaterials();
+					}
+					e.updateAllMaterials(false);
 					e.calcMiscFields(true);
+					updateLabels();
 					e.controls.undoredo.captureState(e);
-				}*/
+				} else {
+					throw new IllegalArgumentException("The file was created in an older version of SemiSim.");
+				}
 
 				dialog.dispose();
-				e.opts.setTitle(e.sim_name + " - " + infile.getName());
+				e.opts.setTitle(SemiSim.name + " - " + infile.getName());
 			} catch (FileNotFoundException ex) {
 				return;
 			} catch (IOException | IllegalArgumentException ex) {
@@ -351,16 +337,23 @@ public class SaveManager {
 	}
 	
 
-	public void writeFile()
+	public void writeFile(boolean saveas)
 	{
 		SwingUtilities.invokeLater(() -> {
-			File testfile = new File(startingpath);
+			if (!saveas && currentfile != null && currentfile.exists()) {
+				writeFile(currentfile);
+				e.opts.setTitle(SemiSim.name + " - " + outfile.getName());
+				e.controls.changesmade = false;
+				return;
+			}
+			
+			File testfile = startingpath.toFile();
 			if (!testfile.canWrite()) {
 				JOptionPane.showMessageDialog(e.opts,
 				"Error: Java does not have access to this folder. Please see instructions to fix this issue.");
 			}
 
-			JFileChooser fd = new JFileChooser(startingpath);
+			JFileChooser fd = new JFileChooser(startingpath.toFile());
 			fd.setFileFilter(new FileFilter(){
 				@Override
 				public boolean accept(File f) {
@@ -373,7 +366,7 @@ public class SaveManager {
 				}
 			});
 			int result = fd.showSaveDialog(e.opts);
-			startingpath = fd.getCurrentDirectory().getPath();
+			startingpath = fd.getCurrentDirectory().toPath();
 
 			if (result == JFileChooser.APPROVE_OPTION)
 				outfile = fd.getSelectedFile();
@@ -385,12 +378,18 @@ public class SaveManager {
 				outfile = new File(outfile.getAbsolutePath() + fileextension);
 
 			if (outfile.exists()) {
-				result = JOptionPane.showConfirmDialog(e.opts, "A file with that name already exists. Do you wish to overwrite it?", "Message", JOptionPane.YES_NO_OPTION);
+				String[] options = {"Yes", "No"};
+
+				result = JOptionPane.showOptionDialog(e.opts, "A file named " + outfile.getName() + " already exists. Do you wish to overwrite it?", "Message", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, options[1]);
 				if (result != JOptionPane.OK_OPTION)
 					return;
 			}
 			
 			writeFile(outfile);
+
+			e.opts.setTitle(SemiSim.name + " - " + outfile.getName());
+			e.controls.changesmade = false;
+			currentfile = outfile;
 		});
 	}
 	
@@ -411,23 +410,23 @@ public class SaveManager {
 
 				JsonObject header = new JsonObject();
 				header.addProperty("ds", e.ds);
-				header.addProperty("nx", e.nx);
-				header.addProperty("ny", e.ny);
-				header.addProperty("nz", e.nz);
+				header.addProperty("nx", e.default_resolution_x);
+				header.addProperty("ny", e.default_resolution_y);
+				header.addProperty("nz", e.default_resolution_z);
 				header.addProperty("time", e.time);
-				header.addProperty("gui_paused", e.opts.gui_paused.isSelected());
-				header.addProperty("gui_tooltip", e.opts.gui_tooltip.isSelected());
-				header.addProperty("gui_text_bg", e.opts.gui_text_bg.isSelected());
-				header.add("gui_view", gson.toJsonTree(e.opts.gui_view.getSelectedItem()));
-				header.add("gui_view_vec", gson.toJsonTree(e.opts.gui_view_vec.getSelectedItem()));
-				header.add("gui_view_vec_mode", gson.toJsonTree(e.opts.gui_view_vec_mode.getSelectedItem()));
-				header.addProperty("gui_simspeed", e.opts.gui_simspeed.getValue());
-				header.addProperty("gui_simspeed_2", e.opts.gui_simspeed_2.getValue());
-				header.addProperty("gui_brightness", e.opts.gui_brightness.getValue());
-				header.addProperty("gui_brightness_vec", e.opts.gui_brightness_vec.getValue());
-				header.addProperty("gui_elem_colors", e.opts.gui_elem_colors.isSelected());
+				header.addProperty("phase", e.AC_phase);
+				
+				for (String s : e.opts.boolean_names.keySet()) header.addProperty(s, e.opts.boolean_names.get(s).isSelected());
+				for (String s : e.opts.integer_names.keySet()) header.addProperty(s, e.opts.integer_names.get(s).getValue());
+				
+				header.addProperty("description", e.description);
+				header.add("scalarview", gson.toJsonTree(e.controls.scalarview.getOption()));
+				header.add("vectorview", gson.toJsonTree(e.controls.vectorview.getOption()));
+				header.add("scalarmode", gson.toJsonTree(e.controls.scalarmode.getOption()));
+				header.add("vectormode", gson.toJsonTree(e.controls.vectormode.getOption()));
 				header.add("gui_bc", gson.toJsonTree(e.opts.gui_bc.getSelectedItem()));
-				header.addProperty("description", e.opts.textPane.getText());
+				
+				
 				header.add("gui_3d_view", gson.toJsonTree(e.opts.gui_3d_view.getSelectedItem()));
 				header.addProperty("gui_zslice", e.opts.gui_slice.getValue());
 				header.addProperty("pitch", e.renderer.pitch);
@@ -464,17 +463,19 @@ public class SaveManager {
 				data.add("jz_p", gson.toJsonTree(e.Jz_p));
 
 				data.add("materials", gson.toJsonTree(e.materials));
+				data.add("all_probes", gson.toJsonTree(e.probes));
+				data.add("materialmap", gson.toJsonTree(e.materialmanager.mat_map));
+				data.addProperty("last_material_id", e.materialmanager.id_counter);
 
-				data.add("voltageprobes", gson.toJsonTree(e.voltageprobes.toArray(new VoltageProbe[e.voltageprobes.size()])));
-				data.add("currentprobes", gson.toJsonTree(e.currentprobes.toArray(new CurrentProbe[e.currentprobes.size()])));
-				data.add("ground", gson.toJsonTree(e.ground));
-
+				JsonObject advsettings = new JsonObject();
+				e.adv_opts.writeAdvancedSettings(gson, advsettings);
 
 				// Version should always be first
 				JsonObject save = new JsonObject();
 				save.addProperty("version", saveversion);
 				save.add("header", header);
 				save.add("data", data);
+				save.add("advsettings", advsettings);
 				
 				String json = gson.toJson(save);
 
@@ -483,7 +484,6 @@ public class SaveManager {
 				fstr.close();
 
 				dialog.dispose();
-				e.opts.setTitle(e.sim_name + " - " + outfile.getName());
 			} catch (FileNotFoundException e) {
 				return;
 			} catch (IOException e) {
@@ -495,4 +495,47 @@ public class SaveManager {
 			e.rwLock.writeLock().unlock();
 		}
 	}
+
+	public void updateLabels() {
+		for (Probe p : e.probes)
+			if (p.labelcoord.x == -1) p.calculateDefaultLabelCoords();
+	}
+	
+	public ArrayList<Probe> filterByType(List<Probe> list, Predicate<? super Probe> filter) {
+		ArrayList<Probe> listcopy = new ArrayList<Probe>(list);
+		listcopy.removeIf(filter);
+		return listcopy;
+	}
+	
+	public void setDefaults() {
+		e.setDefaultParameters();
+		e.opts.setDefaults(e);
+	}
+}
+
+class ProbeAdapter implements JsonSerializer<Probe>, JsonDeserializer<Probe>{
+	
+    @Override
+    public JsonElement serialize(Probe src, Type typeOfSrc,
+            JsonSerializationContext context) {
+
+    	JsonElement elem = new GsonBuilder().serializeSpecialFloatingPointValues().create().toJsonTree(src);
+        elem.getAsJsonObject().addProperty("CLASS_NAME", src.getClass().getName());
+        return elem;
+    }
+
+    @SuppressWarnings("unchecked")
+	@Override
+    public Probe deserialize(JsonElement json, Type typeOfT,
+            JsonDeserializationContext context) throws JsonParseException  {
+    	JsonObject jsonObject = json.getAsJsonObject();
+        String typeName = jsonObject.get("CLASS_NAME").getAsString();
+
+        try {
+            Class<? extends Probe> cls = (Class<? extends Probe>) Class.forName(typeName);
+            return new GsonBuilder().serializeSpecialFloatingPointValues().create().fromJson(json, cls);
+        } catch (ClassNotFoundException e) {
+            throw new JsonParseException(e);
+        }
+    }
 }

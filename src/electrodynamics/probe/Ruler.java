@@ -7,8 +7,8 @@ import electrodynamics.units.Units;
 import electrodynamics.util.Utils;
 
 public class Ruler extends LineProbe {
-	public Ruler(int mx, int my) {
-		super(mx, my);
+	public Ruler(int mx, int my, int mz) {
+		super(mx, my, mz);
 	}
 
 	@Override
@@ -21,16 +21,16 @@ public class Ruler extends LineProbe {
 		r.setalphaBG(1);
 		r.setalphaFG(1.0);
 		r.setColorFloat(1.0f, 0.8f, 0.5f);
-		r.drawPixelRectangle(x1-1, y1-1, 3, 3);
-		r.drawPixelRectangle(x2-1, y2-1, 3, 3);
+		r.drawPixelRectangle(x1-1, y1-1, z1-1, 3, 3, 3);
+		r.drawPixelRectangle(x2-1, y2-1, z2-1, 3, 3, 3);
 
 		r.setalphaFG(0.3);
 		r.setColorFloat(1.0f, 0.8f, 0.5f);
-		r.drawPixelLine(x1, y1, x2, y2);
+		r.drawPixelLine(x1, y1, z1, x2, y2, z2);
 		
 		r.setalphaFG(0.1);
 		r.setColorFloat(1.0f, 1.0f, 1.0f);
-		r.drawPixelLine((x1 + x2)/2, (y1+y2)/2, labelcoord.x, labelcoord.y);
+		r.drawPixelLine((x1 + x2)/2, (y1+y2)/2, (z1+z2)/2, labelcoord.x, labelcoord.y, labelcoord.z);
 	}
 
 	@Override

@@ -11,22 +11,27 @@ import electrodynamics.units.Units;
 import electrodynamics.util.Utils;
 
 public class LineProbe extends Probe {
-	public LineProbe(int mx, int my) {
-		super(mx, my);
+	public LineProbe(int mx, int my, int mz) {
+		super(mx, my, mz);
 		x1 = mx;
 		x2 = mx;
 		y1 = my;
 		y2 = my;
+		z1 = mz;
+		z2 = mz;
 		calculateDefaultLabelCoords();
 	}
 
 	public int x1 = 0;
 	public int y1 = 0;
+	public int z1 = 0;
 	public int x2 = 0;
 	public int y2 = 0;
+	public int z2 = 0;
 
-	public double[][] vf_x = null;
-	public double[][] vf_y = null;
+	public double[][][] vf_x = null;
+	public double[][][] vf_y = null;
+	public double[][][] vf_z = null;
 	public VectorView vectorname = VectorView.NONE;
 	
 	@Override
@@ -57,14 +62,14 @@ public class LineProbe extends Probe {
 
 	@Override
 	public void measure(Simulation e, boolean savedatapoint) {
-		double[][][] vf = {null, null};
+		double[][][][] vf = {null, null, null};
 		e.computeVectorField(vf, vectorname);
 		vf_x = vf[0];
 		vf_y = vf[1];
 		
 		if (vf_x == null || vf_y == null) return;
 		
-		int x1_t = x1;
+		/*int x1_t = x1;
 		int y1_t = y1;
 		int x2_t = x2;
 		int y2_t = y2;
@@ -104,13 +109,17 @@ public class LineProbe extends Probe {
 			}
 		}
 
-		value = J*e.depth;
+		value = J*e.depth;*/
+		//TODO
+		
+		
+		value = 0;
 		if (savedatapoint) data.addData(value, e.time);
 	}
 	
 	@Override
-	public boolean isMouseHovering(int mx, int my) {
-		return Utils.length(x1-mx, y1-my) < 3 || Utils.length(x2-mx, y2-my) < 3;
+	public boolean isMouseHovering(int mx, int my, int mz) {
+		return Utils.length(x1-mx, y1-my, z1-mz) < 3 || Utils.length(x2-mx, y2-my, z2-mz) < 3;
 	}
 	
 	@Override
@@ -146,12 +155,14 @@ public class LineProbe extends Probe {
 	}
 	
 	@Override
-	public void translate(int dx, int dy) {
+	public void translate(int dx, int dy, int dz) {
 		x1 += dx;
 		y1 += dy;
+		z1 += dz;
 		x2 += dx;
 		y2 += dy;
-		labelcoord.translate(dx, dy);
+		z2 += dz;
+		labelcoord.translate(dx, dy, dz);
 	}
 	
 	@Override
@@ -182,19 +193,20 @@ public class LineProbe extends Probe {
 	}
 	
 	@Override
-	public boolean intersects(int xmin, int ymin, int xmax, int ymax) {
-		return (x1 >= xmin && x1 <= xmax && y1 >= ymin && y1 <= ymax) || (x2 >= xmin && x2 <= xmax && y2 >= ymin && y2 <= ymax);
+	public boolean intersects(int xmin, int ymin, int zmin, int xmax, int ymax, int zmax) {
+		return (x1 >= xmin && x1 <= xmax && y1 >= ymin && y1 <= ymax && z1 >= zmin && z1 <= zmax) || (x2 >= xmin && x2 <= xmax && y2 >= ymin && y2 <= ymax && z2 >= zmin && z2 <= zmax);
 	}
 	
 	@Override
 	public boolean checkInBounds(Simulation e) {
-		return (x1 >= 0 && x1 < e.nx && y1 >= 0 && y1 < e.ny) && (x2 >= 0 && x2 < e.nx && y2 >= 0 && y2 < e.ny);
+		return (x1 >= 0 && x1 < e.nx && y1 >= 0 && y1 < e.ny) && (x2 >= 0 && x2 < e.nx && y2 >= 0 && y2 < e.ny) && (z2 >= 0 && z2 < e.nz && z2 >= 0 && z2 < e.nz);
 	}
 
 	@Override
-	public void drag(int mx, int my) {
+	public void drag(int mx, int my, int mz) {
 		x2 = mx;
 		y2 = my;
+		z2 = mz;
 		calculateDefaultLabelCoords();
 	}
 
@@ -203,28 +215,18 @@ public class LineProbe extends Probe {
 		r.setalphaBG(1);
 		r.setalphaFG(1.0);
 		r.setColorFloat(0.5f, 1.0f, 1.0f);
-		r.drawPixelRectangle(x1-1, y1-1, 3, 3);
-		r.drawPixelRectangle(x2-1, y2-1, 3, 3);
+		r.drawPixelRectangle(x1-1, y1-1, z1-1, 3, 3, 3);
+		r.drawPixelRectangle(x2-1, y2-1, z2-1, 3, 3, 3);
 
 		r.setalphaFG(0.3);
 		r.setColorFloat(0.5f, 1.0f, 1.0f);
-		r.drawPixelLine(x1, y1, x2, y2);
-		double dx_perp = (y2-y1);
-		double dy_perp = -(x2-x1);
-		double norm = Utils.length(dx_perp, dy_perp);
-		if (norm > 0) {
-			dx_perp = dx_perp/norm;
-			dy_perp = dy_perp/norm;
+		r.drawPixelLine(x1, y1, z1, x2, y2, z2);
 
-			int dist = 3;
-
-			r.setPixel((int)Math.round(x1 + dist*dx_perp), (int)Math.round(y1+dist*dy_perp));
-			r.setPixel((int)Math.round(x2 + dist*dx_perp), (int)Math.round(y2+dist*dy_perp));
-		}
+		//TODO
 		
 		r.setalphaFG(0.1);
 		r.setColorFloat(1.0f, 1.0f, 1.0f);
-		r.drawPixelLine((x1 + x2)/2, (y1+y2)/2, labelcoord.x, labelcoord.y);
+		r.drawPixelLine((x1 + x2)/2, (y1+y2)/2, (z1+z2)/2, labelcoord.x, labelcoord.y, labelcoord.z);
 	}
 
 	@Override
