@@ -306,11 +306,11 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 
 			int mx_flat = (int)Math.round(zoom_i1 + (mx_screen-e.canvas.offset_x - 1)*sf_x - 0.5);
 			int my_flat = (int)Math.round(zoom_j1 + ((e.canvas.getHeight() - 1 - my_screen) -e.canvas.offset_y - 2)*sf_y - 0.5);
-			int mz_flat = e.opts.gui_slice.getValue();
+			int mz_flat = e.renderer.getSlice();
 
 			int mx_start_flat = (int)Math.round(zoom_i1 + (mx_start_screen-e.canvas.offset_x - 1)*sf_x - 0.5);
 			int my_start_flat = (int)Math.round(zoom_j1 + ((e.canvas.getHeight() - 1 - my_start_screen)-e.canvas.offset_y - 2)*sf_y - 0.5);
-			int mz_start_flat = e.opts.gui_slice.getValue();
+			int mz_start_flat = e.renderer.getSlice();
 			
 			if (e.renderer.slice_x) {
 				mx = mz_flat;
@@ -619,12 +619,12 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		case FILL:
 		case LIGHT:
 			
-			if (pressing_left && shift_down) {
+			if (pressing_middle) {
 				e.renderer.pitch_start =  e.renderer.pitch;
 				e.renderer.yaw_start = e.renderer.yaw;
 
 				break;
-			}  else if (mouse_pressed_left && shift_down) {
+			}  else if (mouse_pressed_middle) {
 				e.renderer.pitch = e.renderer.pitch_start + 2*(float)(my_screen - my_start_screen)/e.renderer.imgpanel.getHeight();
 				e.renderer.yaw = e.renderer.yaw_start - 2*(float)(mx_screen - mx_start_screen)/e.renderer.imgpanel.getWidth();
 
@@ -634,9 +634,8 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 				break;
 			}
 
-			boolean pick_material = alt_down && mx-mx_start == 0 && my-my_start == 0;
-
-			if (releasing_middle || (pick_material && releasing_left)) {
+			boolean mouse_moved = !(mx_screen-mx_start_screen == 0 && my_screen-my_start_screen == 0);
+			if ((releasing_middle || (alt_down && releasing_left)) && !mouse_moved) {
 				e.opts.gui_material.setSelectedItem(new GeneralMaterialType(e.materials[mx][my][mz]));
 			}
 
@@ -681,7 +680,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 				mat = GeneralMaterialType.EMPTY;
 
 
-			if (!(mouse_pressed_middle || pick_material)) {
+			if (!(mouse_pressed_middle || alt_down && !mouse_moved)) {
 				if (brush == Brush.LINE) {
 					if (releasing_left || releasing_right) {
 						GeneralMaterialType final_mat = mat;
@@ -1359,16 +1358,8 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	public void resetZoom() {
 		zoom_i1 = 0;
 		zoom_j1 = 0;
-		if (e.renderer.slice_x) {
-			zoom_i2 = e.ny-1;
-			zoom_j2 = e.nz-1;
-		} else if (e.renderer.slice_y) {
-			zoom_i2 = e.nx-1;
-			zoom_j2 = e.nz-1;
-		} else if (e.renderer.slice_z) {
-			zoom_i2 = e.nx-1;
-			zoom_j2 = e.ny-1;
-		}
+		zoom_i2 = e.renderer.project_x(e.nx, e.ny, e.nz)-1;
+		zoom_j2 = e.renderer.project_y(e.nx, e.ny, e.nz)-1;
 		zoomed = false;
 	}
 
@@ -1774,7 +1765,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		int dy = my - my_start;
 		int dz = mz - mz_start;
 		
-		int min = Math.min(Math.min(Math.abs(dx), Math.abs(dy)), Math.abs(dz));
+		int min = Math.max(Math.max(Math.abs(dx), Math.abs(dy)), Math.abs(dz));
 		int[] xc = {min, 0, 0, -min, 0, 0};
 		int[] yc = {0, min, 0, 0, -min, 0};
 		int[] zc = {0, 0, min, 0, 0, -min};

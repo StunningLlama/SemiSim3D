@@ -929,7 +929,7 @@ public class AdvancedOptions extends JFrame implements ActionListener {
 				}
 				
 				
-				double memory_estimate = 400.0*8.0*(double)resolution_tmp_x*(double)resolution_tmp_y*(double)resolution_tmp_z;
+				double memory_estimate = 800.0*8.0*(double)resolution_tmp_x*(double)resolution_tmp_y*(double)resolution_tmp_z;
 				if (memory_estimate > 1e9) {
 					int result2 = JOptionPane.showConfirmDialog(this, "Warning: This resolution will use approximately " + Units.SI.toString(memory_estimate, Quantity.INFORMATION) + " of memory. Proceed?", "Message", JOptionPane.YES_NO_OPTION);
 					if (result2 != JOptionPane.OK_OPTION)

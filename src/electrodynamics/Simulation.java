@@ -57,6 +57,7 @@ import electrodynamics.util.Utils;
 public class Simulation extends PeriodicTask {
 	//probe types
 	//screenshots
+	//Free camera mode (replace zoom/pan)
 	
 	/* Parts */
 	

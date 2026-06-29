@@ -889,9 +889,6 @@ public class MainWindow extends JFrame implements ComponentListener {
 		
 
 		e.renderer.create3dCanvas();
-		e.renderer.imgpanel = new JPanel();
-		e.renderer.imgpanel.setLayout(new GridLayout(1,2));
-		e.renderer.imgpanel.setPreferredSize(new Dimension(768, 768));
 		getContentPane().add(e.renderer.imgpanel, BorderLayout.CENTER);
 
 		e.renderer.set3Dmode();

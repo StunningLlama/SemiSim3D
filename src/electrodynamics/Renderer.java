@@ -9,6 +9,7 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.GridLayout;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBuffer;
@@ -135,6 +136,9 @@ public class Renderer extends PeriodicTask {
 	
 	public Renderer(Simulation e) {
 		this.e = e;
+		imgpanel = new JPanel();
+		imgpanel.setLayout(new GridLayout(1,2));
+		imgpanel.setPreferredSize(new Dimension(768, 768));
 	}
 	
 	public void setResolution() {
@@ -156,33 +160,101 @@ public class Renderer extends PeriodicTask {
 		resetChargeDots();
 	}
 	
+	int project_x(int x, int y, int z) {
+		if (slice_x) {
+			return y;
+		} else if (slice_y) {
+			return x;
+		} else if (slice_z) {
+			return x;
+		} else {
+			return 0;
+		}
+	}
+	
+	int project_y(int x, int y, int z) {
+		if (slice_x) {
+			return z;
+		} else if (slice_y) {
+			return z;
+		} else if (slice_z) {
+			return y;
+		} else {
+			return 0;
+		}
+	}
+	
+	int project_z(int x, int y, int z) {
+		if (slice_x) {
+			return x;
+		} else if (slice_y) {
+			return y;
+		} else if (slice_z) {
+			return z;
+		} else {
+			return 0;
+		}
+	}
+	
+	double project_x(double x, double y, double z) {
+		if (slice_x) {
+			return y;
+		} else if (slice_y) {
+			return x;
+		} else if (slice_z) {
+			return x;
+		} else {
+			return 0;
+		}
+	}
+	
+	double project_y(double x, double y, double z) {
+		if (slice_x) {
+			return z;
+		} else if (slice_y) {
+			return z;
+		} else if (slice_z) {
+			return y;
+		} else {
+			return 0;
+		}
+	}
+	
+	double project_z(double x, double y, double z) {
+		if (slice_x) {
+			return x;
+		} else if (slice_y) {
+			return y;
+		} else if (slice_z) {
+			return z;
+		} else {
+			return 0;
+		}
+	}
+	
+	public int getSlice() {
+		int slice = e.opts.gui_slice.getValue();
+		if (slice < 0) slice = 0;
+		int max = project_z(e.nx, e.ny, e.nz);
+		if (slice >= max)
+			slice = max-1;
+		return slice;
+	}
+	
 	public void setCanvasSize() {
-		scalefactor_real = Math.min(e.canvas.getWidth()/e.nx, e.canvas.getHeight()/e.ny);
-		scalefactor = (int)scalefactor_real;
-		if (scalefactor < 1) scalefactor = 1;
-
-		int imgwidth_new = 0;
-		int imgheight_new = 0;
-
 		RenderMode mode = e.controls.rendermode.getOption();
 		threeD_mode = RenderMode.is3d(mode);
 		slice_x = (mode == RenderMode.SLICE_X);
 		slice_y = (mode == RenderMode.SLICE_Y);
 		slice_z = (mode == RenderMode.SLICE_Z);
 
-		if (slice_x) {
-			imgwidth_new = (int)Math.ceil(scalefactor*e.ny);
-			imgheight_new = (int)Math.ceil(scalefactor*e.nz);
-			e.opts.gui_slice.setMaximum(e.opts.gui_slice.getVisibleAmount() + e.nx - 1);
-		} else if (slice_y) {
-			imgwidth_new = (int)Math.ceil(scalefactor*e.nx);
-			imgheight_new = (int)Math.ceil(scalefactor*e.nz);
-			e.opts.gui_slice.setMaximum(e.opts.gui_slice.getVisibleAmount() + e.ny - 1);
-		} else if (slice_z) {
-			imgwidth_new = (int)Math.ceil(scalefactor*e.nx);
-			imgheight_new = (int)Math.ceil(scalefactor*e.ny);
-			e.opts.gui_slice.setMaximum(e.opts.gui_slice.getVisibleAmount() + e.nz - 1);
-		}
+		scalefactor_real = Math.min(imgpanel.getWidth()/(double)project_x(e.nx, e.ny, e.nz), imgpanel.getHeight()/(double)project_y(e.nx, e.ny, e.nz));
+		scalefactor = (int)scalefactor_real;
+		if (scalefactor < 1) scalefactor = 1;
+
+		int imgwidth_new = project_x((int)Math.ceil(scalefactor*e.nx), (int)Math.ceil(scalefactor*e.ny), (int)Math.ceil(scalefactor*e.nz));
+		int imgheight_new = project_y((int)Math.ceil(scalefactor*e.nx), (int)Math.ceil(scalefactor*e.ny), (int)Math.ceil(scalefactor*e.nz));
+		e.opts.gui_slice.setMaximum(project_z(e.nx, e.ny, e.nz) + e.opts.gui_slice.getVisibleAmount() - 1);
 		
 		if (!threeD_mode && (imgwidth_new != imgwidth || imgheight_new != imgheight)) {
 			imgwidth = imgwidth_new;
@@ -228,7 +300,7 @@ public class Renderer extends PeriodicTask {
 			e.opts.gui_slice.setVisible(!threeD_mode);
 			e.opts.gui_slicelabel.setVisible(!threeD_mode);
 			
-			int tmp = e.opts.gui_slice.getValue();
+			int tmp = getSlice();
 			e.opts.gui_slice.setValue(0);
 			e.opts.gui_slice.setValue(1);
 			e.opts.gui_slice.setValue(tmp);
@@ -376,7 +448,7 @@ public class Renderer extends PeriodicTask {
 		e.t9.start();
 
 		if (slice_z) {
-			int k_slice = e.opts.gui_slice.getValue();
+			int k_slice = getSlice();
 			for (int x = 0; x < imgwidth; x++) {
 				for (int y = 0; y < imgheight; y++) {
 					int i = x/scalefactor;
@@ -390,7 +462,7 @@ public class Renderer extends PeriodicTask {
 			}
 		}
 		if (slice_x) {
-			int i_slice = e.opts.gui_slice.getValue();
+			int i_slice = getSlice();
 			for (int x = 0; x < imgwidth; x++) {
 				for (int y = 0; y < imgheight; y++) {
 					int j = x/scalefactor;
@@ -406,7 +478,7 @@ public class Renderer extends PeriodicTask {
 
 		if (slice_y) {
 			//System.out.println(e.nx*e.nz*scalefactor*scalefactor+ " " + imgData.length);
-			int j_slice = e.opts.gui_slice.getValue();
+			int j_slice = getSlice();
 			for (int x = 0; x < imgwidth; x++) {
 				for (int y = 0; y < imgheight; y++) {
 					int i = x/scalefactor;
@@ -1426,10 +1498,10 @@ public class Renderer extends PeriodicTask {
 
 					if (synchronized_vector_display_mode != VectorMode.NONE && synchronized_vector_view != VectorView.NONE)
 					{
-						double arrowlength = 10.0/scalefactor;
+						double arrowlength = 25.0/scalefactor;
 						double vectorscalingconstant = 10*Math.pow(10.0, e.opts.gui_brightness_vec.getValue()/10.0)/e.controls.vectorview.getOption().getScalingConstant(e);
-						int density_x = 25*scalefactor*e.nx/256;
-						int density_y = 25*scalefactor*e.ny/256;
+						int density_x = 10*scalefactor*project_x(e.nx, e.ny, e.nz)/256;
+						int density_y = 10*scalefactor*project_y(e.nx, e.ny, e.nz)/256;
 						boolean conductors_only = synchronized_vector_view.isConductorOnly();
 
 						double randomness = 0;
@@ -1470,7 +1542,7 @@ public class Renderer extends PeriodicTask {
 							npy = e.ny;
 						}
 
-						int slice = e.opts.gui_slice.getValue();
+						int slice = e.renderer.getSlice();
 
 						if (synchronized_vector_display_mode == VectorMode.LINES && synchronized_render) {
 							rand.setSeed(n_thread);
@@ -1627,22 +1699,9 @@ public class Renderer extends PeriodicTask {
 
 									double alphaFG = d.brightness;
 									if (synchronized_render) {
-										double x = 0;
-										double y = 0;
-										double z = 0;
-										if (slice_x) {
-											x = d.y;
-											y = d.z;
-											z = d.x;
-										} else if (slice_y) {
-											x = d.x;
-											y = d.z;
-											z = d.y;
-										} else if (slice_z) {
-											x = d.x;
-											y = d.y;
-											z = d.z;
-										}
+										double x = project_x(d.x, d.y, d.z);
+										double y = project_y(d.x, d.y, d.z);
+										double z = project_z(d.x, d.y, d.z);
 										
 										if (Math.abs(z - slice) < 2)
 											drawRectangle((int)((x+0.5)*scalefactor)-dot_offset, (int)((y+0.5)*scalefactor)-dot_offset, (int)(scalefactor*0.25), (int)(scalefactor*0.25), 1f, 1f, 1f, (float)alphaFG, 1f);
@@ -1658,7 +1717,7 @@ public class Renderer extends PeriodicTask {
 						double spacing = 0.2/scalingconstant;
 						double contourwidth = e.ds;
 
-						int slice = e.opts.gui_slice.getValue();
+						int slice = getSlice();
 
 						for (int i = lower(imgwidth); i < upper(imgwidth); i++) {
 							for (int j = 0; j < imgheight; j++) {
@@ -1791,7 +1850,7 @@ public class Renderer extends PeriodicTask {
 						int steps = fast? 2 : 10;
 						double dt_dot = delta_t/steps;
 
-						int slice = e.opts.gui_slice.getValue();
+						int slice = getSlice();
 
 						try {
 							double factor = Math.sqrt(24*dt_dot);
@@ -1860,24 +1919,10 @@ public class Renderer extends PeriodicTask {
 
 									double alphaFG = d.brightness;
 									if (synchronized_render && dorender) {
-										
 
-										double x = 0;
-										double y = 0;
-										double z = 0;
-										if (slice_x) {
-											x = d.y;
-											y = d.z;
-											z = d.x;
-										} else if (slice_y) {
-											x = d.x;
-											y = d.z;
-											z = d.y;
-										} else if (slice_z) {
-											x = d.x;
-											y = d.y;
-											z = d.z;
-										}
+										double x = project_x(d.x, d.y, d.z);
+										double y = project_y(d.x, d.y, d.z);
+										double z = project_z(d.x, d.y, d.z);
 
 										if (Math.abs(z - slice) < 2){
 											if (d.type == DotType.ELECTRON)
@@ -1920,7 +1965,7 @@ public class Renderer extends PeriodicTask {
 
 		boolean dodraw = e.opts.menu_text_bg.isSelected() && e.opts.menu_interface.isSelected();
 
-		int slice = e.opts.gui_slice.getValue();
+		int slice = getSlice();
 		for (Text text : texts) {
 			if (text.is3D) {
 
