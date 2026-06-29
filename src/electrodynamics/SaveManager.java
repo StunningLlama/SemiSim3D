@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Predicate;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -42,8 +41,8 @@ import com.google.gson.Strictness;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 
-import electrodynamics.Compatibility.VectorMode_v1;
 import electrodynamics.Renderer.RenderMode;
+import electrodynamics.Renderer.ScalarMode;
 import electrodynamics.Renderer.ScalarView;
 import electrodynamics.Renderer.VectorMode;
 import electrodynamics.Renderer.VectorView;
@@ -106,6 +105,7 @@ public class SaveManager {
 		});
 	}
 	
+	@SuppressWarnings("unchecked")
 	public void readFile(File infile) {
 		e.rwLock.writeLock().lock();
 		try {
@@ -159,11 +159,11 @@ public class SaveManager {
 						case "parallax": e.opts.gui_parallax.setValue(fstr.nextInt()); break;
 						case "rotate": e.opts.gui_rotate.setSelected(fstr.nextBoolean()); break;
 
-						case "scalarview": e.controls.scalarview.setOption(gson.fromJson(fstr, Renderer.ScalarView.class)); break;
-						case "vectorview": e.controls.vectorview.setOption(gson.fromJson(fstr, Renderer.VectorView.class)); break;
-						case "scalarmode": e.controls.scalarmode.setOption(gson.fromJson(fstr, Renderer.ScalarMode.class)); break;
-						case "vectormode": e.controls.vectormode.setOption(gson.fromJson(fstr, Renderer.VectorMode.class)); break;
-						case "rendermode": e.controls.rendermode.setOption(gson.fromJson(fstr, Renderer.RenderMode.class)); break;
+						case "scalarview": e.controls.scalarview.setOption(gson.fromJson(fstr, ScalarView.class)); break;
+						case "vectorview": e.controls.vectorview.setOption(gson.fromJson(fstr, VectorView.class)); break;
+						case "scalarmode": e.controls.scalarmode.setOption(gson.fromJson(fstr, ScalarMode.class)); break;
+						case "vectormode": e.controls.vectormode.setOption(gson.fromJson(fstr, VectorMode.class)); break;
+						case "rendermode": e.controls.rendermode.setOption(gson.fromJson(fstr, RenderMode.class)); break;
 						case "gui_bc": e.opts.gui_bc.setSelectedItem(gson.fromJson(fstr, BoundaryCondition.class)); break;
 						
 						default:

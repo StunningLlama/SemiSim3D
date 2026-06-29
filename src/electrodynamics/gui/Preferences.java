@@ -44,7 +44,6 @@ public class Preferences extends JFrame implements ActionListener {
 	private JPanel contentPane;
 	private JButton btn_apply;
 	private JButton btn_reset;
-	private JCheckBox chkbox_undo;
 	private JSpinner spinner_imgx;
 	private JCheckBox chkbox_potential;
 	public JComboBox<Units> gui_units;
@@ -93,28 +92,21 @@ public class Preferences extends JFrame implements ActionListener {
 		spinner_imgx.setBounds(167, 15, 109, 23);
 		contentPane.add(spinner_imgx);
 		
-		chkbox_undo = new JCheckBox("Undo tracks settings");
-		chkbox_undo.setHorizontalAlignment(SwingConstants.TRAILING);
-		chkbox_undo.setSelected(true);
-		chkbox_undo.setHorizontalTextPosition(SwingConstants.LEADING);
-		chkbox_undo.setBounds(338, 13, 224, 23);
-		contentPane.add(chkbox_undo);
-		
 		chkbox_potential = new JCheckBox("Display potential relative to ground");
 		chkbox_potential.setHorizontalAlignment(SwingConstants.TRAILING);
 		chkbox_potential.setSelected(true);
 		chkbox_potential.setHorizontalTextPosition(SwingConstants.LEADING);
-		chkbox_potential.setBounds(307, 42, 255, 23);
+		chkbox_potential.setBounds(307, 14, 255, 23);
 		contentPane.add(chkbox_potential);
 		
 		JLabel lblUnitSystem = new JLabel("Unit system");
 		lblUnitSystem.setHorizontalAlignment(SwingConstants.TRAILING);
-		lblUnitSystem.setBounds(288, 106, 116, 16);
+		lblUnitSystem.setBounds(288, 78, 116, 16);
 		contentPane.add(lblUnitSystem);
 		
 		gui_units = new JComboBox<>();
 		gui_units.setModel(new DefaultComboBoxModel<>(Units.values()));
-		gui_units.setBounds(416, 104, 146, 23);
+		gui_units.setBounds(416, 76, 146, 23);
 		contentPane.add(gui_units);
 		
 		JLabel lblDisplayHeightpx = new JLabel("Display height [px]");
@@ -165,7 +157,7 @@ public class Preferences extends JFrame implements ActionListener {
 		chkbox_matname = new JCheckBox("Show material name next to cursor");
 		chkbox_matname.setHorizontalTextPosition(SwingConstants.LEADING);
 		chkbox_matname.setHorizontalAlignment(SwingConstants.TRAILING);
-		chkbox_matname.setBounds(307, 71, 255, 23);
+		chkbox_matname.setBounds(307, 43, 255, 23);
 		contentPane.add(chkbox_matname);
 		
 		resetPrefs();
@@ -188,9 +180,8 @@ public class Preferences extends JFrame implements ActionListener {
 	}
 	
 	public void getPrefs() {
-		spinner_imgx.setValue(e.canvas.getWidth());
-		spinner_imgy.setValue(e.canvas.getHeight());
-		chkbox_undo.setSelected(e.controls.undoredo.tracksettings);
+		spinner_imgx.setValue(e.renderer.imgpanel.getWidth());
+		spinner_imgy.setValue(e.renderer.imgpanel.getHeight());
 		spinner_undosize.setValue(e.controls.undoredo.history_size);
 		spinner_fps.setValue((int) e.renderer.targetframerate);
 		chkbox_potential.setSelected(e.renderer.display_relative_voltage);
@@ -200,8 +191,6 @@ public class Preferences extends JFrame implements ActionListener {
 	}
 
 	public void applyPrefs() {
-		
-		e.controls.undoredo.tracksettings = chkbox_undo.isSelected();
 		e.controls.undoredo.setHistorySize((int) spinner_undosize.getValue());
 		
 		e.renderer.targetframerate = (double)((int) spinner_fps.getValue());
@@ -215,7 +204,7 @@ public class Preferences extends JFrame implements ActionListener {
 		
 		int x = (int)(spinner_imgx.getValue());
 		int y = (int)(spinner_imgy.getValue());
-		e.canvas.setPreferredSize(new Dimension(x, y));
+		e.renderer.imgpanel.setPreferredSize(new Dimension(x, y));
 		e.opts.pack();
 	}
 	
@@ -224,7 +213,6 @@ public class Preferences extends JFrame implements ActionListener {
 		int opt_height = 256*(int)Math.floor(0.8*screenSize.getHeight()/256);
 		spinner_imgx.setValue(opt_height);
 		spinner_imgy.setValue(opt_height);
-		chkbox_undo.setSelected(false);
 		chkbox_potential.setSelected(true);
 		gui_units.setSelectedItem(Units.SI);
 		spinner_undosize.setValue(4);
@@ -264,7 +252,6 @@ public class Preferences extends JFrame implements ActionListener {
 							break;
 						case "imgsize_x": spinner_imgx.setValue(fstr.nextInt()); break;
 						case "imgsize_y": spinner_imgy.setValue(fstr.nextInt()); break;
-						case "undotrackssettings": chkbox_undo.setSelected(fstr.nextBoolean()); break;
 						case "potential": chkbox_potential.setSelected(fstr.nextBoolean()); break;
 						case "units": gui_units.setSelectedItem(gson.fromJson(fstr, Units.class)); break;
 						case "fps": this.spinner_fps.setValue(fstr.nextInt()); break;
@@ -300,7 +287,6 @@ public class Preferences extends JFrame implements ActionListener {
 				JsonObject header = new JsonObject();
 				header.addProperty("imgsize_x", (int)spinner_imgx.getValue());
 				header.addProperty("imgsize_y", (int)spinner_imgy.getValue());
-				header.addProperty("undotrackssettings", chkbox_undo.isSelected());
 				header.addProperty("potential", chkbox_potential.isSelected());
 				header.add("units", gson.toJsonTree((Units) gui_units.getSelectedItem()));
 				header.addProperty("fps", (int)spinner_fps.getValue());

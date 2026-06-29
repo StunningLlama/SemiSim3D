@@ -7,12 +7,11 @@ package electrodynamics.probe;
 import electrodynamics.Renderer.ScalarView;
 import electrodynamics.units.Quantity;
 
-public class ChargeProbe extends AreaProbe {
+public class ChargeProbe extends VolumeProbe {
 	public ChargeProbe(int mx, int my, int mz) {
 		super(mx, my, mz);
 		quantity = Quantity.CHARGE;
 		shorthand = "Q";
-		quantitytype = QuantityType.DENSITY;
 		scalarname = ScalarView.CHARGE;
 	}
 }

@@ -29,6 +29,7 @@ import electrodynamics.Renderer.VectorMode;
 import electrodynamics.Renderer.VectorView;
 import electrodynamics.Simulation.BoundaryCondition;
 import electrodynamics.gui.MainWindow.CustJCheckBoxMenuItem;
+import electrodynamics.util.OctahedralAction.OctahedralGenerator;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -43,6 +44,7 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.imageio.ImageIO;
+import javax.swing.AbstractAction;
 import javax.swing.AbstractButton;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.InputMap;
@@ -73,7 +75,9 @@ import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.awt.event.InputEvent;
 
 public class MainWindow extends JFrame implements ComponentListener {
@@ -86,6 +90,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 	Simulation e;
 	public HashMap<String, AbstractButton> boolean_names = new HashMap<String, AbstractButton>();
 	public HashMap<String, Adjustable> integer_names = new HashMap<String, Adjustable>();
+	public List<JMenuItem> clipboardbuttons = new ArrayList<JMenuItem>();
 	
 	public JPanel contentPane;
 	public JButton gui_reset;
@@ -139,9 +144,6 @@ public class MainWindow extends JFrame implements ComponentListener {
 	public JMenuItem menu_redo;
 	public JMenuItem menu_editdesc;
 	public JMenuItem menu_new;
-	public JMenuItem menu_rotate;
-	public JMenuItem menu_flip_h;
-	public JMenuItem menu_flip_v;
 	public JMenuItem menu_pref;
 	public JMenuItem menu_selectall;
 	public JMenuItem menu_deselectall;
@@ -171,6 +173,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 	public CustJCheckBoxMenuItem menu_probes;
 	public CustJCheckBoxMenuItem menu_time;
 	public CustJCheckBoxMenuItem menu_colormap;
+	public CustJCheckBoxMenuItem menu_axes;
 	public CustJCheckBoxMenuItem menu_debug;
 
 	public JScrollBar gui_plotinterval;
@@ -259,18 +262,18 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_paste = new JMenuItem("Paste");
 		menu_paste.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V, InputEvent.CTRL_DOWN_MASK));
 		menu_edit.add(menu_paste);
-
-		menu_rotate = new JMenuItem("Rotate");
-		menu_rotate.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_R, InputEvent.CTRL_DOWN_MASK));
-		menu_edit.add(menu_rotate);
-
-		menu_flip_h = new JMenuItem("Flip horizontally");
-		menu_flip_h.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F, InputEvent.CTRL_DOWN_MASK));
-		menu_edit.add(menu_flip_h);
-
-		menu_flip_v = new JMenuItem("Flip vertically");
-		menu_flip_v.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_G, InputEvent.CTRL_DOWN_MASK));
-		menu_edit.add(menu_flip_v);
+		
+		for (OctahedralGenerator action : OctahedralGenerator.values()) {
+			JMenuItem oct = new JMenuItem(action.toString());
+			oct.addActionListener(new AbstractAction() {
+				@Override
+				public void actionPerformed(ActionEvent ev) {
+					e.controls.clipboard_action = action;
+				}
+			});
+			menu_edit.add(oct);
+			clipboardbuttons.add(oct);
+		}
 
 		separator_3 = new JSeparator();
 		menu_edit.add(separator_3);
@@ -342,6 +345,10 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_colormap = new CustJCheckBoxMenuItem("Show color scale");
 		menu_colormap.setSelected(true);
 		menu_graphics.add(menu_colormap);
+
+		menu_axes = new CustJCheckBoxMenuItem("Show axes");
+		menu_axes.setSelected(true);
+		menu_graphics.add(menu_axes);
 
 		JSeparator separator_4 = new JSeparator();
 		menu_graphics.add(separator_4);
@@ -642,6 +649,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		boolean_names.put("show_probes", menu_probes);
 		boolean_names.put("show_time", menu_time);
 		boolean_names.put("show_colormap", menu_colormap);
+		boolean_names.put("show_axes", menu_axes);
 		boolean_names.put("gui_carriers", gui_carriers);
 		boolean_names.put("gui_hide_carriers_metal", menu_hide_carriers_metal);
 		boolean_names.put("show_carrier_diffusion", menu_carrier_diffusion);
@@ -667,6 +675,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_probes.setSelected(true);
 		menu_time.setSelected(true);
 		menu_colormap.setSelected(false);
+		menu_axes.setSelected(true);
 		gui_carriers.setSelected(false);
 		menu_hide_carriers_metal.setSelected(true);
 		menu_carrier_diffusion.setSelected(false);
@@ -681,7 +690,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		
 		gui_paused.setSelected(false);
 		gui_brush.setSelectedItem(Brush.INTERACT);
-		gui_brushsize.setValue(250);
+		gui_brushsize.setValue(10);
 		gui_brush_1.setSelectedIndex(1);
 		//gui_material.setSelectedIndex(0);
 
@@ -727,9 +736,6 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_paste.addActionListener(e.controls);
 		menu_editdesc.addActionListener(e.controls);
 		menu_new.addActionListener(e.controls);
-		menu_rotate.addActionListener(e.controls);
-		menu_flip_v.addActionListener(e.controls);
-		menu_flip_h.addActionListener(e.controls);
 		menu_selectall.addActionListener(e.controls);
 		menu_deselectall.addActionListener(e.controls);
 		menu_pref.addActionListener(e.controls);
@@ -762,9 +768,6 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_paste				.setActionCommand("menu_paste");
 		menu_editdesc			.setActionCommand("menu_editdesc");
 		menu_new				.setActionCommand("menu_new");
-		menu_rotate				.setActionCommand("menu_rotate");
-		menu_flip_v				.setActionCommand("menu_flip_v");
-		menu_flip_h				.setActionCommand("menu_flip_h");
 		menu_selectall			.setActionCommand("menu_selectall");
 		menu_deselectall		.setActionCommand("menu_deselectall");
 		menu_pref				.setActionCommand("menu_pref");

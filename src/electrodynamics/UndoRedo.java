@@ -10,10 +10,6 @@ import java.util.List;
 
 import javax.swing.SwingUtilities;
 
-import electrodynamics.Renderer.RenderMode;
-import electrodynamics.Renderer.ScalarView;
-import electrodynamics.Renderer.VectorMode;
-import electrodynamics.Renderer.VectorView;
 import electrodynamics.Simulation.BoundaryCondition;
 import electrodynamics.probe.Probe;
 import electrodynamics.util.Utils;

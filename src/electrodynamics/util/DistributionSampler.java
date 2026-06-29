@@ -79,7 +79,7 @@ public class DistributionSampler {
 	}
 
 	private int binarySearch(double p) {
-		int M = mx*my;
+		int M = mx*my*mz;
 		int lower = 1;
 		int upper = M-1;
 		int mid = 0;

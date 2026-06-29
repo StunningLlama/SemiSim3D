@@ -155,6 +155,26 @@ public class Utils {
 	public static double minAbs(double x, double y) {
 		return Math.abs(x) < Math.abs(y)? x:y;
 	}
+	
+	public static double getFieldMagnitude(double[][][] vx, double[][][] vy, double[][][] vz, double x, double y, double z) {
+		return Utils.length(Utils.bilinearinterp(vx, x-0.5 , y, z), Utils.bilinearinterp(vy, x, y-0.5, z), Utils.bilinearinterp(vz, x, y, z-0.5));
+	}
+
+	public static double getDualFieldMagnitude(double[][][] vx, double[][][] vy, double[][][] vz, double x, double y, double z) {
+		return Utils.length(Utils.bilinearinterp(vx, x, y-0.5, z-0.5), Utils.bilinearinterp(vy, x-0.5, y, z-0.5), Utils.bilinearinterp(vz, x-0.5, y-0.5, z));
+	}
+
+	public static double getFieldMagnitude(double[][][] vx, double[][][] vy, double[][][] vz, double x, double y, double z, double offset, double dual_offset) {
+		return Utils.length(Utils.bilinearinterp(vx, x+offset, y+dual_offset, z+dual_offset), Utils.bilinearinterp(vy, x+dual_offset, y+offset, z+dual_offset), Utils.bilinearinterp(vz, x+dual_offset, y+dual_offset, z+offset));
+	}
+	
+	public static double getFieldMagnitude(double[][][] vx, double[][][] vy, double[][][] vz, int i, int j, int k) {	
+		return Utils.length(0.5*(vx[i][j][k] + vx[i-1][j][k]), 0.5*(vy[i][j][k] + vy[i][j-1][k]), 0.5*(vz[i][j][k] + vz[i][j][k-1]));
+	}
+
+	public static double getDualFieldMagnitude(double[][][] vx, double[][][] vy, double[][][] vz, int i, int j, int k) {
+		return length(0.25*(vx[i][j][k]+vx[i][j][k-1]*+vx[i][j-1][k]+vx[i][j-1][k-1]), 0.25*(vy[i][j][k]+vy[i-1][j][k]*+vy[i][j][k-1]+vy[i-1][j][k-1]), 0.25*(vz[i][j][k]+vz[i-1][j][k]*+vz[i][j-1][k]+vz[i-1][j-1][k]));
+	}
 
 	public static double bilinearinterp_length(double[][][] Fx, double[][][] Fy, double[][][] Fz, double x, double y, double z) {
 		return length(bilinearinterp(Fx, x-0.5, y, z), bilinearinterp(Fy, x, y-0.5, z), bilinearinterp(Fz, x, y, z-0.5));

@@ -41,23 +41,9 @@ public class LineProbe extends Probe {
 
 	@Override
 	public void calculateDefaultLabelCoords() {
-		double xa = 0.5*(x1+x2);
-		double ya = 0.5*(y1+y2);
-
-		double dx = x2 - x1;
-		double dy = y2 - y1;
-		double len = Utils.length(dx, dy) + Double.MIN_VALUE;
-		dx = dx/len;
-		dy = dy/len;
-		if (Math.abs(dx) > Math.abs(dy))
-		{
-			dx = -Math.abs(dx);
-		} else {
-			dy = -2*Math.abs(dy);
-		}
-		
-		labelcoord.x = (int)(xa-3*dy)-2;
-		labelcoord.y = (int)(ya+4*dx);
+		labelcoord.x = (x1+x2)/2;
+		labelcoord.y = (y1+y2)/2;
+		labelcoord.z = (z1+z2)/2;
 	}
 
 	@Override
@@ -155,6 +141,66 @@ public class LineProbe extends Probe {
 	}
 	
 	@Override
+	public void flip_x() {
+		x1 = -x1;
+		x2 = -x2;
+		labelcoord.flip_x();
+	}
+
+	@Override
+	public void flip_y() {
+		y1 = -y1;
+		y2 = -y2;
+		labelcoord.flip_y();
+	}
+
+	@Override
+	public void flip_z() {
+		z1 = -z1;
+		z2 = -z2;
+		labelcoord.flip_z();
+	}
+
+	@Override
+	public void rot_x() {
+		int tmp1 = y1;
+		int tmp2 = z1;
+		z1 = tmp1;
+		y1 = -tmp2;
+		tmp1 = y2;
+		tmp2 = z2;
+		z2 = tmp1;
+		y2 = -tmp2;
+		labelcoord.rot_x();
+	}
+
+	@Override
+	public void rot_y() {
+		int tmp1 = z1;
+		int tmp2 = x1;
+		x1 = tmp1;
+		z1 = -tmp2;
+		tmp1 = z2;
+		tmp2 = x2;
+		x2 = tmp1;
+		z2 = -tmp2;
+		labelcoord.rot_y();
+	}
+
+	@Override
+	public void rot_z() {
+		int tmp1 = x1;
+		int tmp2 = y1;
+		y1 = tmp1;
+		x1 = -tmp2;
+		tmp1 = x2;
+		tmp2 = y2;
+		y2 = tmp1;
+		x2 = -tmp2;
+		labelcoord.rot_z();
+	}
+	
+	@Override
 	public void translate(int dx, int dy, int dz) {
 		x1 += dx;
 		y1 += dy;
@@ -163,33 +209,6 @@ public class LineProbe extends Probe {
 		y2 += dy;
 		z2 += dz;
 		labelcoord.translate(dx, dy, dz);
-	}
-	
-	@Override
-	public void rotate90(int i_max, int j_max) {
-		int y_tmp = y1;
-		int x_tmp = x1;
-		x1 = j_max-y_tmp;
-		y1 = x_tmp;
-		y_tmp = y2;
-		x_tmp = x2;
-		x2 = j_max-y_tmp;
-		y2 = x_tmp;
-		labelcoord.rotate90(i_max, j_max);
-	}
-
-	@Override
-	public void flip_h(int i_min, int i_max) {
-		x1 = (i_min + i_max) - x1;
-		x2 = (i_min + i_max) - x2;
-		labelcoord.flip_h(i_min, i_max);
-	}
-
-	@Override
-	public void flip_v(int j_min, int j_max) {
-		y1 = (j_min + j_max) - y1;
-		y2 = (j_min + j_max) - y2;
-		labelcoord.flip_v(j_min, j_max);
 	}
 	
 	@Override

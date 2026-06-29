@@ -58,33 +58,58 @@ public class PointProbe extends Probe {
 		p.labelcoord = labelcoord.clone();
 		return p;
 	}
+	
+	@Override
+	public void flip_x() {
+		x = -x;
+		labelcoord.flip_x();
+	}
+
+	@Override
+	public void flip_y() {
+		y = -y;
+		labelcoord.flip_y();
+	}
+
+	@Override
+	public void flip_z() {
+		z = -z;
+		labelcoord.flip_z();
+	}
+
+	@Override
+	public void rot_x() {
+		int tmp1 = y;
+		int tmp2 = z;
+		z = tmp1;
+		y = -tmp2;
+		labelcoord.rot_x();
+	}
+
+	@Override
+	public void rot_y() {
+		int tmp1 = z;
+		int tmp2 = x;
+		x = tmp1;
+		z = -tmp2;
+		labelcoord.rot_y();
+	}
+
+	@Override
+	public void rot_z() {
+		int tmp1 = x;
+		int tmp2 = y;
+		y = tmp1;
+		x = -tmp2;
+		labelcoord.rot_z();
+	}
 
 	@Override
 	public void translate(int dx, int dy, int dz) {
 		x += dx;
 		y += dy;
+		z += dz;
 		labelcoord.translate(dx, dy, dz);
-	}
-
-	@Override
-	public void rotate90(int i_max, int j_max) {
-		int y_tmp = y;
-		int x_tmp = x;
-		x = j_max-y_tmp;
-		y = x_tmp;
-		labelcoord.rotate90(i_max, j_max);
-	}
-
-	@Override
-	public void flip_h(int i_min, int i_max) {
-		x = (i_min + i_max) - x;
-		labelcoord.flip_h(i_min, i_max);
-	}
-
-	@Override
-	public void flip_v(int j_min, int j_max) {
-		y = (j_min + j_max) - y;
-		labelcoord.flip_v(j_min, j_max);
 	}
 	
 	@Override

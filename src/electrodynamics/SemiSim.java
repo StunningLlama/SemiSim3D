@@ -21,11 +21,13 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
+import javax.swing.WindowConstants;
 import javax.swing.filechooser.FileSystemView;
 
 import electrodynamics.Renderer.GraphicsThread;
@@ -37,7 +39,7 @@ public class SemiSim {
 	public static int n_threads = Runtime.getRuntime().availableProcessors();
 
 	public static String name = "Brandon's semiconductor simulator 3D";
-	public static String about = "<html><body><p style='width: 250px;'>Brandon's Semiconductor Simulator / SemiSim.<br>"
+	public static String about = "<html><body><p style='width: 250px;'>Brandon's Semiconductor Simulator 3D.<br>"
 									+ "Version 2.0<br>"
 									+ "(c) 2026 Brandon Li<br><br>"
 									+ "Thanks to Paul Falstad, Ariel Baksh, and retconaway for providing help, feedback, and suggestions.<br><br>"
@@ -49,12 +51,13 @@ public class SemiSim {
 	public static Path userdir = Paths.get(".");
 
 	ArrayList<SimulationThread> sim_threads = new ArrayList<>();
-	ArrayList<Renderer.GraphicsThread> graphics_threads = new ArrayList<>();
+	ArrayList<GraphicsThread> graphics_threads = new ArrayList<>();
 	Timer master_timer = new Timer();
 	Timer graphics_timer = new Timer();
 	Timer misc_timer = new Timer();
 	ScheduledThreadPoolExecutor threadPool = new ScheduledThreadPoolExecutor(3, new LoggingRejectionHandler());
 	Simulation sim;
+	public static boolean ready = false;
 	
 	public SemiSim() {
 		sim = new Simulation();
@@ -147,13 +150,13 @@ public class SemiSim {
 		String os = System.getProperty("os.name").toLowerCase();
 		
 		if (os.contains("windows")) {
-			userdir = userdir.resolve(Paths.get("SemiSim"));
+			userdir = userdir.resolve(Paths.get("SemiSim3D"));
 		} else if (os.contains("mac")) {
-			userdir = userdir.resolve(Paths.get("Documents/SemiSim"));
+			userdir = userdir.resolve(Paths.get("Documents/SemiSim3D"));
 		} else if (os.contains("linux")) {
-			userdir = userdir.resolve(Paths.get("SemiSim"));
+			userdir = userdir.resolve(Paths.get("SemiSim3D"));
 		} else {
-			userdir = userdir.resolve(Paths.get("SemiSim"));
+			userdir = userdir.resolve(Paths.get("SemiSim3D"));
 		}
 		
 		if (!userdir.toFile().exists()) {
@@ -194,12 +197,25 @@ public class SemiSim {
 			e.printStackTrace();
 		}
 	}
+	
+	public static JDialog displaySplashScreen() {
+		JOptionPane optionPane = new JOptionPane(name + " is starting.", JOptionPane.INFORMATION_MESSAGE, JOptionPane.DEFAULT_OPTION, null, new Object[]{}, null);
+		JDialog dialog = optionPane.createDialog("");
+
+		dialog.setModal(false);
+		dialog.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+		dialog.setVisible(true);
+		
+		return dialog;
+	}
 
 	public static void main(String[] args)
 	{
 		setDirectory();
 		
 		setLookAndFeel();
+		
+		JDialog dialog = displaySplashScreen();
 		
 		Steam.initialize();
 		
@@ -212,9 +228,11 @@ public class SemiSim {
 				instance = new SemiSim();
 			});
 		} catch (InvocationTargetException | InterruptedException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
+		ready = true;
+		dialog.dispose();
 		
 		instance.startThreads();
 	}

@@ -8,13 +8,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 import electrodynamics.probe.Probe;
+import electrodynamics.util.OctahedralAction;
 import electrodynamics.util.Utils;
 
-public class Clipboard {
+public class Clipboard implements OctahedralAction {
 
 	ClipboardMaterial[][][] mat;
 	List<Probe> probes;
 	Simulation e;
+
+	public int i_max = 0;
+	public int j_max = 0;
+	public int k_max = 0;
 
 	public Clipboard(Simulation e) {
 		this.e = e;
@@ -36,6 +41,8 @@ public class Clipboard {
 				}
 			}
 		}
+
+		calculateBounds();
 
 		probes.clear();
 	}
@@ -59,6 +66,8 @@ public class Clipboard {
 			}
 		}
 
+		calculateBounds();
+
 		probes = Utils.cloneList(e.probes, Probe::clone, (p) -> p.selected);
 		e.probes.removeIf((p) -> p.selected);
 	}
@@ -81,7 +90,6 @@ public class Clipboard {
 				}
 			}
 		}
-
 
 		for (Probe p : probes) {
 			p.translate(delta_mx, delta_my, delta_mz);
@@ -117,6 +125,8 @@ public class Clipboard {
 				}
 			}
 		}
+		
+		target.calculateBounds();
 
 		target.probes = Utils.cloneList(probes, Probe::clone);
 	}
@@ -136,6 +146,7 @@ public class Clipboard {
 					if (e.controls.selected[i][j][k] && e.materials[i][j][k].type != MaterialType.VACUUM) {
 						if (i < i_min) i_min = i;
 						if (j < j_min) j_min = j;
+						if (k < k_min) k_min = k;
 					}
 				}
 			}
@@ -163,11 +174,14 @@ public class Clipboard {
 			}
 		}
 
+		calculateBounds();
+
 		probes = Utils.cloneList(e.probes, Probe::clone, (p) -> p.selected);
 
 		if (clipboardempty && !probes.isEmpty()) {
 			i_min = e.controls.mx_start;
 			j_min = e.controls.my_start;
+			k_min = e.controls.mz_start;
 
 			clipboardempty = false;
 		}
@@ -183,10 +197,10 @@ public class Clipboard {
 		return clipboardempty;
 	}
 
-	public void flip_h() {
-		int i_max = 0;
-		int j_max = 0;
-		int k_max = 0;
+	public void calculateBounds() {
+		i_max = 0;
+		j_max = 0;
+		k_max = 0;
 		for (int i = 0; i < e.nx; i++)
 		{
 			for (int j = 0; j < e.ny; j++)
@@ -201,7 +215,10 @@ public class Clipboard {
 				}
 			}
 		}
-
+	}
+	
+	@Override
+	public void flip_x() {
 		ClipboardMaterial[][][] new_selection = new ClipboardMaterial[i_max+1][j_max+1][k_max+1];
 		for (int i = 0; i <= i_max; i++)
 		{
@@ -210,7 +227,7 @@ public class Clipboard {
 				for (int k = 0; k <= k_max; k++)
 				{
 					new_selection[i_max-i][j][k] = mat[i][j][k].clone();
-					new_selection[i_max-i][j][k].flip_h();
+					new_selection[i_max-i][j][k].flip_x();
 					mat[i][j][k].erase();
 				}
 			}
@@ -227,27 +244,16 @@ public class Clipboard {
 			}
 		}
 
-		for (Probe p : probes) p.flip_h(0, i_max);
+		calculateBounds();
+
+		for (Probe p : probes) {
+			p.flip_x();
+			p.translate(i_max, 0, 0);
+		}
 	}
 
-	public void flip_v() {
-		int i_max = 0;
-		int j_max = 0;
-		int k_max = 0;
-		for (int i = 0; i < e.nx; i++)
-		{
-			for (int j = 0; j < e.ny; j++)
-			{
-				for (int k = 0; k < e.nz; k++)
-				{
-					if (mat[i][j][k].m.type != MaterialType.VACUUM) {
-						if (i > i_max) i_max = i;
-						if (j > j_max) j_max = j;
-					}
-				}
-			}
-		}
-
+	@Override
+	public void flip_y() {
 		ClipboardMaterial[][][] new_selection = new ClipboardMaterial[i_max+1][j_max+1][k_max+1];
 		for (int i = 0; i <= i_max; i++)
 		{
@@ -256,7 +262,7 @@ public class Clipboard {
 				for (int k = 0; k <= k_max; k++)
 				{
 					new_selection[i][j_max - j][k] = mat[i][j][k].clone();
-					new_selection[i][j_max - j][k].flip_v();
+					new_selection[i][j_max - j][k].flip_y();
 					mat[i][j][k].erase();
 				}
 			}
@@ -273,28 +279,121 @@ public class Clipboard {
 			}
 		}
 
-		for (Probe p : probes) p.flip_v(0, j_max);
+		calculateBounds();
+
+		for (Probe p : probes) {
+			p.flip_y();
+			p.translate(0, j_max, 0);
+		}
 	}
 
-	public void rotate90() {
-		int i_max = 0;
-		int j_max = 0;
-		int k_max = 0;
-		for (int i = 0; i < e.nx; i++)
+	@Override
+	public void flip_z() {
+		ClipboardMaterial[][][] new_selection = new ClipboardMaterial[i_max+1][j_max+1][k_max+1];
+		for (int i = 0; i <= i_max; i++)
 		{
-			for (int j = 0; j < e.ny; j++)
+			for (int j = 0; j <= j_max; j++)
 			{
-				for (int k = 0; k < e.nz; k++)
+				for (int k = 0; k <= k_max; k++)
 				{
-					if (mat[i][j][k].m.type != MaterialType.VACUUM) {
-						if (i > i_max) i_max = i;
-						if (j > j_max) j_max = j;
-						if (k > k_max) k_max = k;
-					}
+					new_selection[i][j][k_max - k] = mat[i][j][k].clone();
+					new_selection[i][j][k_max - k].flip_y();
+					mat[i][j][k].erase();
 				}
 			}
 		}
 
+		for (int i = 0; i <= i_max; i++)
+		{
+			for (int j = 0; j <= j_max; j++)
+			{
+				for (int k = 0; k <= k_max; k++)
+				{
+					mat[i][j][k] = new_selection[i][j][k];
+				}
+			}
+		}
+
+		calculateBounds();
+
+		for (Probe p : probes) {
+			p.flip_y();
+			p.translate(0, 0, k_max);
+		}
+	}
+
+	@Override
+	public void rot_x() {
+		ClipboardMaterial[][][] new_selection = new ClipboardMaterial[i_max+1][k_max+1][j_max+1];
+		for (int i = 0; i <= i_max; i++)
+		{
+			for (int j = 0; j <= j_max; j++)
+			{
+				for (int k = 0; k <= k_max; k++)
+				{
+					new_selection[i][k_max-k][j] = mat[i][j][k].clone();
+					new_selection[i][k_max-k][j].rot_x();
+					mat[i][j][k].erase();
+				}
+			}
+		}
+
+		for (int i = 0; i <= i_max; i++)
+		{
+			for (int j = 0; j <= k_max; j++)
+			{
+				for (int k = 0; k <= j_max; k++)
+				{
+					mat[i][j][k] = new_selection[i][j][k];
+				}
+			}
+		}
+
+		calculateBounds();
+
+		for (Probe p : probes) {
+			p.rot_x();
+			p.translate(0, j_max, 0);
+		}
+	}
+
+	@Override
+	public void rot_y() {
+		ClipboardMaterial[][][] new_selection = new ClipboardMaterial[k_max+1][j_max+1][i_max+1];
+		for (int i = 0; i <= i_max; i++)
+		{
+			for (int j = 0; j <= j_max; j++)
+			{
+				for (int k = 0; k <= k_max; k++)
+				{
+					new_selection[k][j][i_max-i] = mat[i][j][k].clone();
+					new_selection[k][j][i_max-i].rot_y();
+					mat[i][j][k].erase();
+				}
+			}
+		}
+
+		for (int i = 0; i <= k_max; i++)
+		{
+			for (int j = 0; j <= j_max; j++)
+			{
+				for (int k = 0; k <= i_max; k++)
+				{
+					mat[i][j][k] = new_selection[i][j][k];
+				}
+			}
+		}
+
+		calculateBounds();
+
+		for (Probe p : probes) {
+			p.rot_y();
+			p.translate(0, 0, k_max);
+		}
+	}
+
+	@Override
+	public void rot_z() {
 		ClipboardMaterial[][][] new_selection = new ClipboardMaterial[j_max+1][i_max+1][k_max+1];
 		for (int i = 0; i <= i_max; i++)
 		{
@@ -303,7 +402,7 @@ public class Clipboard {
 				for (int k = 0; k <= k_max; k++)
 				{
 					new_selection[j_max-j][i][k] = mat[i][j][k].clone();
-					new_selection[j_max-j][i][k].rotate90();
+					new_selection[j_max-j][i][k].rot_z();
 					mat[i][j][k].erase();
 				}
 			}
@@ -320,11 +419,19 @@ public class Clipboard {
 			}
 		}
 
-		for (Probe p : probes) p.rotate90(i_max, j_max);
+		calculateBounds();
+		
+		for (Probe p : probes) {
+			p.rot_z();
+			p.translate(i_max, 0, 0);
+		}
 	}
+
+	@Override
+	public void translate(int dx, int dy, int dz) {}
 }
 
-class ClipboardMaterial implements Cloneable {
+class ClipboardMaterial implements Cloneable, OctahedralAction {
 	double rho_n = 0;
 	double rho_p = 0;
 	Material m = new Material();
@@ -361,16 +468,45 @@ class ClipboardMaterial implements Cloneable {
 		return mat;
 	}
 
-	public void rotate90() {
-		//TODO
-		//m.emf_direction += Math.PI/2.0;
+	@Override
+	public void flip_x() {
+		m.emf_x = -m.emf_x;
 	}
 
-	public void flip_h() {
-		//m.emf_direction = Math.PI - m.emf_direction;
+	@Override
+	public void flip_y() {
+		m.emf_y = -m.emf_y;
 	}
 
-	public void flip_v() {
-		//m.emf_direction = -m.emf_direction;
+	@Override
+	public void flip_z() {
+		m.emf_z = -m.emf_z;
 	}
+
+	@Override
+	public void rot_x() {
+		double tmp1 = m.emf_y;
+		double tmp2 = m.emf_z;
+		m.emf_z = tmp1;
+		m.emf_y = -tmp2;
+	}
+
+	@Override
+	public void rot_y() {
+		double tmp1 = m.emf_z;
+		double tmp2 = m.emf_x;
+		m.emf_x = tmp1;
+		m.emf_z = -tmp2;
+	}
+
+	@Override
+	public void rot_z() {
+		double tmp1 = m.emf_x;
+		double tmp2 = m.emf_y;
+		m.emf_y = tmp1;
+		m.emf_x = -tmp2;
+	}
+
+	@Override
+	public void translate(int dx, int dy, int dz) {}
 }

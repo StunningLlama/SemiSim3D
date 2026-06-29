@@ -5,12 +5,12 @@
 package electrodynamics.probe;
 
 import electrodynamics.Renderer;
-import electrodynamics.Renderer.VectorView;
+import electrodynamics.Renderer.ScalarView;
 import electrodynamics.Simulation;
 import electrodynamics.units.Units;
 
-public class AreaProbe extends Probe {
-	public AreaProbe(int mx, int my, int mz) {
+public class VolumeProbe extends Probe {
+	public VolumeProbe(int mx, int my, int mz) {
 		super(mx, my, mz);
 		x1 = mx;
 		x2 = mx;
@@ -29,11 +29,8 @@ public class AreaProbe extends Probe {
 	public int y2;
 	public int z2;
 
-	public double[][][] vf_x = null;
-	public double[][][] vf_y = null;
-	public double[][][] vf_z = null;
-
-	public VectorView vectorname = VectorView.NONE;
+	public ScalarView scalarname = ScalarView.NONE;
+	public double[][][] scalarfield = new double[][][] {{{0}}};
 	
 	@Override
 	public void reset() {
@@ -49,57 +46,37 @@ public class AreaProbe extends Probe {
 
 	@Override
 	public void measure(Simulation e, boolean savedatapoint) {
-		double J = 0;
-
-		double[][][][] vf = {null, null, null};
-		e.computeVectorField(vf, vectorname);
-		vf_x = vf[0];
-		vf_y = vf[1];
-		vf_z = vf[2];
-		
-		if (vf_x == null || vf_y == null || vf_z == null) return;
+		double Q = 0;
 
 		int n_min = 0;
 		int n_max = 0;
 		int m_min = 0;
 		int m_max = 0;
-		int l = 0;
+		int l_min = 0;
+		int l_max = 0;
 
-		if (x1 == x2) {
-			n_min = Math.min(y1, y2);
-			n_max = Math.max(y1, y2);
-			m_min = Math.min(z1, z2);
-			m_max = Math.max(z1, z2);
-			l = x1;
-		} else if (y1 == y2) {
-			n_min = Math.min(x1, x2);
-			n_max = Math.max(x1, x2);
-			m_min = Math.min(z1, z2);
-			m_max = Math.max(z1, z2);
-			l = y1;
-		} else if (z1 == z2) {
-			n_min = Math.min(x1, x2);
-			n_max = Math.max(x1, x2);
-			m_min = Math.min(y1, y2);
-			m_max = Math.max(y1, y2);
-			l = z1;
-		} else {
-			return;
+		n_min = Math.min(x1, x2);
+		n_max = Math.max(x1, x2);
+		m_min = Math.min(y1, y2);
+		m_max = Math.max(y1, y2);
+		l_min = Math.min(z1, z2);
+		l_max = Math.max(z1, z2);
+		
+		if (scalarfield.length != n_max-n_min+1 || scalarfield[0].length != m_max-m_min+1 || scalarfield[0][0].length != l_max-l_min+1) {
+			scalarfield = new double[n_max-n_min+1][m_max-m_min+1][l_max-l_min+1];
 		}
+		
+		e.computeScalarField(scalarfield, n_min, m_min, l_min, scalarname);
 
 		for (int n = n_min; n <= n_max; n++) {
 			for (int m = m_min; m <= m_max; m++) {
-				if (x1 == x2) {
-					J += 0.5*(vf_x[l][n][m]+vf_x[l+1][n][m])*(e.ds*e.ds);
-				} else if (y1 == y2) {
-					J += 0.5*(vf_y[n][l][m]+vf_y[n][l+1][m])*(e.ds*e.ds);
-				} else if (z1 == z2) {
-					J += 0.5*(vf_y[n][m][l]+vf_z[n][m][l+1])*(e.ds*e.ds);
+				for (int l = l_min; l <= l_max; l++) {
+					Q += scalarfield[n-n_min][m-m_min][l-l_min]*(e.ds*e.ds*e.ds);
 				}
 			}
 		}
-
-		value = J;
+		
+		value = Q;
 		if (savedatapoint) data.addData(value, e.time);
 	}
 	
@@ -109,9 +86,9 @@ public class AreaProbe extends Probe {
 	}
 	
 	@Override
-	public AreaProbe clone() {
-		AreaProbe p = null;
-		p = (AreaProbe) super.clone();
+	public VolumeProbe clone() {
+		VolumeProbe p = null;
+		p = (VolumeProbe) super.clone();
 		p.data = data.clone();
 		p.labelcoord = labelcoord.clone();
 		return p;
@@ -200,24 +177,9 @@ public class AreaProbe extends Probe {
 
 	@Override
 	public void drag(int mx, int my, int mz) {
-		if (y2 != y1 && z2 != z1) {
-			y2 = my;
-			z2 = mz;
-		} else if (x2 != x1 && z2 != z1) {
-			x2 = mx;
-			z2 = mz;
-		} else if (x2 != x1 && y2 != y1) {
-			x2 = mx;
-			y2 = my;
-		} else {
-			x2 = mx;
-			y2 = my;
-			z2 = mz;
-		}
-		
-		if (x2 != x1 && y2 != y1 && z2 != z1) {
-			z2 = z1;
-		}
+		x2 = mx;
+		y2 = my;
+		z2 = mz;
 		calculateDefaultLabelCoords();
 	}
 

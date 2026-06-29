@@ -4,7 +4,7 @@
 
 package electrodynamics.probe;
 
-import electrodynamics.Renderer.ScalarView;
+import electrodynamics.Renderer.VectorView;
 import electrodynamics.units.Quantity;
 
 public class FluxProbe extends AreaProbe {
@@ -12,7 +12,6 @@ public class FluxProbe extends AreaProbe {
 		super(mx, my, mz);
 		quantity = Quantity.MAGNETIC_FLUX;
 		shorthand = "Φ";
-		quantitytype = QuantityType.DENSITY;
-		scalarname = ScalarView.B_FIELD;
+		vectorname = VectorView.B_FIELD;
 	}
 }

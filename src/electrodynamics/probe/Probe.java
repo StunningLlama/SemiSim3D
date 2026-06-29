@@ -8,11 +8,11 @@ import electrodynamics.Renderer;
 import electrodynamics.Simulation;
 import electrodynamics.Renderer.ScalarView;
 import electrodynamics.Renderer.VectorView;
-import electrodynamics.probe.AreaProbe.QuantityType;
 import electrodynamics.units.Quantity;
 import electrodynamics.units.Units;
+import electrodynamics.util.OctahedralAction;
 
-public abstract class Probe implements Cloneable {
+public abstract class Probe implements Cloneable, OctahedralAction {
 	public static int data_size = 100;
 	
 	public LabelCoord labelcoord = new LabelCoord();
@@ -31,10 +31,6 @@ public abstract class Probe implements Cloneable {
 	public abstract boolean isMouseHovering(int mx, int my, int mz);
 	public abstract boolean intersects(int xmin, int ymin, int zmin, int xmax, int ymax, int zmax);
 	public abstract boolean checkInBounds(Simulation e);
-	public abstract void translate(int dx, int dy, int dz);
-	public abstract void rotate90(int i_max, int j_max);
-	public abstract void flip_h(int i_min, int i_max);
-	public abstract void flip_v(int j_min, int j_max);
 	public abstract void drag(int mx, int my, int mz);
 	public abstract void draw(Renderer r);
 	public abstract String getText(Units units);
@@ -68,9 +64,8 @@ public abstract class Probe implements Cloneable {
 		} else if (this instanceof ChargeProbe) {
 			quantity = Quantity.CHARGE;
 			shorthand = "Q";
-			((ChargeProbe)this).quantitytype = QuantityType.DENSITY;
 			((ChargeProbe)this).scalarname = ScalarView.CHARGE;
-			((ChargeProbe)this).scalarfield = new double[][] {{0}};
+			((ChargeProbe)this).scalarfield = new double[][][] {{{0}}};
 		} else if (this instanceof CurrentProbe) {
 			shorthand = "I";
 			quantity = Quantity.ELECTRIC_CURRENT;
@@ -78,16 +73,14 @@ public abstract class Probe implements Cloneable {
 		} else if (this instanceof FluxProbe) {
 			quantity = Quantity.MAGNETIC_FLUX;
 			shorthand = "Φ";
-			((FluxProbe)this).quantitytype = QuantityType.FLUX_DENSITY;
-			((FluxProbe)this).scalarname = ScalarView.B_FIELD;
-			((FluxProbe)this).scalarfield = new double[][] {{0}};
+			((FluxProbe)this).vectorname = VectorView.B_FIELD;
 		} else if (this instanceof Ground) {
 			shorthand = "V";
 			quantity = Quantity.ELECTRIC_POTENTIAL;
 		}
 	}
 	
-	public class LabelCoord implements Cloneable {
+	public class LabelCoord implements Cloneable, OctahedralAction {
 		public int x = -1;
 		public int y = -1;
 		public int z = -1;
@@ -101,25 +94,50 @@ public abstract class Probe implements Cloneable {
 			}
 	    }
 	    
+		@Override
+		public void flip_x() {
+			x = -x;
+		}
+
+		@Override
+		public void flip_y() {
+			y = -y;
+		}
+
+		@Override
+		public void flip_z() {
+			z = -z;
+		}
+
+		@Override
+		public void rot_x() {
+			int tmp1 = y;
+			int tmp2 = z;
+			z = tmp1;
+			y = -tmp2;
+		}
+
+		@Override
+		public void rot_y() {
+			int tmp1 = z;
+			int tmp2 = x;
+			x = tmp1;
+			z = -tmp2;
+		}
+
+		@Override
+		public void rot_z() {
+			int tmp1 = x;
+			int tmp2 = y;
+			y = tmp1;
+			x = -tmp2;
+		}
+
+		@Override
 		public void translate(int dx, int dy, int dz) {
 			x += dx;
 			y += dy;
 			z += dz;
-		}
-
-		public void rotate90(int i_max, int j_max) {
-			int y_tmp = y;
-			int x_tmp = x;
-			x = j_max-y_tmp;
-			y = x_tmp;
-		}
-
-		public void flip_h(int i_min, int i_max) {
-			x = (i_min + i_max) - x;
-		}
-
-		public void flip_v(int j_min, int j_max) {
-			y = (j_min + j_max) - y;
 		}
 	}
 	

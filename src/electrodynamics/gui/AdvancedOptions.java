@@ -47,7 +47,7 @@ public class AdvancedOptions extends JFrame implements ActionListener {
 	private JPanel sim;
 	public JTextField ds;
 	public JTextField resolution_x;
-	public JTextField depth;
+	public JTextField resolution_z;
 	public JTextField mu_electron_semi;
 	public JTextField mu_hole_semi;
 	public JTextField chi_semi;
@@ -161,15 +161,15 @@ public class AdvancedOptions extends JFrame implements ActionListener {
 		resolution_x.setBounds(225, 40, 98, 23);
 		sim.add(resolution_x);
 		
-		JLabel lblNewLabel_2 = new JLabel("Depth [m]");
+		JLabel lblNewLabel_2 = new JLabel("Grid size z");
 		lblNewLabel_2.setHorizontalAlignment(SwingConstants.TRAILING);
 		lblNewLabel_2.setBounds(45, 110, 168, 16);
 		sim.add(lblNewLabel_2);
 		
-		depth = new JTextField();
-		depth.setColumns(10);
-		depth.setBounds(225, 106, 98, 23);
-		sim.add(depth);
+		resolution_z = new JTextField();
+		resolution_z.setColumns(10);
+		resolution_z.setBounds(225, 106, 98, 23);
+		sim.add(resolution_z);
 		
 		lblNewLabel_7 = new JLabel("Junction smoothing [px]");
 		lblNewLabel_7.setToolTipText("Smooths junction between materials with different chemical potential (ie. metal-semiconductor junctions)");
@@ -814,7 +814,7 @@ public class AdvancedOptions extends JFrame implements ActionListener {
 		ds				.setText(Utils.formatDouble(e.ds				));
 		resolution_x			.setText(Integer.toString(e.default_resolution_x		));
 		resolution_y			.setText(Integer.toString(e.default_resolution_y		));
-		depth				.setText(Utils.formatDouble(e.depth						));
+		resolution_z			.setText(Integer.toString(e.default_resolution_z		));
 		junction_size		.setText(Integer.toString(e.junction_size			));
 		dopant_smoothing_distance		.setText(Integer.toString(e.dopant_smoothing_distance			));
 
@@ -880,6 +880,7 @@ public class AdvancedOptions extends JFrame implements ActionListener {
 		try {
 			int resolution_tmp_x			= Integer.valueOf(resolution_x			.getText());
 			int resolution_tmp_y			= Integer.valueOf(resolution_y			.getText());
+			int resolution_tmp_z			= Integer.valueOf(resolution_z			.getText());
 
 			if (resolution_tmp_x != e.nx || resolution_tmp_y != e.ny) {
 				int result = JOptionPane.showConfirmDialog(this, "Changing the resolution will delete all materials. Proceed?", "Message", JOptionPane.YES_NO_OPTION);
@@ -900,13 +901,18 @@ public class AdvancedOptions extends JFrame implements ActionListener {
 					resolution_y.setText(Integer.toString(resolution_tmp_y));
 				}
 
+				if(resolution_tmp_z < 4) {
+					JOptionPane.showMessageDialog(this, "Z resolution will be set to the minimum of 4.", "Message", JOptionPane.OK_OPTION);
+					resolution_tmp_z = 4;
+					resolution_z.setText(Integer.toString(resolution_tmp_z));
+				}
+
 				int log2_resolution_x = (int) Math.round(Math.log(resolution_tmp_x)/Math.log(2));
 				if(1 << log2_resolution_x != resolution_tmp_x) {
 					JOptionPane.showMessageDialog(this, "X resolution will be rounded to the nearest power of 2.", "Message", JOptionPane.OK_OPTION);
 					resolution_tmp_x = 1 << log2_resolution_x;
 					resolution_x.setText(Integer.toString(resolution_tmp_x));
 				}
-				
 
 				int log2_resolution_y = (int) Math.round(Math.log(resolution_tmp_y)/Math.log(2));
 				if(1 << log2_resolution_y != resolution_tmp_y) {
@@ -914,8 +920,16 @@ public class AdvancedOptions extends JFrame implements ActionListener {
 					resolution_tmp_y = 1 << log2_resolution_y;
 					resolution_y.setText(Integer.toString(resolution_tmp_y));
 				}
+
+				int log2_resolution_z = (int) Math.round(Math.log(resolution_tmp_z)/Math.log(2));
+				if(1 << log2_resolution_z != resolution_tmp_z) {
+					JOptionPane.showMessageDialog(this, "Z resolution will be rounded to the nearest power of 2.", "Message", JOptionPane.OK_OPTION);
+					resolution_tmp_z = 1 << log2_resolution_z;
+					resolution_y.setText(Integer.toString(resolution_tmp_z));
+				}
 				
-				double memory_estimate = 400.0*8.0*(double)resolution_tmp_x*(double)resolution_tmp_y;
+				
+				double memory_estimate = 400.0*8.0*(double)resolution_tmp_x*(double)resolution_tmp_y*(double)resolution_tmp_z;
 				if (memory_estimate > 1e9) {
 					int result2 = JOptionPane.showConfirmDialog(this, "Warning: This resolution will use approximately " + Units.SI.toString(memory_estimate, Quantity.INFORMATION) + " of memory. Proceed?", "Message", JOptionPane.YES_NO_OPTION);
 					if (result2 != JOptionPane.OK_OPTION)
@@ -928,8 +942,8 @@ public class AdvancedOptions extends JFrame implements ActionListener {
 			e.ds				= Double.valueOf(ds				.getText());	
 			e.default_resolution_x = resolution_tmp_x;
 			e.default_resolution_y = resolution_tmp_y;
+			e.default_resolution_z = resolution_tmp_z;
 
-			e.depth						= Double.valueOf(depth				.getText());
 			e.junction_size				= Integer.valueOf(junction_size		.getText());
 			e.dopant_smoothing_distance	= Integer.valueOf(dopant_smoothing_distance		.getText());
 
