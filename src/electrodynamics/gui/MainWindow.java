@@ -6,69 +6,14 @@ package electrodynamics.gui;
 import java.awt.Adjustable;
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.EventQueue;
-
-import javax.swing.JFrame;
-import javax.swing.JPanel;
-import javax.swing.JRadioButtonMenuItem;
-import javax.swing.border.EmptyBorder;
-
-import electrodynamics.Controls.Brush;
-import electrodynamics.Controls.BrushShape;
-import electrodynamics.Controls.CustProbeType;
-import electrodynamics.BuildFlags;
-import electrodynamics.Controls;
-import electrodynamics.MaterialType;
-import electrodynamics.Renderer;
-import electrodynamics.SemiSim;
-import electrodynamics.Simulation;
-import electrodynamics.Renderer.RenderMode;
-import electrodynamics.Renderer.ScalarMode;
-import electrodynamics.Renderer.ScalarView;
-import electrodynamics.Renderer.VectorMode;
-import electrodynamics.Renderer.VectorView;
-import electrodynamics.Simulation.BoundaryCondition;
-import electrodynamics.gui.MainWindow.CustJCheckBoxMenuItem;
-import electrodynamics.util.OctahedralAction.OctahedralGenerator;
-
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JCheckBoxMenuItem;
-import javax.swing.JScrollBar;
+import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.Insets;
+import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ComponentEvent;
 import java.awt.event.ComponentListener;
-import java.awt.event.ActionEvent;
-import javax.swing.JComboBox;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JList;
-import javax.imageio.ImageIO;
-import javax.swing.AbstractAction;
-import javax.swing.AbstractButton;
-import javax.swing.DefaultComboBoxModel;
-import javax.swing.InputMap;
-
-import java.awt.Dimension;
-import javax.swing.JToggleButton;
-import javax.swing.ListCellRenderer;
-import javax.swing.JTextPane;
-import javax.swing.JEditorPane;
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
-import javax.swing.ScrollPaneConstants;
-import javax.swing.UIManager;
-import javax.swing.WindowConstants;
-
-import java.awt.Insets;
-import java.awt.Font;
-import java.awt.GridLayout;
-
-import javax.swing.JMenuBar;
-import javax.swing.JMenu;
-import javax.swing.JMenuItem;
-import javax.swing.JSeparator;
-import javax.swing.KeyStroke;
+import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
@@ -78,7 +23,48 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.awt.event.InputEvent;
+
+import javax.imageio.ImageIO;
+import javax.swing.AbstractAction;
+import javax.swing.AbstractButton;
+import javax.swing.DefaultComboBoxModel;
+import javax.swing.InputMap;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JCheckBoxMenuItem;
+import javax.swing.JComboBox;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JPanel;
+import javax.swing.JRadioButtonMenuItem;
+import javax.swing.JScrollBar;
+import javax.swing.JScrollPane;
+import javax.swing.JSeparator;
+import javax.swing.JTextArea;
+import javax.swing.KeyStroke;
+import javax.swing.ScrollPaneConstants;
+import javax.swing.UIManager;
+import javax.swing.WindowConstants;
+import javax.swing.border.EmptyBorder;
+
+import electrodynamics.BuildFlags;
+import electrodynamics.Controls;
+import electrodynamics.Controls.Brush;
+import electrodynamics.Controls.BrushShape;
+import electrodynamics.Controls.CustProbeType;
+import electrodynamics.MaterialType;
+import electrodynamics.Renderer.RenderMode;
+import electrodynamics.Renderer.ScalarMode;
+import electrodynamics.Renderer.ScalarView;
+import electrodynamics.Renderer.VectorMode;
+import electrodynamics.Renderer.VectorView;
+import electrodynamics.SemiSim;
+import electrodynamics.Simulation;
+import electrodynamics.Simulation.BoundaryCondition;
+import electrodynamics.util.OctahedralAction.OctahedralGenerator;
 
 public class MainWindow extends JFrame implements ComponentListener {
 
@@ -853,7 +839,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		e.controls.brushes.buttonmap.get(Controls.Brush.LINE).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_3, 0));
 		e.controls.brushes.buttonmap.get(Controls.Brush.FILL).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_4, 0));
 		e.controls.brushes.buttonmap.get(Controls.Brush.SELECT).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_5, 0));
-		e.controls.brushes.buttonmap.get(Controls.Brush.ZOOM).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_6, 0));
+		e.controls.brushes.buttonmap.get(Controls.Brush.CAMERA).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_6, 0));
 
 		e.controls.scalarmode.buttonmap.get(ScalarMode.NONE).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0));
 		e.controls.vectormode.buttonmap.get(VectorMode.NONE).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V, 0));

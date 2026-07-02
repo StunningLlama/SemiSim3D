@@ -68,6 +68,7 @@ public class SaveManager {
 	
 	public SaveManager(Simulation e) {
 		this.e = e;
+		startingpath = SemiSim.getUserFile("simulations").toPath();
 	}
 	
 
@@ -143,11 +144,10 @@ public class SaveManager {
 					while (fstr.hasNext()) {
 						String name = fstr.nextName();
 						switch (name){
-						case "resolution": e.default_resolution_x = fstr.nextInt(); e.default_resolution_y = e.default_resolution_x; break;
-						case "width": e.ds = fstr.nextDouble()/e.default_resolution_x; break;
-						case "nx": e.ds = e.default_resolution_x = fstr.nextInt(); break;
-						case "ny": e.ds = e.default_resolution_y = fstr.nextInt(); break;
-						case "ds": e.ds = e.ds = fstr.nextDouble(); break;
+						case "nx": e.default_resolution_x = fstr.nextInt(); break;
+						case "ny": e.default_resolution_y = fstr.nextInt(); break;
+						case "nz": e.default_resolution_z = fstr.nextInt(); break;
+						case "ds": e.ds = fstr.nextDouble(); break;
 						case "time": e.time = fstr.nextDouble(); break;
 						case "phase": e.AC_phase = fstr.nextDouble(); break;
 						case "description": e.description = fstr.nextString(); break;

@@ -105,11 +105,12 @@ public class Renderer extends PeriodicTask {
 	boolean slice_x = false;
 	boolean slice_y = false;
 	boolean slice_z = true;
-	float pitch = (float)Math.PI/6;
-	float yaw = (float)Math.PI/4;
-	float pitch_start = 0;
-	float yaw_start = 0;
+	float pitch = -(float)Math.PI/6;
+	float yaw = (float)(Math.PI*5/4);
     float scale = 24f;
+    float cam_x = 96*(float)Math.sqrt(3/2.0)/2;
+    float cam_y = 96*(float)Math.sqrt(3/2.0)/2;
+    float cam_z = 96/2;
 	boolean threeD_mode = true;
 	
 
@@ -838,7 +839,7 @@ public class Renderer extends PeriodicTask {
 							if (si >= 0 && sj >= 0 && sk >= 0 && si < e.nx && sj < e.ny && sk < e.nz && e.controls.selection.mat[si][sj][sk].m.type != MaterialType.VACUUM) {
 								setColor(e.controls.selection.mat[si][sj][sk].m.type.color_r, e.controls.selection.mat[si][sj][sk].m.type.color_g, e.controls.selection.mat[si][sj][sk].m.type.color_b);
 								setPixel(i, j, k);
-								translucent[i][j][k] |= e.controls.selection.mat[si][sj][sk].m.type != MaterialType.VACUUM;
+								translucent[i][j][k] = true;
 							}
 						}
 					}
@@ -853,7 +854,7 @@ public class Renderer extends PeriodicTask {
 							if (si >= 0 && sj >= 0 && sk >= 0 && si < e.nx && sj < e.ny && sk < e.nz && e.controls.selection.mat[si][sj][sk].m.type != MaterialType.VACUUM) {
 								setColor(e.controls.selection.mat[si][sj][sk].m.type.color_grayscale, e.controls.selection.mat[si][sj][sk].m.type.color_grayscale, e.controls.selection.mat[si][sj][sk].m.type.color_grayscale);
 								setPixel(i, j, k);
-								translucent[i][j][k] |= e.controls.selection.mat[si][sj][sk].m.type != MaterialType.VACUUM;
+								translucent[i][j][k] = true;
 							}
 						}
 					}
@@ -1077,6 +1078,8 @@ public class Renderer extends PeriodicTask {
 						setPixel(i, j, k);
 					}
 
+					translucent[i][j][k] |= e.controls.selected[i][j][k];
+					
 					if (e.controls.selected[i][j][k] || (showbrush && highlight && e.controls.under_brush[i][j][k]))
 					{
 						setalphaBG(0.75);
@@ -1128,7 +1131,7 @@ public class Renderer extends PeriodicTask {
 		setalphaFG(1);
 		setColorFloat(0.7f, 0.7f, 0.7f);
 
-		if (Brush.drawLine(brush) && (e.controls.mouse_pressed_prev_left || e.controls.mouse_pressed_prev_right)) {
+		if (Brush.drawLine(brush) && (e.controls.activated_prev_left || e.controls.activated_prev_right)) {
 			drawPixelLine(e.controls.mx_start, e.controls.my_start, e.controls.mz_start, e.controls.mx, e.controls.my, e.controls.mz);
 		}
 

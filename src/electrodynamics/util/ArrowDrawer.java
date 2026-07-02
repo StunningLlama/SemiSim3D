@@ -4,8 +4,6 @@ import java.awt.Graphics2D;
 
 import com.jogamp.opengl.GL2;
 
-import electrodynamics.Renderer;
-
 public class ArrowDrawer {
 	private static Vector3 ctr3 = new Vector3(0,0,0);
 	private static Vector3 arrow3 = new Vector3(0,0,0);

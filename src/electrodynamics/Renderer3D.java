@@ -49,6 +49,7 @@ public class Renderer3D implements GLEventListener {
     int width;
     int height;
     boolean isMainCanvas = false;
+    boolean isOrtho = false;
     Random rand = new Random();
     
     TextRenderer smallFont;
@@ -107,7 +108,7 @@ public class Renderer3D implements GLEventListener {
     		e.renderer.drawOverlay(false);
 
     		if (isMainCanvas && e.opts.gui_rotate.isSelected()) {
-    			e.renderer.yaw += 1f/e.renderer.targetframerate;
+    			e.controls.rotateView(1f/e.renderer.targetframerate, 0);
     		}
     		
     		GL2 gl = drawable.getGL().getGL2();
@@ -202,8 +203,9 @@ public class Renderer3D implements GLEventListener {
 
     public void setupProjectionMat(GL2 gl) {
         RenderMode mode = e.controls.rendermode.getOption();
+        isOrtho = RenderMode.isOrthographic(mode);
         
-        if (RenderMode.isOrthographic(mode))
+        if (isOrtho)
         	gl.glOrtho(-e.renderer.scale * aspect, e.renderer.scale * aspect, -e.renderer.scale, e.renderer.scale, 0, 128);
         else if (RenderMode.isPerspective(mode))
         	gl.glFrustum(-0.01*e.renderer.scale * aspect, 0.01*e.renderer.scale * aspect, -0.01*e.renderer.scale, 0.01*e.renderer.scale, 0.01*64, 4*64);
@@ -216,27 +218,27 @@ public class Renderer3D implements GLEventListener {
 
     	g.x = Math.cos(e.renderer.yaw)*Math.cos(e.renderer.pitch);
     	g.y = Math.sin(e.renderer.yaw)*Math.cos(e.renderer.pitch);
-    	g.z = -Math.sin(e.renderer.pitch);
+    	g.z = Math.sin(e.renderer.pitch);
     	
-        gl.glTranslatef(48, 0, 0);
+        //gl.glTranslatef(48, 0, 0);
         gl.glRotatef(-eye_offset, 0.0f, 0.0f, 1.0f);
-        gl.glRotatef(-e.renderer.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
+        gl.glRotatef(e.renderer.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
         gl.glRotatef(-e.renderer.yaw*(float)(180/Math.PI), 0.0f, 0.0f, 1.0f);
-        gl.glTranslatef(-e.nx/2, -e.ny/2, -e.nz/2);
+        gl.glTranslatef(-e.renderer.cam_x, -e.renderer.cam_y, -e.renderer.cam_z);
     }
     
     public void setupText(GL2 gl, float x, float y, float z) {
 		gl.glMatrixMode(GL2.GL_MODELVIEW);
 		gl.glLoadIdentity();
-        gl.glTranslatef(48, 0, 0);
+        //gl.glTranslatef(48, 0, 0);
         gl.glRotatef(-eye_offset, 0.0f, 0.0f, 1.0f);
-        gl.glRotatef(-e.renderer.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
+        gl.glRotatef(e.renderer.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
         gl.glRotatef(-e.renderer.yaw*(float)(180/Math.PI), 0.0f, 0.0f, 1.0f);
-        gl.glTranslatef(-e.nx/2, -e.ny/2, -e.nz/2);
+        gl.glTranslatef(-e.renderer.cam_x, -e.renderer.cam_y, -e.renderer.cam_z);
 
         gl.glTranslatef(x, y, z);
         gl.glRotatef(e.renderer.yaw*(float)(180/Math.PI), 0.0f, 0.0f, 1.0f);
-        gl.glRotatef(e.renderer.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
+        gl.glRotatef(-e.renderer.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
         gl.glRotatef(eye_offset, 0.0f, 0.0f, 1.0f);
         gl.glRotatef((float)(90), 1.0f, 0.0f, 0.0f);
         gl.glRotatef((float)(-90), 0.0f, 1.0f, 0.0f);
@@ -273,7 +275,7 @@ public class Renderer3D implements GLEventListener {
         			&& i+di >= 0 && i + di < e.nx
         			&& j+dj >= 0 && j + dj < e.ny
         			&& k+dk >= 0 && k + dk < e.nz) {
-        				if (e.materials[i][j][k].type == MaterialType.ABSORBER  && di*g.x + dj*g.y + dk*g.z > 0)
+        				if (e.materials[i][j][k].type == MaterialType.ABSORBER && !surfVisible(i, j, k, di, dj, dk))
         					continue;
 
         				if (e.renderer.opaque[i][j][k] && !e.renderer.opaque[i+di][j+dj][k+dk]) {
@@ -340,7 +342,7 @@ public class Renderer3D implements GLEventListener {
         			&& i+di >= 0 && i + di < e.nx
         			&& j+dj >= 0 && j + dj < e.ny
         			&& k+dk >= 0 && k + dk < e.nz) {
-        				if (di*g.x + dj*g.y + dk*g.z > 0)
+        				if (!surfVisible(i, j, k, di, dj, dk))
         					continue;
 
         				if (e.renderer.translucent[i][j][k] && !e.renderer.translucent[i+di][j+dj][k+dk]) {
@@ -654,8 +656,6 @@ public class Renderer3D implements GLEventListener {
 				if (text.is3D) {
 					setupText(gl, text.x+0.5f, text.y+0.5f, text.z+0.5f);
 		    		bigFont.begin3DRendering();
-					bigFont.setColor(Color.BLACK);
-					bigFont.draw3D(text.text, text.x+0.5f-0.15f, text.y+0.5f-0.15f, text.z+0.5f-0.01f, 0.08f);
 					bigFont.setColor(Color.WHITE);
 					bigFont.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, 0.08f);
 		    		bigFont.end3DRendering();
@@ -668,8 +668,6 @@ public class Renderer3D implements GLEventListener {
 				if (text.is3D) {
 					setupText(gl, text.x+0.5f, text.y+0.5f, text.z+0.5f);
 		    		smallFont.begin3DRendering();
-					smallFont.setColor(Color.BLACK);
-					smallFont.draw3D(text.text, text.x+0.5f-0.15f, text.y+0.5f-0.15f, text.z+0.5f-0.01f, 0.08f);
 					smallFont.setColor(Color.WHITE);
 					smallFont.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, 0.08f);
 		    		smallFont.end3DRendering();
@@ -684,8 +682,6 @@ public class Renderer3D implements GLEventListener {
 				if (text.is3D) {
 					setupText(gl, text.x+0.5f, text.y+0.5f, text.z+0.5f);
 		    		bigFont.begin3DRendering();
-					bigFont.setColor(Color.BLACK);
-					bigFont.draw3D(text.text, text.x+0.5f-0.15f, text.y+0.5f-0.15f, text.z+0.5f-0.01f, 0.08f);
 					bigFont.setColor(Color.WHITE);
 					bigFont.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, 0.08f);
 		    		bigFont.end3DRendering();
@@ -698,8 +694,6 @@ public class Renderer3D implements GLEventListener {
 				if (text.is3D) {
 					setupText(gl, text.x+0.5f, text.y+0.5f, text.z+0.5f);
 		    		smallFont.begin3DRendering();
-					smallFont.setColor(Color.BLACK);
-					smallFont.draw3D(text.text, text.x+0.5f-0.15f, text.y+0.5f-0.15f, text.z+0.5f-0.01f, 0.08f);
 					smallFont.setColor(Color.WHITE);
 					smallFont.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, 0.08f);
 		    		smallFont.end3DRendering();
@@ -842,6 +836,13 @@ public class Renderer3D implements GLEventListener {
 		gl.glVertex3f(i2, j2, k2);
     }
     
+    public boolean surfVisible(float x, float y, float z, float nx, float ny, float nz) {
+    	if (isOrtho)
+        	return nx*g.x + ny*g.y + nz*g.z <= 0;
+    	else
+    		return nx*(x - e.renderer.cam_x) + ny*(y - e.renderer.cam_y) + nz*(z - e.renderer.cam_z) <= 0;
+    }
+    
     public int packCoords(int i, int j, int k, int di, int dj, int dk) {
     	int di_tmp = (di+1);
     	int dj_tmp = (dj+1);
@@ -881,7 +882,7 @@ public class Renderer3D implements GLEventListener {
         			&& i+di >= 0 && i + di < e.nx
         			&& j+dj >= 0 && j + dj < e.ny
         			&& k+dk >= 0 && k + dk < e.nz) {
-    				if (di*g.x + dj*g.y + dk*g.z > 0)
+    				if (!surfVisible(i, j, k, di, dj, dk))
     					continue;
     				
         			if (e.renderer.solid[i][j][k] && !e.renderer.solid[i+di][j+dj][k+dk]) {

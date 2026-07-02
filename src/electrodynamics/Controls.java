@@ -128,18 +128,21 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	/* Mouse controls */
 
 	PointerInfo pointerinfo = MouseInfo.getPointerInfo();
-	public boolean mouse_pressed_left = false;
-	public boolean mouse_pressed_prev_left = false;
+	public boolean pressed_left = false;
+	public boolean activated_left = false;
+	public boolean activated_prev_left = false;
 	public boolean pressing_left = false;
 	public boolean releasing_left = false;
 
-	public boolean mouse_pressed_middle = false;
-	public boolean mouse_pressed_prev_middle = false;
+	public boolean pressed_middle = false;
+	public boolean activated_middle = false;
+	public boolean activated_prev_middle = false;
 	public boolean pressing_middle = false;
 	public boolean releasing_middle = false;
 
-	public boolean mouse_pressed_right = false;
-	public boolean mouse_pressed_prev_right = false;
+	public boolean pressed_right = false;
+	public boolean activated_right = false;
+	public boolean activated_prev_right = false;
 	public boolean pressing_right = false;
 	public boolean releasing_right = false;
 
@@ -152,6 +155,8 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	//public int mousebutton = 0;
 	public int mx_screen = 0;
 	public int my_screen = 0;
+	public int mx_prev_screen = 0;
+	public int my_prev_screen = 0;
 	public int mx_start_screen = 0;
 	public int my_start_screen = 0;
 	public int mx_3d = 0;
@@ -185,6 +190,8 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	public int zoom_i2_pan = 0;
 	public int zoom_j2_pan = 0;
 	public boolean zoomed = false;
+	
+	public boolean looking = false;
 
 	public boolean EMF_selected = false;
 
@@ -259,45 +266,48 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	}
 
 	public void transformMouseCoords() {
+		activated_left = pressed_left || Keyboard.isKeyPressed(KeyEvent.VK_ENTER);
 		pressing_left = false;
 		releasing_left = false;
-		if (mouse_pressed_left) {
-			if (!mouse_pressed_prev_left) {
+		if (activated_left) {
+			if (!activated_prev_left) {
 				pressing_left = true;
 			}
 		} else {
-			if (mouse_pressed_prev_left) {
+			if (activated_prev_left) {
 				releasing_left = true;
 			}
 		}
-		mouse_pressed_prev_left = mouse_pressed_left;
+		activated_prev_left = activated_left;
 
 
+		activated_right = pressed_right;
 		pressing_right = false;
 		releasing_right = false;
-		if (mouse_pressed_right) {
-			if (!mouse_pressed_prev_right) {
+		if (activated_right) {
+			if (!activated_prev_right) {
 				pressing_right = true;
 			}
 		} else {
-			if (mouse_pressed_prev_right) {
+			if (activated_prev_right) {
 				releasing_right = true;
 			}
 		}
-		mouse_pressed_prev_right = mouse_pressed_right;
+		activated_prev_right = activated_right;
 
+		activated_middle = pressed_middle;
 		pressing_middle = false;
 		releasing_middle = false;
-		if (mouse_pressed_middle) {
-			if (!mouse_pressed_prev_middle) {
+		if (activated_middle) {
+			if (!activated_prev_middle) {
 				pressing_middle = true;
 			}
 		} else {
-			if (mouse_pressed_prev_middle) {
+			if (activated_prev_middle) {
 				releasing_middle = true;
 			}
 		}
-		mouse_pressed_prev_middle = mouse_pressed_middle;
+		activated_prev_middle = activated_middle;
 
 		if (!e.renderer.threeD_mode) {
 
@@ -343,7 +353,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 			mz_start = mz_3d_start;
 		}
 
-		if (alt_down && (mouse_pressed_left || releasing_left || mouse_pressed_right || releasing_right))
+		if (alt_down && (activated_left || releasing_left || activated_right || releasing_right))
 			snapToCardinals(mx, my, mz);
 
 		if (mx < 0) mx = 0;
@@ -606,6 +616,10 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 				}
 			}
 		}
+		
+		if (brush != Brush.CAMERA) {
+			looking = false;
+		}
 
 		shift_down = Keyboard.isKeyPressed(KeyEvent.VK_SHIFT);
 		alt_down = Keyboard.isKeyPressed(KeyEvent.VK_ALT);
@@ -619,19 +633,11 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		case FILL:
 		case LIGHT:
 			
-			if (pressing_middle) {
-				e.renderer.pitch_start =  e.renderer.pitch;
-				e.renderer.yaw_start = e.renderer.yaw;
-
-				break;
-			}  else if (mouse_pressed_middle) {
-				e.renderer.pitch = e.renderer.pitch_start + 2*(float)(my_screen - my_start_screen)/e.renderer.imgpanel.getHeight();
-				e.renderer.yaw = e.renderer.yaw_start - 2*(float)(mx_screen - mx_start_screen)/e.renderer.imgpanel.getWidth();
-
-				if (e.renderer.pitch > Math.PI/2) e.renderer.pitch = (float)Math.PI/2;
-				if (e.renderer.pitch < -Math.PI/2) e.renderer.pitch = -(float)Math.PI/2;
-
-				break;
+			if (activated_middle) {
+				float thetascale = 2/(float)e.renderer.imgpanel.getHeight();
+				float phiscale = 2/(float)e.renderer.imgpanel.getWidth();
+				
+				rotateView((mx_screen - mx_prev_screen)*phiscale, (my_screen - my_prev_screen)*thetascale);
 			}
 
 			boolean mouse_moved = !(mx_screen-mx_start_screen == 0 && my_screen-my_start_screen == 0);
@@ -676,11 +682,11 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 			}
 
 
-			if (mouse_pressed_right || releasing_right || brush == Brush.ERASE)
+			if (activated_right || releasing_right || brush == Brush.ERASE)
 				mat = GeneralMaterialType.EMPTY;
 
 
-			if (!(mouse_pressed_middle || alt_down && !mouse_moved)) {
+			if (!(activated_middle || alt_down && !mouse_moved)) {
 				if (brush == Brush.LINE) {
 					if (releasing_left || releasing_right) {
 						GeneralMaterialType final_mat = mat;
@@ -724,7 +730,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 						}
 					}
 				} else if (brush == Brush.LIGHT) {
-					if (mouse_pressed_left) {
+					if (activated_left) {
 						applyBrush(mxp, myp, mzp, mx, my, mz, brushshape, brushsize, new BrushAction() {
 							@Override
 							public void perform(int i, int j, int k, boolean in_bounds) {
@@ -746,7 +752,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 					}
 				}
 				else {
-					if (mouse_pressed_left || mouse_pressed_right) {
+					if (activated_left || activated_right) {
 						GeneralMaterialType final_mat = mat;
 						applyBrush(mxp, myp, mzp, mx, my, mz, brushshape, brushsize, new BrushAction() {
 							@Override
@@ -844,52 +850,66 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 
 					updatematerials = true;
 				}
-
-				e.renderer.pitch_start =  e.renderer.pitch;
-				e.renderer.yaw_start = e.renderer.yaw;
-			} else if (mouse_pressed_left) {
-				e.renderer.pitch = e.renderer.pitch_start + 2*(float)(my_screen - my_start_screen)/e.renderer.imgpanel.getHeight();
-				e.renderer.yaw = e.renderer.yaw_start - 2*(float)(mx_screen - mx_start_screen)/e.renderer.imgpanel.getWidth();
-
-				if (e.renderer.pitch > Math.PI/2) e.renderer.pitch = (float)Math.PI/2;
-				if (e.renderer.pitch < -Math.PI/2) e.renderer.pitch = -(float)Math.PI/2;
+			} else if (activated_left) {
+				float thetascale = 2/(float)e.renderer.imgpanel.getHeight();
+				float phiscale = 2/(float)e.renderer.imgpanel.getWidth();
+				
+				rotateView((mx_screen - mx_prev_screen)*phiscale, (my_screen - my_prev_screen)*thetascale);
 			}
 			break;
-		case ZOOM:
-			if (pressing_left && shift_down || pressing_middle) {
-				/*zoom_i1_pan = zoom_i1;
-				zoom_j1_pan = zoom_j1;
-				zoom_k1_pan = zoom_k1;
-				zoom_i2_pan = zoom_i2;
-				zoom_j2_pan = zoom_j2;
-				zoom_k2_pan = zoom_k2;*/
-			} else if (mouse_pressed_left && shift_down || mouse_pressed_middle) {
-				/*double sf_x = (zoom_i2_pan-zoom_i1_pan+1)/(double)e.canvas.zoom_bound_x;
-				double sf_y = (zoom_j2_pan-zoom_j1_pan+1)/(double)e.canvas.zoom_bound_y;
-
-				int mx_tmp = (int)Math.round(zoom_i1_pan + (mx_screen-e.canvas.offset_x - 1)*sf_x - 0.5);
-				int my_tmp = (int)Math.round(zoom_j1_pan + (my_screen-e.canvas.offset_y - 2)*sf_y - 0.5);
-
-				int mx_start_tmp = (int)Math.round(zoom_i1_pan + (mx_start_screen-e.canvas.offset_x - 1)*sf_x - 0.5);
-				int my_start_tmp = (int)Math.round(zoom_j1_pan + (my_start_screen-e.canvas.offset_y - 2)*sf_y - 0.5);
-
-				zoom_i1 = zoom_i1_pan - (mx_tmp - mx_start_tmp);
-				zoom_j1 = zoom_j1_pan - (my_tmp - my_start_tmp);
-				zoom_i2 = zoom_i2_pan - (mx_tmp - mx_start_tmp);
-				zoom_j2 = zoom_j2_pan - (my_tmp - my_start_tmp);*/
-				//TODO
+		case CAMERA:
+			double nx = Math.cos(e.renderer.yaw)*Math.cos(e.renderer.pitch);
+			double ny = Math.sin(e.renderer.yaw)*Math.cos(e.renderer.pitch);
+			double movefactor = 32/e.renderer.targetframerate;
+			double lookfactor = 1/e.renderer.targetframerate;
+			
+			if (Keyboard.isKeyPressed(KeyEvent.VK_W)) {
+				e.renderer.cam_x += nx*movefactor;
+				e.renderer.cam_y += ny*movefactor;
 			}
+			if (Keyboard.isKeyPressed(KeyEvent.VK_S)) {
+				e.renderer.cam_x -= nx*movefactor;
+				e.renderer.cam_y -= ny*movefactor;
+			}
+			if (Keyboard.isKeyPressed(KeyEvent.VK_A)) {
+				e.renderer.cam_x -= ny*movefactor;
+				e.renderer.cam_y += nx*movefactor;
+			}
+			if (Keyboard.isKeyPressed(KeyEvent.VK_D)) {
+				e.renderer.cam_x += ny*movefactor;
+				e.renderer.cam_y -= nx*movefactor;
+			}
+			if (Keyboard.isKeyPressed(KeyEvent.VK_Q)) {
+				e.renderer.cam_z -= 1*movefactor;
+			}
+			if (Keyboard.isKeyPressed(KeyEvent.VK_E)) {
+				e.renderer.cam_z += 1*movefactor;
+			}
+			
+			if (Keyboard.isKeyPressed(KeyEvent.VK_LEFT)) {
+				rotateCamera(lookfactor, 0);
+			}
+			if (Keyboard.isKeyPressed(KeyEvent.VK_RIGHT)) {
+				rotateCamera(-lookfactor, 0);
+			}
+			if (Keyboard.isKeyPressed(KeyEvent.VK_UP)) {
+				rotateCamera(0, lookfactor);
+			}
+			if (Keyboard.isKeyPressed(KeyEvent.VK_DOWN)) {
+				rotateCamera(0, -lookfactor);
+			}
+			
+			float thetascale = 2/(float)e.renderer.imgpanel.getHeight();
+			float phiscale = 2/(float)e.renderer.imgpanel.getWidth();
 
-			if (releasing_left && !shift_down) {
-				if (mx == mx_start && my == my_start) {
-					resetZoom();
-				} else {
-					zoom_i1 = Math.min(mx_start, mx);
-					zoom_j1 = Math.min(my_start, my);
-					zoom_i2 = Math.max(mx_start, mx);
-					zoom_j2 = Math.max(my_start, my);
-					zoomed = true;
-				}
+			if (releasing_left && mx_screen == mx_start_screen && my_screen == my_start_screen) {
+				looking = !looking;
+			}
+			if (looking) {
+				currentCursor = this.BLANK_CURSOR;
+				rotateCamera(-(mx_screen - mx_prev_screen)*phiscale, -(my_screen - my_prev_screen)*thetascale);
+			} else if (!looking && activated_left) {
+				rotateCamera((mx_screen - mx_prev_screen)*phiscale, (my_screen - my_prev_screen)*thetascale);
 			}
 			break;
 		case FLOODSELECT:
@@ -924,7 +944,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 					delta_my = 0;
 					delta_mz = 0;
 				}
-			} else if (mouse_pressed_left) {
+			} else if (activated_left) {
 				if (brush != Brush.FLOODSELECT) {
 					if (dragging_selection) {
 						delta_mx = mx - mx_start;
@@ -993,7 +1013,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 				CurrentProbe p = new CurrentProbe(mx_start, my_start, mz_start);
 				p.name = e.getProbeName(); e.probe_index++;
 				e.addProbe(p);
-			} else if (mouse_pressed_left) {
+			} else if (activated_left) {
 				e.probes.get(e.probes.size()-1).drag(mx, my, mz);
 			} else if (releasing_left) {
 				flagChanges(false);
@@ -1004,7 +1024,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 				VoltageProbe p = new VoltageProbe(mx_start, my_start, mz_start);
 				p.name = e.getProbeName(); e.probe_index++;
 				e.addProbe(p);
-			} else if (mouse_pressed_left) {
+			} else if (activated_left) {
 				e.probes.get(e.probes.size()-1).drag(mx, my, mz);
 			} else if (releasing_left) {
 				flagChanges(false);
@@ -1015,7 +1035,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 				ChargeProbe p = new ChargeProbe(mx_start, my_start, mz_start);
 				p.name = e.getProbeName(); e.probe_index++;
 				e.addProbe(p);
-			} else if (mouse_pressed_left) {
+			} else if (activated_left) {
 				e.probes.get(e.probes.size()-1).drag(mx, my, mz);
 			} else if (releasing_left) {
 				flagChanges(false);
@@ -1026,7 +1046,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 				FluxProbe p = new FluxProbe(mx_start, my_start, mz_start);
 				p.name = e.getProbeName(); e.probe_index++;
 				e.addProbe(p);
-			} else if (mouse_pressed_left) {
+			} else if (activated_left) {
 				e.probes.get(e.probes.size()-1).drag(mx, my, mz);
 			} else if (releasing_left) {
 				flagChanges(false);
@@ -1052,7 +1072,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 					p.name = e.getProbeName(); e.probe_index++;
 					e.addProbe(p);
 				}
-			} else if (mouse_pressed_left) {
+			} else if (activated_left) {
 				Probe p = e.probes.get(e.probes.size()-1);
 				if (p != null) {
 					p.drag(mx, my, mz);
@@ -1166,7 +1186,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 
 				if (coord != null)
 					labelcoord = coord;
-			} else if (mouse_pressed_left) {
+			} else if (activated_left) {
 				if (labelcoord != null) {
 					labelcoord.x = mx;
 					labelcoord.y = my;
@@ -1186,7 +1206,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 			break;
 		case TEXT:
 			currentCursor = TEXT_CURSOR;
-			if (mouse_pressed_left) {
+			if (activated_left) {
 				startTextInput();
 				text_x = mx;
 				text_y = my-3;
@@ -1198,7 +1218,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 					Ground ground = new Ground(mx_start, my_start, mz_start);
 					e.addProbe(ground);
 				}
-			} else if (mouse_pressed_left) {
+			} else if (activated_left) {
 				e.getGround().drag(mx, my, mz);
 			} else if (releasing_left) {
 				flagChanges(false);
@@ -1219,7 +1239,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 					p.z2 = mz_start;
 					p.calculateDefaultLabelCoords();
 				}
-			} else if (mouse_pressed_left) {
+			} else if (activated_left) {
 				e.getRuler().drag(mx, my, mz);
 			} else if (releasing_left) {
 				Ruler p = e.getRuler();
@@ -1297,11 +1317,53 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		mxp = mx;
 		myp = my;
 		mzp = mz;
+
+		mx_prev_screen = mx_screen;
+		my_prev_screen = my_screen;
+	}
+	
+	public void rotateCamera(double dphi, double dtheta) {
+		e.renderer.pitch += (float)dtheta;
+		e.renderer.yaw += (float)dphi;
+
+		if (e.renderer.pitch > Math.PI/2) e.renderer.pitch = (float)Math.PI/2;
+		if (e.renderer.pitch < -Math.PI/2) e.renderer.pitch = -(float)Math.PI/2;
+
+	}
+	
+	public void rotateView(double dphi, double dtheta) {
+		e.renderer.pitch -= (float)dtheta;
+		e.renderer.yaw -= (float)dphi;
+
+		if (e.renderer.pitch > Math.PI/2) e.renderer.pitch = (float)Math.PI/2;
+		if (e.renderer.pitch < -Math.PI/2) e.renderer.pitch = -(float)Math.PI/2;
+
+		double x = e.renderer.cam_x - e.nx/2.0;
+		double y = e.renderer.cam_y - e.ny/2.0;		
+		double z = e.renderer.cam_z - e.nz/2.0;
+		
+		double r = Math.sqrt(x*x+y*y+z*z);
+		double theta = Math.asin(z/r);
+		double phi = Math.atan2(y, x);
+
+		theta += (float)dtheta;
+		phi -= (float)dphi;
+
+		if (theta > Math.PI/2) theta = (float)Math.PI/2;
+		if (theta < -Math.PI/2) theta = -(float)Math.PI/2;
+
+		double xp = r*Math.cos(phi)*Math.cos(theta);
+		double yp = r*Math.sin(phi)*Math.cos(theta);
+		double zp = r*Math.sin(theta);
+		
+		e.renderer.cam_x = (float)(e.nx/2.0 + xp);
+		e.renderer.cam_y = (float)(e.ny/2.0 + yp);
+		e.renderer.cam_z = (float)(e.nz/2.0 + zp);
 	}
 
 	public void createPath() {
 		if (plotpath == null) {
-			if (mouse_pressed_left) {
+			if (activated_left) {
 				if (mx_start != mx || my_start != my || mz_start != mz) {
 					plotpath = new LinePath();
 					((LinePath) plotpath).x1 = mx_start;
@@ -1318,7 +1380,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 				}
 			}
 		} else if (plotpath instanceof LinePath) {
-			if (mouse_pressed_left) {
+			if (activated_left) {
 				((LinePath) plotpath).x2 = mx;
 				((LinePath) plotpath).y2 = my;
 				((LinePath) plotpath).z2 = mz;
@@ -1708,11 +1770,11 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	@Override
 	public void mousePressed(MouseEvent ev) {
 		if (ev.getButton() == MouseEvent.BUTTON1) {
-			mouse_pressed_left = true;
+			pressed_left = true;
 		} else if (ev.getButton() == MouseEvent.BUTTON3) {
-			mouse_pressed_right = true;
+			pressed_right = true;
 		} else if (ev.getButton() == MouseEvent.BUTTON2) {
-			mouse_pressed_middle = true;
+			pressed_middle = true;
 		};
 		mx_screen = ev.getX();
 		my_screen = ev.getY();
@@ -1734,11 +1796,11 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	@Override
 	public void mouseReleased(MouseEvent ev) {
 		if (ev.getButton() == MouseEvent.BUTTON1) {
-			mouse_pressed_left = false;
+			pressed_left = false;
 		} else if (ev.getButton() == MouseEvent.BUTTON3) {
-			mouse_pressed_right = false;
+			pressed_right = false;
 		} else if (ev.getButton() == MouseEvent.BUTTON2) {
-			mouse_pressed_middle = false;
+			pressed_middle = false;
 		}
 
 		update3dCursor = true;
@@ -1751,14 +1813,14 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		
 		update3dCursor = true;
 	}
+	
+    @Override
+    public void mouseMoved(MouseEvent arg0) {
+    	mx_screen = arg0.getX();
+    	my_screen = arg0.getY();
 
-	@Override
-	public void mouseMoved(MouseEvent arg0) {
-		mx_screen = arg0.getX();
-		my_screen = arg0.getY();
-		
-		update3dCursor = true;
-	}
+    	update3dCursor = true;
+    }
 
 	public void snapToCardinals(int mx, int my, int mz) {
 		int dx = mx - mx_start;
@@ -1867,7 +1929,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 				advanceframe = true;
 			}
 		});
-		addKeyBind(contentPane, KeyEvent.VK_D, 0, key_dbg);
+		addKeyBind(contentPane, KeyEvent.VK_DEAD_GRAVE, 0, key_dbg);
 		addKeyBind(contentPane, KeyEvent.VK_Q, 0, new AbstractAction(null) {
 			@Override
 			public void actionPerformed(ActionEvent ev) {
@@ -1952,7 +2014,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 				e.opts.menu_elem_colors.setSelected(!e.opts.menu_elem_colors.isSelected());
 			}
 		});
-		addKeyBind(contentPane, KeyEvent.VK_S, 0, new AbstractAction(null) {
+		addKeyBind(contentPane, KeyEvent.VK_L, 0, new AbstractAction(null) {
 			@Override
 			public void actionPerformed(ActionEvent ev) {
 				if (e.controls.scalarmode.getOption() == ScalarMode.NONE)
@@ -2033,7 +2095,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		addKeyBind(contentPane, KeyEvent.VK_6, 0, new AbstractAction(null) {
 			@Override
 			public void actionPerformed(ActionEvent ev) {
-				e.opts.gui_brush.setSelectedItem(Brush.ZOOM);
+				e.opts.gui_brush.setSelectedItem(Brush.CAMERA);
 			}
 		});
 		addKeyBind(contentPane, KeyEvent.VK_OPEN_BRACKET, 0, new AbstractAction(null) {
@@ -2062,6 +2124,78 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 				Steam.setAchievement("TEST");
 			}
 		});
+		addKeyBind(contentPane, KeyEvent.VK_ESCAPE, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				looking = false;
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_W, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				moveDir(1, 0, 0);
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_A, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				moveDir(0, -1, 0);
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_S, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				moveDir(-1, 0, 0);
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_D, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				moveDir(0, 1, 0);
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_Q, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				moveDir(0, 0, -1);
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_E, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				moveDir(0, 0, 1);
+			}
+		});
+		addKeyBind(contentPane, KeyEvent.VK_ENTER, 0, new AbstractAction(null) {
+			@Override
+			public void actionPerformed(ActionEvent ev) {
+				mx_3d_start = mx_3d;
+				my_3d_start = my_3d;
+				mz_3d_start = mz_3d;
+			}
+		});
+	}
+	
+	public void moveDir(int fwd, int left, int up) {
+
+		double x = Math.cos(e.renderer.yaw)*Math.cos(e.renderer.pitch);
+		double y = Math.sin(e.renderer.yaw)*Math.cos(e.renderer.pitch);
+		int fwd_x = 0;
+		int fwd_y = 0;
+		int left_x = 0;
+		int left_y = 0;
+		
+		if (Math.abs(x) > Math.abs(y)) {
+			fwd_x = (int)Math.signum(x);
+			left_y = -(int)Math.signum(x);
+		} else {
+			fwd_y = (int)Math.signum(y);
+			left_x = (int)Math.signum(y);
+		}
+		
+		mx_3d += fwd_x*fwd + left_x*left;
+		my_3d += fwd_y*fwd + left_y*left;
+		mz_3d += up;
 	}
 
 	public void takeScreenshot() {
@@ -2211,7 +2345,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	public enum Brush {
 		INTERACT("Interact"),
 		LIGHT("Flashlight"),
-		ZOOM("Zoom and Pan"),
+		CAMERA("Free move"),
 		DRAW("Draw"),
 		REPLACE("Replace"),
 		LINE("Line"),
@@ -2495,7 +2629,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		}
 
 		public void addImportantTools() {
-			Brush[] importanttools = {Brush.INTERACT, Brush.DRAW, Brush.SELECT, Brush.ZOOM};
+			Brush[] importanttools = {Brush.INTERACT, Brush.DRAW, Brush.SELECT, Brush.CAMERA};
 			for (Brush b : importanttools) {
 				JMenuItem newitem = new JMenuItem(b.toString());
 				newitem.setActionCommand(b.getClass().getName());

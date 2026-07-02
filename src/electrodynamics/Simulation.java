@@ -57,7 +57,6 @@ import electrodynamics.util.Utils;
 public class Simulation extends PeriodicTask {
 	//probe types
 	//screenshots
-	//Free camera mode (replace zoom/pan)
 	
 	/* Parts */
 	
@@ -109,6 +108,7 @@ public class Simulation extends PeriodicTask {
 	public double Hz_dissipation;
 	public double dt_maximum;
 	public int parity = -1;			// Negative sign resulting from flipped y-axis in graphics coordinate system
+	public int magnetic_absorption = 0;
 
 	public double time;
 	public double AC_phase;
@@ -491,6 +491,10 @@ public class Simulation extends PeriodicTask {
 	public double[][][] absorptivity_y;
 	public double[][][] absorptivity_z;
 
+	public double[][][] absorptivity_x_dual;
+	public double[][][] absorptivity_y_dual;
+	public double[][][] absorptivity_z_dual;
+
 	
 	/* Multigrid Poisson eq solver */
 
@@ -867,6 +871,7 @@ public class Simulation extends PeriodicTask {
 				ac_x = new int[nx][ny][nz];				ac_y = new int[nx][ny][nz];				ac_z = new int[nx][ny][nz];
 				absorptivity = new double[nx][ny][nz];
 				absorptivity_x = new double[nx][ny][nz]; absorptivity_y = new double[nx][ny][nz]; absorptivity_z = new double[nx][ny][nz];
+				absorptivity_x_dual = new double[nx][ny][nz]; absorptivity_y_dual = new double[nx][ny][nz]; absorptivity_z_dual = new double[nx][ny][nz];
 				emfx = new double[nx][ny][nz];			emfy = new double[nx][ny][nz];			emfz = new double[nx][ny][nz];
 				epsx = new double[nx][ny][nz];			epsy = new double[nx][ny][nz];			epsz = new double[nx][ny][nz];
 				mu_x = new double[nx][ny][nz];			mu_y = new double[nx][ny][nz];			mu_z = new double[nx][ny][nz];
@@ -962,6 +967,7 @@ public class Simulation extends PeriodicTask {
 
 							absorptivity[i][j][k] = 0;
 							absorptivity_x[i][j][k] = 0; absorptivity_y[i][j][k] = 0; absorptivity_z[i][j][k] = 0;
+							absorptivity_x_dual[i][j][k] = 0; absorptivity_y_dual[i][j][k] = 0; absorptivity_z_dual[i][j][k] = 0;
 
 							controls.selected[i][j][k] = false;
 							controls.selected_EMF[i][j][k] = false;
@@ -1176,6 +1182,10 @@ public class Simulation extends PeriodicTask {
 
 		int i_min;
 		int i_max;
+		int j_min;
+		int j_max;
+		int k_min;
+		int k_max;
 		int n_thread;
 
 		public SimulationThread(int n, int n_threads) {
@@ -1191,6 +1201,10 @@ public class Simulation extends PeriodicTask {
 
 					i_min = (n_thread*nx)/SemiSim.n_threads;
 					i_max = (n_thread+1)*nx/SemiSim.n_threads-1;
+					j_min = (n_thread*ny)/SemiSim.n_threads;
+					j_max = (n_thread+1)*ny/SemiSim.n_threads-1;
+					k_min = (n_thread*nz)/SemiSim.n_threads;
+					k_max = (n_thread+1)*nz/SemiSim.n_threads-1;
 
 					if (n_thread == 0) {
 						t6.start();
@@ -1258,6 +1272,8 @@ public class Simulation extends PeriodicTask {
 							}
 						}
 					}
+					
+					setB_Boundary();
 
 					mid_barrier.await();
 
@@ -1304,9 +1320,25 @@ public class Simulation extends PeriodicTask {
 							}
 						}
 					}
+					
+
+					/* Update charge carriers */
+					for (int i = 0; i < nx-1; i++)
+					{
+						if (i >= i_min && i <= i_max) {
+							for (int j = 0; j < ny-1; j++)
+							{
+								for (int k = 0; k < nz-1; k++)
+								{
+									//debug[i][j][k] = (Hx[i+1][j][k]-Hx[i][j][k] + Hy[i][j+1][k]-Hy[i][j][k] + Hz[i][j][k+1]-Hz[i][j][k])/ds;
+									debug[i][j][k] = (Bx[i+1][j+1][k+1]-Bx[i][j+1][k+1] + By[i+1][j+1][k+1]-By[i+1][j][k+1] + Bz[i+1][j+1][k+1]-Bz[i+1][j+1][k])/ds;
+								}
+							}
+						}
+					}
 
 					mid_barrier.await();
-					
+					//Hz_dissipation = 0;
 					
 					for (int i = 1; i < nx-1; i++)
 					{
@@ -1315,7 +1347,7 @@ public class Simulation extends PeriodicTask {
 							{
 								for (int k = 0; k < nz-1; k++)
 								{
-									double sigma = absorptivity[i][j][k]*mu_x[i][j][k]*absorbing_coeff;
+									double sigma = absorptivity_x_dual[i][j][k]*mu_x[i][j][k]*absorbing_coeff;
 									Hx[i][j][k] = (Hx[i][j][k]*(1-0.5*dt*sigma/mu_x[i][j][k]) + (-(Ez[i][j+1][k] - Ez[i][j][k]) + (Ey[i][j][k+1] - Ey[i][j][k]))*dt/(ds*mu_x[i][j][k])
 									+ Hz_dissipation*dt*Bx_laplacian[i][j][k]/mu_x[i][j][k])/(1+0.5*dt*sigma/mu_x[i][j][k]);
 
@@ -1332,7 +1364,7 @@ public class Simulation extends PeriodicTask {
 							{
 								for (int k = 0; k < nz-1; k++)
 								{
-									double sigma = absorptivity[i][j][k]*mu_y[i][j][k]*absorbing_coeff;
+									double sigma = absorptivity_y_dual[i][j][k]*mu_y[i][j][k]*absorbing_coeff;
 									Hy[i][j][k] = (Hy[i][j][k]*(1-0.5*dt*sigma/mu_y[i][j][k]) + (-(Ex[i][j][k+1] - Ex[i][j][k]) + (Ez[i+1][j][k] - Ez[i][j][k]))*dt/(ds*mu_y[i][j][k])
 									+ Hz_dissipation*dt*By_laplacian[i][j][k]/mu_y[i][j][k])/(1+0.5*dt*sigma/mu_y[i][j][k]);
 
@@ -1349,8 +1381,7 @@ public class Simulation extends PeriodicTask {
 							{
 								for (int k = 1; k < nz-1; k++)
 								{
-									//TODO absorptivity
-									double sigma = absorptivity[i][j][k]*mu_z[i][j][k]*absorbing_coeff;
+									double sigma = absorptivity_z_dual[i][j][k]*mu_z[i][j][k]*absorbing_coeff;
 									Hz[i][j][k] = (Hz[i][j][k]*(1-0.5*dt*sigma/mu_z[i][j][k]) + (-(Ey[i+1][j][k] - Ey[i][j][k]) + (Ex[i][j+1][k] - Ex[i][j][k]))*dt/(ds*mu_z[i][j][k])
 									+ Hz_dissipation*dt*Bz_laplacian[i][j][k]/mu_z[i][j][k])/(1+0.5*dt*sigma/mu_z[i][j][k]);
 
@@ -1409,6 +1440,56 @@ public class Simulation extends PeriodicTask {
 				}
 			} catch (InterruptedException | BrokenBarrierException e) {
 				e.printStackTrace();
+			}
+		}
+
+		public void setB_Boundary() {
+			for (int i = 1; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 0; j < ny-1; j++)
+					{
+						Bx[i][j+1][0] = Bx[i][j+1][1];
+						Bx[i][j+1][nz] = Bx[i][j+1][nz-1];
+					}
+					for (int k = 0; k < nz-1; k++)
+					{
+						Bx[i][0][k+1] = Bx[i][1][k+1];
+						Bx[i][ny][k+1] = Bx[i][ny-1][k+1];
+					}
+				}
+			}
+
+			for (int j = 1; j < ny-1; j++)
+			{
+				if (j >= j_min && j <= j_max) {
+					for (int i = 0; i < nx-1; i++)
+					{
+						By[i+1][j][0] = By[i+1][j][1];
+						By[i+1][j][nz] = By[i+1][j][nz-1];
+					}
+					for (int k = 0; k < nz-1; k++)
+					{
+						By[0][j][k+1] = By[1][j][k+1];
+						By[nx][j][k+1] = By[nx-1][j][k+1];
+					}
+				}
+			}
+
+			for (int k = 1; k < nz-1; k++)
+			{
+				if (k >= k_min && k <= k_max) {
+					for (int j = 0; j < ny-1; j++)
+					{
+						Bz[0][j+1][k] = Bz[1][j+1][k];
+						Bz[nx][j+1][k] = Bz[nx-1][j+1][k];
+					}
+					for (int i = 0; i < nx-1; i++)
+					{
+						Bz[i+1][0][k] = Bz[i+1][1][k];
+						Bz[i+1][ny][k] = Bz[i+1][ny-1][k];
+					}
+				}
 			}
 		}
 		
@@ -1772,11 +1853,11 @@ public class Simulation extends PeriodicTask {
 						Steam.setAchievement("CRASH");
 					}
 
-					if (rho_n[i][j][k] > 0 || rho_p[i][j][k] < -0) {
+					/*if (rho_n[i][j][k] > 0 || rho_p[i][j][k] < -0) {
 						debug[i][j][k] = 1;
 					} else {
 						debug[i][j][k] = 0;
-					}
+					}*/
 
 					if (-rho_n[i][j][k] > rho_n_max_tmp)
 						rho_n_max_tmp = -rho_n[i][j][k];
@@ -2587,7 +2668,7 @@ public class Simulation extends PeriodicTask {
 				for (int k = 0; k < nz-1; k++)
 				{
 					mu_x[i][j][k] = 0.25*mu0*(materials[i][j][k].mu_r+materials[i][j][k+1].mu_r+materials[i][j+1][k].mu_r+materials[i][j+1][k+1].mu_r);
-					//H_absorptivity_z[i][j][k] = 0*0.25*(materials[i][j][k].absorptivity+materials[i][j][k+1].absorptivity+materials[i][j+1][k].absorptivity+materials[i][j+1][k+1].absorptivity);
+					absorptivity_z_dual[i][j][k] = magnetic_absorption*0.25*(materials[i][j][k].absorptivity+materials[i][j][k+1].absorptivity+materials[i][j+1][k].absorptivity+materials[i][j+1][k+1].absorptivity);
 				}
 			}
 		}
@@ -2599,7 +2680,7 @@ public class Simulation extends PeriodicTask {
 				for (int k = 0; k < nz-1; k++)
 				{
 					mu_y[i][j][k] = 0.25*mu0*(materials[i][j][k].mu_r+materials[i+1][j][k].mu_r+materials[i][j][k+1].mu_r+materials[i+1][j][k+1].mu_r);
-					//H_absorptivity_y[i][j][k] = 0*0.25*(materials[i][j][k].absorptivity+materials[i+1][j][k].absorptivity+materials[i][j][k+1].absorptivity+materials[i+1][j][k+1].absorptivity);
+					absorptivity_y_dual[i][j][k] = magnetic_absorption*0.25*(materials[i][j][k].absorptivity+materials[i+1][j][k].absorptivity+materials[i][j][k+1].absorptivity+materials[i+1][j][k+1].absorptivity);
 				}
 			}
 		}
@@ -2611,7 +2692,7 @@ public class Simulation extends PeriodicTask {
 				for (int k = 0; k < nz; k++)
 				{
 					mu_z[i][j][k] = 0.25*mu0*(materials[i][j][k].mu_r+materials[i+1][j][k].mu_r+materials[i][j+1][k].mu_r+materials[i+1][j+1][k].mu_r);
-					//H_absorptivity_z[i][j][k] = 0*0.25*(materials[i][j][k].absorptivity+materials[i+1][j][k].absorptivity+materials[i][j+1][k].absorptivity+materials[i+1][j+1][k].absorptivity);
+					absorptivity_z_dual[i][j][k] = magnetic_absorption*0.25*(materials[i][j][k].absorptivity+materials[i+1][j][k].absorptivity+materials[i][j+1][k].absorptivity+materials[i+1][j+1][k].absorptivity);
 				}
 			}
 		}
