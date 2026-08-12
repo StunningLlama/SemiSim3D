@@ -202,4 +202,16 @@ public class VolumeProbe extends Probe {
 	public String getText(Units units) {
 		return shorthand + name + " = " + units.toString_fixedsigfigs(value, quantity);
 	}
+
+	@Override
+	public double getXcenter() {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public double getYcenter() {
+		// TODO Auto-generated method stub
+		return 0;
+	}
 }
