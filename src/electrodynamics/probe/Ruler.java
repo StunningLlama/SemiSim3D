@@ -1,3 +1,7 @@
+// Copyright (c) Brandon Li 2026
+// This file is part of Brandon's Semiconductor Simulator which is released under GNU GPL v3.0.
+// See LICENSE.txt for full license details.
+
 package electrodynamics.probe;
 
 import electrodynamics.Renderer;
@@ -27,10 +31,6 @@ public class Ruler extends LineProbe {
 		r.setalphaFG(0.3);
 		r.setColorFloat(1.0f, 0.8f, 0.5f);
 		r.drawPixelLine(x1, y1, z1, x2, y2, z2);
-		
-		r.setalphaFG(0.1);
-		r.setColorFloat(1.0f, 1.0f, 1.0f);
-		r.drawPixelLine((x1 + x2)/2, (y1+y2)/2, (z1+z2)/2, labelcoord.x, labelcoord.y, labelcoord.z);
 	}
 
 	@Override

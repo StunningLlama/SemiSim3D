@@ -136,10 +136,16 @@ public class PointProbe extends Probe {
 		r.setalphaFG(1.0);
 		r.setColorFloat(0.5f, 1.0f, 1.0f);
 		r.drawPixelRectangle(x-1, y-1, z-1, 3, 3, 3);
-		
-		r.setalphaFG(0.1);
-		r.setColorFloat(1.0f, 1.0f, 1.0f);
-		r.drawPixelLine(x, y, z, labelcoord.x, labelcoord.y, labelcoord.z);
+	}
+	
+	@Override
+	public double getXcenter() {
+		return x;
+	}
+
+	@Override
+	public double getYcenter() {
+		return y;
 	}
 
 	@Override

@@ -230,10 +230,16 @@ public class AreaProbe extends Probe {
 		r.setalphaFG(0.3);
 		r.setColorFloat(0.5f, 1.0f, 1.0f);
 		r.drawPixelRectangle(Math.min(x1,x2), Math.min(y1,y2), Math.min(z1,z2), Math.abs(x2-x1)+1, Math.abs(y2-y1)+1, Math.abs(z2-z1)+1);
-		
-		//r.setalphaFG(0.1);
-		//r.setColorFloat(1.0f, 1.0f, 1.0f);
-		//r.drawPixelLine((x1 + x2)/2, (y1+y2)/2, labelcoord.x, labelcoord.y);
+	}
+	
+	@Override
+	public double getXcenter() {
+		return 0.5*(x1+x2);
+	}
+
+	@Override
+	public double getYcenter() {
+		return 0.5*(y1+y2);
 	}
 
 	@Override

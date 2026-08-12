@@ -8,6 +8,8 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Image;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -27,6 +29,7 @@ import java.util.List;
 import javax.imageio.ImageIO;
 import javax.swing.AbstractAction;
 import javax.swing.AbstractButton;
+import javax.swing.BoxLayout;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.InputMap;
 import javax.swing.JButton;
@@ -122,6 +125,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 	public JMenuItem menu_open;
 	public JMenuItem menu_saveas;
 	public JMenuItem menu_about;
+	public JMenuItem menu_help3;
 	public JMenuItem menu_help;
 	public JMenuItem menu_cut;
 	public JMenuItem menu_copy;
@@ -140,6 +144,8 @@ public class MainWindow extends JFrame implements ComponentListener {
 	public JMenuItem menu_advancedsettings;
 	public JMenuItem menu_cust_material;
 	public JMenuItem menu_view_materials;
+	public JMenuItem menu_browse;
+	public JMenuItem menu_probearrows;
 	private JMenuItem menu_workshop;
 	private JMenuItem menu_load_workshop;
 	public JSeparator separator_3;
@@ -335,6 +341,10 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_axes = new CustJCheckBoxMenuItem("Show axes");
 		menu_axes.setSelected(true);
 		menu_graphics.add(menu_axes);
+		
+		menu_probearrows = new CustJCheckBoxMenuItem("Show current probe arrows");
+		menu_probearrows.setSelected(true);
+		menu_graphics.add(menu_probearrows);
 
 		JSeparator separator_4 = new JSeparator();
 		menu_graphics.add(separator_4);
@@ -362,6 +372,11 @@ public class MainWindow extends JFrame implements ComponentListener {
 
 		menu_examples = new JMenu("Examples");
 		menuBar.add(menu_examples);
+		
+		menu_browse = new JMenuItem("Browse all examples");
+		menu_examples.add(menu_browse);
+
+		menu_examples.add(new JSeparator());
 
 		menu_help2 = new JMenu("Help");
 		menuBar.add(menu_help2);
@@ -377,10 +392,13 @@ public class MainWindow extends JFrame implements ComponentListener {
 
 		menu_about = new JMenuItem("About...");
 		menu_help2.add(menu_about);
-		
+
+		menu_help3 = new JMenuItem("Quick reference...");
+		menu_help3.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F1, 0));
+		menu_help2.add(menu_help3);
 		
 		contentPane = new JPanel();
-		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
+		contentPane.setBorder(new EmptyBorder(0, 5, 5, 5));
 		contentPane.setLayout(new BorderLayout(0, 0));
 		setContentPane(contentPane);
 		
@@ -621,9 +639,22 @@ public class MainWindow extends JFrame implements ComponentListener {
 		gui_probetype.setMaximumRowCount(16);
 		gui_probetype.setBounds(201, 106, 171, 22);
 		panel.add(gui_probetype);
+		JPanel panel_3 = new JPanel();
+		//panel_3.setBorder(new EmptyBorder(0, 0, 0, 0));
+		contentPane.add(panel_3, BorderLayout.CENTER);
+		panel_3.setLayout(new BorderLayout(0, 0));
+		
+		panel_4 = new JPanel();
+		//panel_4.setBorder(new EmptyBorder(0, 0, 0, 0));
+		panel_3.add(panel_4, BorderLayout.NORTH);
+		panel_4.setLayout(new BoxLayout(panel_4, BoxLayout.X_AXIS));
+		panel_4.setBorder(new EmptyBorder(2, 0, 2, 0));
+		
+		panel_3.add(e.canvas, BorderLayout.CENTER);
 	}
 
-
+	JPanel panel_4;
+	
 	public void listSettings() {
 		boolean_names.put("gui_paused", gui_paused);
 		boolean_names.put("gui_tooltip", menu_tooltip);
@@ -713,6 +744,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_saveas.addActionListener(e.controls);
 		menu_save.addActionListener(e.controls);
 		menu_about.addActionListener(e.controls);
+		menu_help3.addActionListener(e.controls);
 		menu_help.addActionListener(e.controls);
 		menu_undo.addActionListener(e.controls);
 		menu_redo.addActionListener(e.controls);
@@ -735,7 +767,8 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_workshop.addActionListener(e.controls);
 		menu_load_workshop.addActionListener(e.controls);
 		gui_slice.addAdjustmentListener(e.controls);
-
+		menu_browse.addActionListener(e.controls);
+		
 		gui_reset				.setActionCommand("gui_reset");
 		gui_brush				.setActionCommand("gui_brush");
 		gui_material			.setActionCommand("gui_material");
@@ -745,6 +778,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_saveas				.setActionCommand("menu_saveas");
 		menu_save				.setActionCommand("menu_save");
 		menu_about				.setActionCommand("menu_about");
+		menu_help3				.setActionCommand("menu_help3");
 		menu_help				.setActionCommand("menu_help");
 		menu_undo				.setActionCommand("menu_undo");
 		menu_redo				.setActionCommand("menu_redo");
@@ -766,6 +800,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_view_materials		.setActionCommand("menu_view_materials");
 		menu_workshop			.setActionCommand("menu_workshop");
 		menu_load_workshop			.setActionCommand("menu_load_workshop");
+		menu_browse				.setActionCommand("menu_browse");
 
 		removeKeyListeners(gui_brush);
 		removeKeyListeners(gui_bc);
@@ -844,7 +879,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		e.controls.scalarmode.buttonmap.get(ScalarMode.NONE).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0));
 		e.controls.vectormode.buttonmap.get(VectorMode.NONE).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V, 0));
 		
-		MenuBuilder.addDirectoryToMenu(menu_examples, SemiSim.getRootFile("examples"), e.savemanager.fileextension, (File f) -> e.savemanager.readFile(f));
+		MenuBuilder.addDirectoryToMenu(menu_examples, SemiSim.getRootFile("examples"), e.savemanager.fileextension, (File f) -> e.savemanager.readfile(f));
 
 		//gui_material.removeItem(MaterialType.ABSORBER);
 		if (!BuildFlags.debugging)
@@ -888,6 +923,19 @@ public class MainWindow extends JFrame implements ComponentListener {
 		e.renderer.renderer_right_eye.canvas.addMouseMotionListener(e.controls);
 		e.renderer.renderer_right_eye.canvas.addMouseWheelListener(e.controls);
 		e.renderer.renderer_right_eye.canvas.addKeyListener(e.controls);
+		
+		addToolButton(Brush.INTERACT, 25);
+		addToolButton(Brush.DRAW, 25);
+		addToolButton(Brush.ERASE, 25);
+		addToolButton(Brush.LINE, 25);
+		addToolButton(Brush.FILL, 25);
+		addToolButton(Brush.RECTANGLE, 25);
+		addToolButton(Brush.TEXT, 25);
+		addToolButton(Brush.SELECT, 25);
+		addToolButton(Brush.PAN, 25);
+		
+		if (BuildFlags.steam_enabled)
+			menu_github.setText("Steam");
 
 		try {
 			BufferedImage icon = ImageIO.read(SemiSim.getRootFile("images/icon.png"));
@@ -898,6 +946,40 @@ public class MainWindow extends JFrame implements ComponentListener {
 		
 		setDefaults(e);
 	}
+	
+	public void addToolButton(Brush brush, int size) {
+		try {
+			Image icon = ImageIO.read(SemiSim.getRootFile("images/icons/" + brush.name() + ".png")).getScaledInstance(size, size, Image.SCALE_SMOOTH);
+			if (icon != null) {
+				int width = icon.getWidth(null);
+				int height = icon.getHeight(null);
+
+				// width and height are of the toolkit image
+				BufferedImage bufferedicon = new BufferedImage(width, height, 
+				      BufferedImage.TYPE_INT_ARGB);
+				Graphics g = bufferedicon.getGraphics();
+				g.drawImage(icon, 0, 0, null);
+				g.dispose();
+				
+				
+				IconButton button = new IconButton(bufferedicon, size);
+				
+				button.setToolTipText(brush.toString());
+				button.addActionListener(new ActionListener() {
+					@Override
+					public void actionPerformed(ActionEvent arg0) {
+						e.controls.brushes.setOption(brush);
+						gui_brush.setSelectedItem(brush);
+					}
+				});
+				
+				panel_4.add(button);
+				toolbuttons.put(brush, button);
+			}
+		} catch (IOException e1) {}
+	}
+	
+	public HashMap<Brush, IconButton> toolbuttons = new HashMap<Brush, IconButton>();
 	
 	public void removeKeyListeners(Component c) {
 		KeyListener[] list = c.getKeyListeners();

@@ -242,10 +242,16 @@ public class LineProbe extends Probe {
 		r.drawPixelLine(x1, y1, z1, x2, y2, z2);
 
 		//TODO
-		
-		r.setalphaFG(0.1);
-		r.setColorFloat(1.0f, 1.0f, 1.0f);
-		r.drawPixelLine((x1 + x2)/2, (y1+y2)/2, (z1+z2)/2, labelcoord.x, labelcoord.y, labelcoord.z);
+	}
+	
+	@Override
+	public double getXcenter() {
+		return 0.5*(x1+x2);
+	}
+
+	@Override
+	public double getYcenter() {
+		return 0.5*(y1+y2);
 	}
 
 	@Override

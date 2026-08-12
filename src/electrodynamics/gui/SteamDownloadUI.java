@@ -1,3 +1,7 @@
+// Copyright (c) Brandon Li 2026
+// This file is part of Brandon's Semiconductor Simulator which is released under GNU GPL v3.0.
+// See LICENSE.txt for full license details.
+
 package electrodynamics.gui;
 
 import java.awt.BorderLayout;
@@ -16,7 +20,6 @@ import javax.swing.JFrame;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
@@ -32,16 +35,6 @@ public class SteamDownloadUI extends JFrame implements ActionListener, ListSelec
 	private static final long serialVersionUID = 1L;
 	Simulation e;
 	private JPanel contentPane;
-	public JTextField width;
-	public JTextField resolution;
-	public JTextField depth;
-	public JTextField ni_metal;
-	public JTextField W_metal;
-	public JTextField E_b_metal;
-	public JTextField W_metal_high;
-	public JTextField W_metal_low;
-	public JTextField recomb_rate_metal;
-	public JTextField T;
 	
 	public JList<String> list;
 	public List<SteamUGCDetails> details;
@@ -60,6 +53,7 @@ public class SteamDownloadUI extends JFrame implements ActionListener, ListSelec
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		setBounds(100, 100, 705, 595);
 		contentPane = new JPanel();
+		contentPane.setPreferredSize(new Dimension(650, 500));
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 		setContentPane(contentPane);
 		contentPane.setLayout(new BorderLayout(0, 0));
@@ -107,6 +101,8 @@ public class SteamDownloadUI extends JFrame implements ActionListener, ListSelec
 		
 		btn_cancel = new JButton("Cancel");
 		panel_2.add(btn_cancel);
+		
+		pack();
 		
 		initialize();
 	}

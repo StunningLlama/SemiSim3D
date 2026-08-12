@@ -1,3 +1,7 @@
+// Copyright (c) Brandon Li 2026
+// This file is part of Brandon's Semiconductor Simulator which is released under GNU GPL v3.0.
+// See LICENSE.txt for full license details.
+
 package electrodynamics;
 
 import java.awt.image.BufferedImage;
@@ -15,8 +19,6 @@ import java.util.List;
 import javax.imageio.ImageIO;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
-
 import com.codedisaster.steamworks.SteamAPI;
 import com.codedisaster.steamworks.SteamException;
 import com.codedisaster.steamworks.SteamFriends;
@@ -53,8 +55,8 @@ public class Steam {
 	
 	public static String ws_title = "";
 	public static String ws_description = "";
-	private static SteamUploadUI uploadui;
-	private static SteamDownloadUI downloadui;
+	public static SteamUploadUI uploadui;
+	public static SteamDownloadUI downloadui;
 	
 	private static HashMap<String, String> ach_names = new HashMap<String, String>();
 	static
@@ -90,6 +92,10 @@ public class Steam {
 		    	System.out.println("Steam API did not initialize correctly.");
 			    return;
 		    }
+		    
+		    Runtime.getRuntime().addShutdownHook(new Thread() {
+			    public void run() { shutdown(); }
+			});
 
 		    UGC = new SteamUGC(new SteamUGCCallback () {
 				@Override
@@ -103,11 +109,8 @@ public class Steam {
 						if (!folder.exists()) {
 							folder.mkdir();
 						}
-
-						File newfile = SemiSim.getUserFile("_tmp/workshop_item.semisim");
-						e.savemanager.writeFile(newfile);
-
-			    		File outputimgfile = SemiSim.getUserFile("_tmp/image.png");
+						
+						File outputimgfile = SemiSim.getUserFile("_tmp/image.png");
 				    	try {
 				    		if (!outputimgfile.exists())
 				    			outputimgfile.createNewFile();
@@ -115,16 +118,20 @@ public class Steam {
 				    	} catch (IOException e) {
 				    		e.printStackTrace();
 				    	}
-
-						SteamUGCUpdateHandle handle = UGC.startItemUpdate(Utils.getAppID(), publishedFileID);
-						UGC.setItemVisibility(handle, PublishedFileVisibility.Public);
-						UGC.setItemTitle(handle, ws_title);
-						UGC.setItemContent(handle, folder.getAbsolutePath());
-						UGC.setItemPreview(handle, outputimgfile.getAbsolutePath());
-						UGC.setItemDescription(handle, ws_description);
-						UGC.submitItemUpdate(handle, "");
+				    	
+						File newfile = SemiSim.getUserFile("_tmp/workshop_item.semisim");
+						e.savemanager.writeFile(newfile, () -> {
+							SteamUGCUpdateHandle handle = UGC.startItemUpdate(Utils.getAppID(), publishedFileID);
+							UGC.setItemVisibility(handle, PublishedFileVisibility.Public);
+							UGC.setItemTitle(handle, ws_title);
+							UGC.setItemContent(handle, folder.getAbsolutePath());
+							UGC.setItemPreview(handle, outputimgfile.getAbsolutePath());
+							UGC.setItemDescription(handle, ws_description);
+							UGC.submitItemUpdate(handle, "");
+							JOptionPane.showMessageDialog(e.opts, "Upload is starting. Please wait for upload to finish.");
+						});
 					} else {
-						SemiSim.displayErrorMessage(new Exception("Steam was not able to create the workshop item."));
+						SemiSim.displayWarningMessage("Error!", "Steam was not able to create the workshop item.");
 					}
 				}
 				
@@ -145,7 +152,7 @@ public class Steam {
 						}
 					}
 					else {
-						SemiSim.displayErrorMessage(new Exception("Steam was not able to update the workshop item."));
+						SemiSim.displayWarningMessage("Error!", "Steam was not able to update the workshop item.");
 					}
 				}
 
@@ -224,9 +231,9 @@ public class Steam {
 			ItemInstallInfo info = new ItemInstallInfo();
 			UGC.getItemInstallInfo(id, info);
 			File file = Paths.get(info.getFolder(), "workshop_item.semisim").toFile();
-			SwingUtilities.invokeLater(() -> {
-				e.savemanager.readFile(file);
-			});
+			new Thread(() -> {
+				e.savemanager.readfile(file);
+			}).start();
 		}
 	}
 

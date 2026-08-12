@@ -15,6 +15,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -23,6 +24,8 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
 import javax.swing.SwingConstants;
+import javax.swing.UIManager;
+import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.border.EmptyBorder;
 
 import com.google.gson.Gson;
@@ -59,6 +62,9 @@ public class Preferences extends JFrame implements ActionListener {
 	private JSpinner spinner_font;
 	private JButton btn_cancel;
 	private JCheckBox chkbox_matname;
+	private JComboBox<Theme> gui_lookfeel;
+	private JCheckBox chkbox_voltage;
+	private JSpinner spinner_fps_sim;
 
 	public Preferences(Simulation e) {
 		setResizable(false);
@@ -67,8 +73,9 @@ public class Preferences extends JFrame implements ActionListener {
 		
 		setTitle("Preferences");
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-		setBounds(100, 100, 590, 259);
+		setBounds(100, 100, 581, 307);
 		contentPane = new JPanel();
+		contentPane.setPreferredSize(new Dimension(581, 250));
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 
 		setContentPane(contentPane);
@@ -80,11 +87,11 @@ public class Preferences extends JFrame implements ActionListener {
 		contentPane.add(lblNewLabel);
 		
 		btn_apply = new JButton("Apply");
-		btn_apply.setBounds(317, 196, 128, 23);
+		btn_apply.setBounds(317, 215, 128, 23);
 		contentPane.add(btn_apply);
 		
 		btn_reset = new JButton("Reset to defaults");
-		btn_reset.setBounds(10, 196, 136, 23);
+		btn_reset.setBounds(10, 215, 136, 23);
 		contentPane.add(btn_reset);
 		
 		spinner_imgx = new JSpinner();
@@ -101,12 +108,12 @@ public class Preferences extends JFrame implements ActionListener {
 		
 		JLabel lblUnitSystem = new JLabel("Unit system");
 		lblUnitSystem.setHorizontalAlignment(SwingConstants.TRAILING);
-		lblUnitSystem.setBounds(288, 78, 116, 16);
+		lblUnitSystem.setBounds(288, 134, 116, 16);
 		contentPane.add(lblUnitSystem);
 		
 		gui_units = new JComboBox<>();
 		gui_units.setModel(new DefaultComboBoxModel<>(Units.values()));
-		gui_units.setBounds(416, 76, 146, 23);
+		gui_units.setBounds(416, 132, 146, 23);
 		contentPane.add(gui_units);
 		
 		JLabel lblDisplayHeightpx = new JLabel("Display height [px]");
@@ -119,7 +126,7 @@ public class Preferences extends JFrame implements ActionListener {
 		spinner_imgy.setBounds(167, 43, 109, 23);
 		contentPane.add(spinner_imgy);
 		
-		JLabel lblUndoHistorySize = new JLabel("Target FPS");
+		JLabel lblUndoHistorySize = new JLabel("Target graphics FPS");
 		lblUndoHistorySize.setHorizontalAlignment(SwingConstants.TRAILING);
 		lblUndoHistorySize.setBounds(17, 104, 138, 16);
 		contentPane.add(lblUndoHistorySize);
@@ -132,12 +139,12 @@ public class Preferences extends JFrame implements ActionListener {
 		lblUndoHistorySize_2 = new JLabel("Undo history size");
 		lblUndoHistorySize_2.setToolTipText("Warning: uses memory");
 		lblUndoHistorySize_2.setHorizontalAlignment(SwingConstants.TRAILING);
-		lblUndoHistorySize_2.setBounds(17, 135, 138, 16);
+		lblUndoHistorySize_2.setBounds(17, 162, 138, 16);
 		contentPane.add(lblUndoHistorySize_2);
 		
 		spinner_undosize = new JSpinner();
 		spinner_undosize.setModel(new SpinnerNumberModel(4, 2, 100, 1));
-		spinner_undosize.setBounds(167, 132, 109, 23);
+		spinner_undosize.setBounds(167, 159, 109, 23);
 		contentPane.add(spinner_undosize);
 		
 		lblFontSize = new JLabel("Font size [px]");
@@ -151,7 +158,7 @@ public class Preferences extends JFrame implements ActionListener {
 		contentPane.add(spinner_font);
 		
 		btn_cancel = new JButton("Cancel");
-		btn_cancel.setBounds(445, 196, 128, 23);
+		btn_cancel.setBounds(445, 215, 128, 23);
 		contentPane.add(btn_cancel);
 		
 		chkbox_matname = new JCheckBox("Show material name next to cursor");
@@ -160,6 +167,37 @@ public class Preferences extends JFrame implements ActionListener {
 		chkbox_matname.setBounds(307, 43, 255, 23);
 		contentPane.add(chkbox_matname);
 		
+		gui_lookfeel = new JComboBox<>();
+		gui_lookfeel.setBounds(416, 161, 146, 23);
+		contentPane.add(gui_lookfeel);
+		
+		JLabel lblUiTheme = new JLabel("UI theme");
+		lblUiTheme.setHorizontalAlignment(SwingConstants.TRAILING);
+		lblUiTheme.setBounds(288, 164, 116, 16);
+		contentPane.add(lblUiTheme);
+
+		gui_lookfeel.setModel(new DefaultComboBoxModel<Theme>(Theme.values));
+		
+		chkbox_voltage = new JCheckBox("Set voltage instead of EMF");
+		chkbox_voltage.setSelected(true);
+		chkbox_voltage.setActionCommand("");
+		chkbox_voltage.setHorizontalTextPosition(SwingConstants.LEADING);
+		chkbox_voltage.setHorizontalAlignment(SwingConstants.TRAILING);
+		chkbox_voltage.setBounds(307, 99, 255, 23);
+		contentPane.add(chkbox_voltage);
+		
+		JLabel lblTargetSimulationFps = new JLabel("Target simulation FPS");
+		lblTargetSimulationFps.setHorizontalAlignment(SwingConstants.TRAILING);
+		lblTargetSimulationFps.setBounds(17, 133, 138, 16);
+		contentPane.add(lblTargetSimulationFps);
+		
+		spinner_fps_sim = new JSpinner();
+		spinner_fps_sim.setModel(new SpinnerNumberModel(60, 1, 1000, 1));
+		spinner_fps_sim.setBounds(167, 130, 109, 23);
+		contentPane.add(spinner_fps_sim);
+		
+		pack();
+		
 		resetPrefs();
 	}
 	
@@ -167,6 +205,7 @@ public class Preferences extends JFrame implements ActionListener {
 		btn_apply.addActionListener(this);
 		btn_reset.addActionListener(this);
 		btn_cancel.addActionListener(this);
+		
 		setLocationRelativeTo(null);
 		setVisible(false);
 		
@@ -184,10 +223,13 @@ public class Preferences extends JFrame implements ActionListener {
 		spinner_imgy.setValue(e.renderer.imgpanel.getHeight());
 		spinner_undosize.setValue(e.controls.undoredo.history_size);
 		spinner_fps.setValue((int) e.renderer.targetframerate);
+		spinner_fps_sim.setValue((int) e.targetframerate);
 		chkbox_potential.setSelected(e.renderer.display_relative_voltage);
 		spinner_font.setValue(Text.fontsize);
 		gui_units.setSelectedItem(e.units);
 		chkbox_matname.setSelected(e.renderer.disp_mat_name);
+		chkbox_voltage.setSelected(e.controls.setvoltage);
+		gui_lookfeel.setSelectedItem(new Theme(UIManager.getLookAndFeel().getClass().getName()));
 	}
 
 	public void applyPrefs() {
@@ -195,12 +237,19 @@ public class Preferences extends JFrame implements ActionListener {
 		
 		e.renderer.targetframerate = (double)((int) spinner_fps.getValue());
 		e.renderer.frameduration = 1000/e.renderer.targetframerate;
+
+		e.targetframerate = (double)((int) spinner_fps_sim.getValue());
+		e.frameduration = 1000/e.targetframerate;
 		
 		e.renderer.display_relative_voltage = chkbox_potential.isSelected();
 		Text.setFontSize((int) spinner_font.getValue());
 
 		e.units = (Units) gui_units.getSelectedItem();
 		e.renderer.disp_mat_name = chkbox_matname.isSelected();
+		
+		e.controls.setvoltage = chkbox_voltage.isSelected();
+		
+		SemiSim.changeLookAndFeel(e, ((Theme)gui_lookfeel.getSelectedItem()).info);
 		
 		int x = (int)(spinner_imgx.getValue());
 		int y = (int)(spinner_imgy.getValue());
@@ -215,9 +264,11 @@ public class Preferences extends JFrame implements ActionListener {
 		spinner_imgy.setValue(opt_height);
 		chkbox_potential.setSelected(true);
 		gui_units.setSelectedItem(Units.SI);
-		spinner_undosize.setValue(4);
+		spinner_undosize.setValue(5);
 		spinner_fps.setValue(60);
+		spinner_fps_sim.setValue(60);
 		spinner_font.setValue(12);
+		gui_lookfeel.setSelectedItem(Theme.system);
 	}
 
 	public void readfile(File infile) {
@@ -255,9 +306,13 @@ public class Preferences extends JFrame implements ActionListener {
 						case "potential": chkbox_potential.setSelected(fstr.nextBoolean()); break;
 						case "units": gui_units.setSelectedItem(gson.fromJson(fstr, Units.class)); break;
 						case "fps": this.spinner_fps.setValue(fstr.nextInt()); break;
+						case "fps_sim": this.spinner_fps_sim.setValue(fstr.nextInt()); break;
 						case "fontsize": this.spinner_font.setValue(fstr.nextInt()); break;
 						case "undosize": this.spinner_undosize.setValue(fstr.nextInt()); break;
 						case "matname": this.chkbox_matname.setSelected(fstr.nextBoolean()); break;
+						case "voltage": this.chkbox_voltage.setSelected(fstr.nextBoolean()); break;
+						case "theme": gui_lookfeel.setSelectedItem(new Theme(fstr.nextString())); break;
+						case "windowstate": e.opts.setExtendedState(fstr.nextInt()); break;
 						default: fstr.skipValue();
 						}
 					}
@@ -290,9 +345,13 @@ public class Preferences extends JFrame implements ActionListener {
 				header.addProperty("potential", chkbox_potential.isSelected());
 				header.add("units", gson.toJsonTree((Units) gui_units.getSelectedItem()));
 				header.addProperty("fps", (int)spinner_fps.getValue());
+				header.addProperty("fps_sim", (int)spinner_fps_sim.getValue());
 				header.addProperty("fontsize", (int)spinner_font.getValue());
 				header.addProperty("undosize", (int)spinner_undosize.getValue());
 				header.addProperty("matname", chkbox_matname.isSelected());
+				header.addProperty("voltage", chkbox_voltage.isSelected());
+				header.addProperty("theme", ((Theme) gui_lookfeel.getSelectedItem()).info.getClassName());
+				header.addProperty("windowstate", e.opts.getExtendedState());
 
 				// Version should always be first
 				JsonObject save = new JsonObject();
@@ -333,6 +392,44 @@ public class Preferences extends JFrame implements ActionListener {
 			resetPrefs();
 		} else if (ev.getSource() == btn_cancel) {
 			this.setVisible(false);
+		}
+	}
+	
+	public static class Theme {
+		public static Theme[] values;
+		public static Theme system;
+		public static void initThemes() {
+			ArrayList<Theme> themes = new ArrayList<Theme>(UIManager.getInstalledLookAndFeels().length);
+			system = null;
+			for (LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
+				themes.add(new Theme(info));
+				if (info.getClassName() == UIManager.getSystemLookAndFeelClassName()) system = new Theme(info);
+			}
+			values = themes.toArray(new Theme[0]);
+		}
+		
+		LookAndFeelInfo info;
+		
+		public Theme(LookAndFeelInfo info) {
+			this.info = info;
+		}
+		
+		public Theme(String classname) {
+			for (Theme theme : values) {
+				if (theme.info.getClassName().equals(classname)) {
+					info = theme.info;
+				}
+			}
+		}
+		
+		public String toString() {
+			return info.getName();
+		}
+		
+		@Override
+		public boolean equals(Object other) {
+			if (!(other instanceof Theme)) return false;
+			return info.getClassName().equals(((Theme) other).info.getClassName());
 		}
 	}
 }

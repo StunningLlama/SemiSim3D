@@ -24,14 +24,25 @@ import java.util.concurrent.TimeUnit;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
+import javax.swing.LookAndFeel;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
+import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.WindowConstants;
 import javax.swing.filechooser.FileSystemView;
 
+import com.formdev.flatlaf.FlatDarkLaf;
+import com.formdev.flatlaf.FlatLaf;
+import com.formdev.flatlaf.FlatLightLaf;
+import com.formdev.flatlaf.intellijthemes.FlatHighContrastIJTheme;
+import com.formdev.flatlaf.intellijthemes.FlatSolarizedLightIJTheme;
+import com.formdev.flatlaf.intellijthemes.materialthemeuilite.FlatMTMaterialDarkerIJTheme;
+
 import electrodynamics.Renderer.GraphicsThread;
 import electrodynamics.Simulation.SimulationThread;
+import electrodynamics.gui.Preferences.Theme;
+import electrodynamics.plot.Plot;
 
 public class SemiSim {
 	
@@ -49,7 +60,7 @@ public class SemiSim {
 
 	public static Path rootdir = Paths.get(".");
 	public static Path userdir = Paths.get(".");
-
+	public static OS os;
 	ArrayList<SimulationThread> sim_threads = new ArrayList<>();
 	ArrayList<GraphicsThread> graphics_threads = new ArrayList<>();
 	Timer master_timer = new Timer();
@@ -103,25 +114,48 @@ public class SemiSim {
 	public static File getUserFile(String path) {
 		return userdir.resolve(Paths.get(path)).toFile();
 	}
-	
+
 	public static void displayErrorMessage(Exception e) {
 		if (instance == null) return;
 		try {
-			SwingUtilities.invokeAndWait(() -> {
-				JOptionPane.showMessageDialog(instance.sim.opts, e.toString(), "Error", JOptionPane.OK_OPTION);
+			Runnable r = () -> {
+				JOptionPane.showMessageDialog(instance.sim.opts, e.toString(), "Fatal error!", JOptionPane.OK_OPTION);
 				e.printStackTrace();
 				try {
-					PrintWriter pw = new PrintWriter(new FileOutputStream("error_log.txt"));
-				    e.printStackTrace(pw);
-				    pw.flush();
-				    pw.close();
+					PrintWriter pw = new PrintWriter(new FileOutputStream(getUserFile("error_log.txt")));
+					e.printStackTrace(pw);
+					pw.flush();
+					pw.close();
 				} catch (FileNotFoundException e1) {
 					System.exit(-1);
 				}     
 				System.exit(-1);
-			});
+			};
+
+			if (SwingUtilities.isEventDispatchThread()) {
+				r.run();
+			} else {
+				SwingUtilities.invokeAndWait(r);
+			}
 		} catch (InvocationTargetException | InterruptedException e1) {
-			System.exit(-1);
+			e1.printStackTrace();
+		}
+	}
+	
+	public static void displayWarningMessage(String title, String description) {
+		if (instance == null) return;
+		try {
+			Runnable r = () -> {
+				JOptionPane.showMessageDialog(instance.sim.opts, description, title, JOptionPane.OK_OPTION);
+			};
+
+			if (SwingUtilities.isEventDispatchThread()) {
+				r.run();
+			} else {
+				SwingUtilities.invokeAndWait(r);
+			}
+		} catch (InvocationTargetException | InterruptedException e1) {
+			e1.printStackTrace();
 		}
 	}
 
@@ -137,9 +171,26 @@ public class SemiSim {
 		}
 	}
 	
+	public static void detectOS() {
+		String osname = System.getProperty("os.name").toLowerCase();
+		
+		if (osname.contains("windows")) {
+			os = OS.WINDOWS;
+		} else if (osname.contains("mac")) {
+			os = OS.MAC;
+		} else if (osname.contains("linux")) {
+			os = OS.LINUX;
+		} else {
+			os = OS.UNKNOWN;
+		}
+	}
+
 	public static void setDirectory() {
 		try {
 			rootdir = Paths.get(SemiSim.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParent();
+
+			if (BuildFlags.debugging)
+				rootdir = Paths.get(".");
 		} catch (URISyntaxException e1) {
 			e1.printStackTrace();
 		}
@@ -147,13 +198,11 @@ public class SemiSim {
 		userdir = new JFileChooser().getFileSystemView().getDefaultDirectory().toPath();
 		System.out.println(FileSystemView.getFileSystemView().getDefaultDirectory().toPath().toString());
 		
-		String os = System.getProperty("os.name").toLowerCase();
-		
-		if (os.contains("windows")) {
+		if (os == OS.WINDOWS) {
 			userdir = userdir.resolve(Paths.get("SemiSim3D"));
-		} else if (os.contains("mac")) {
+		} else if (os == OS.MAC) {
 			userdir = userdir.resolve(Paths.get("Documents/SemiSim3D"));
-		} else if (os.contains("linux")) {
+		} else if (os == OS.LINUX) {
 			userdir = userdir.resolve(Paths.get("SemiSim3D"));
 		} else {
 			userdir = userdir.resolve(Paths.get("SemiSim3D"));
@@ -189,10 +238,45 @@ public class SemiSim {
 		}
 	}
 	
-	public static void setLookAndFeel() {
+	public static void initializeLookAndFeel() {
 		try {
 			UIManager.setLookAndFeel(
 					UIManager.getSystemLookAndFeelClassName());
+		} catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) {
+			e.printStackTrace();
+		}
+		
+		installLaf(new FlatLightLaf());
+		installLaf(new FlatDarkLaf());
+		installLaf(new FlatSolarizedLightIJTheme());
+		//installLaf(new FlatSolarizedDarkIJTheme());
+		//installLaf(new FlatMTMaterialLighterIJTheme());
+		installLaf(new FlatMTMaterialDarkerIJTheme());
+		installLaf(new FlatHighContrastIJTheme());
+		
+		Theme.initThemes();
+	}
+	
+	public static <T extends LookAndFeel> void installLaf(T t) {
+		FlatLaf.installLafInfo(t.getName(), t.getClass());
+	}
+	
+
+	public static void changeLookAndFeel(Simulation sim, LookAndFeelInfo info) {
+		if (UIManager.getLookAndFeel().getClass().getName().equals(info.getClassName())) return;
+		try {
+			UIManager.setLookAndFeel(info.getClassName());
+			SwingUtilities.updateComponentTreeUI(sim.opts);
+			SwingUtilities.updateComponentTreeUI(sim.adv_opts);
+			SwingUtilities.updateComponentTreeUI(sim.materialmanager);
+			SwingUtilities.updateComponentTreeUI(sim.materialviewer);
+			SwingUtilities.updateComponentTreeUI(sim.prefs);
+			if (sim.controls.browser != null) SwingUtilities.updateComponentTreeUI(sim.controls.browser);
+
+			for (Plot p : sim.plots) SwingUtilities.updateComponentTreeUI(p.frame);
+			
+			if (Steam.downloadui != null) SwingUtilities.updateComponentTreeUI(Steam.downloadui);
+			if (Steam.uploadui != null) SwingUtilities.updateComponentTreeUI(Steam.uploadui);
 		} catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) {
 			e.printStackTrace();
 		}
@@ -211,21 +295,37 @@ public class SemiSim {
 
 	public static void main(String[] args)
 	{
+		String version = SemiSim.class.getPackage().getImplementationVersion();
+		if (version != null) {
+			if (BuildFlags.steam_enabled)
+				SemiSim.about = SemiSim.about.replace("$version", version + " (steam)");
+			else
+				SemiSim.about = SemiSim.about.replace("$version", version);
+		}
+		
+		detectOS();
+		
 		setDirectory();
 		
-		setLookAndFeel();
+		initializeLookAndFeel();
 		
 		JDialog dialog = displaySplashScreen();
 		
 		Steam.initialize();
 		
-		Runtime.getRuntime().addShutdownHook(new Thread() {
-		    public void run() { Steam.shutdown(); }
-		});
 
 		try {
 			SwingUtilities.invokeAndWait(() -> {
 				instance = new SemiSim();
+			
+			if (args.length > 0) {
+				String fname = args[0];
+
+				new Thread(() -> {
+					File file = new File(fname);
+					instance.sim.savemanager.readfile(file);
+				}).start();
+			}
 			});
 		} catch (InvocationTargetException | InterruptedException e) {
 			e.printStackTrace();
@@ -235,5 +335,9 @@ public class SemiSim {
 		dialog.dispose();
 		
 		instance.startThreads();
+	}
+	
+	public enum OS {
+		WINDOWS, MAC, LINUX, UNKNOWN;
 	}
 }

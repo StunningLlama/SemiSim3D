@@ -1,3 +1,7 @@
+// Copyright (c) Brandon Li 2026
+// This file is part of Brandon's Semiconductor Simulator which is released under GNU GPL v3.0.
+// See LICENSE.txt for full license details.
+
 package electrodynamics.gui;
 import javax.swing.*;
 
@@ -32,10 +36,8 @@ public class MenuBuilder {
             } else {
                 JMenuItem item = new JMenuItem(entry.getName().split("\\" + extension)[0]);
 
-                item.addActionListener(ev -> {
-            		SwingUtilities.invokeLater(() -> {
-            			readfileFunc.accept(entry);
-            		});
+                item.addActionListener((ev) -> {
+            		new Thread(() -> readfileFunc.accept(entry)).start();
                 });
 
                 menu.add(item);

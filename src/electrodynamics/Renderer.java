@@ -90,6 +90,7 @@ public class Renderer extends PeriodicTask {
 	private float scalar_offset;
 	public boolean display_relative_voltage = false;
 	public boolean disp_mat_name = false;
+	public boolean drawCrosshairGuides = false;
 	public String achievement_name = "";
 	public int achievement_timer = 0;
 	public String screenshot_name = "";

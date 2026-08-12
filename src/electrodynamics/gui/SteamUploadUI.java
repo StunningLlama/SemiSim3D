@@ -1,3 +1,7 @@
+// Copyright (c) Brandon Li 2026
+// This file is part of Brandon's Semiconductor Simulator which is released under GNU GPL v3.0.
+// See LICENSE.txt for full license details.
+
 package electrodynamics.gui;
 
 import javax.swing.JFrame;
@@ -21,7 +25,6 @@ import electrodynamics.Steam;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.awt.Font;
 import java.awt.BorderLayout;
@@ -42,6 +45,7 @@ public class SteamUploadUI extends JFrame implements ActionListener, HyperlinkLi
 	public SteamUploadUI() {
 		setBounds(100, 100, 438, 467);
 		contentPane = new JPanel();
+		contentPane.setPreferredSize(new Dimension(400, 400));
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 
 		setContentPane(contentPane);
@@ -65,7 +69,7 @@ public class SteamUploadUI extends JFrame implements ActionListener, HyperlinkLi
 		panel.add(lblNewLabel, BorderLayout.NORTH);
 		
 		panel_1 = new JPanel();
-		panel_1.setBorder(new EmptyBorder(0, 5, 5, 5));
+		panel_1.setBorder(new EmptyBorder(0, 5, 0, 5));
 		contentPane.add(panel_1, BorderLayout.SOUTH);
 		panel_1.setLayout(new BorderLayout(0, 0));
 		
@@ -103,6 +107,9 @@ public class SteamUploadUI extends JFrame implements ActionListener, HyperlinkLi
 		
 		btn_upload.addActionListener(this);
 		txtpnbySubmittingThis.addHyperlinkListener(this);
+		
+		pack();
+		setLocationRelativeTo(null);
 	}
 	@Override
 	public void actionPerformed(ActionEvent e) {
@@ -119,16 +126,12 @@ public class SteamUploadUI extends JFrame implements ActionListener, HyperlinkLi
 			
 			result = 0;
 		}
-		
-		/*synchronized(this) {
-		    this.notify();
-		}*/
 	}
 	@Override
 	public void hyperlinkUpdate(HyperlinkEvent ev) {
 		if (ev.getEventType() == EventType.ACTIVATED) {
 			try {
-				java.awt.Desktop.getDesktop().browse(new URI("http://steamcommunity.com/sharedfiles/workshoplegalagreement"));
+				java.awt.Desktop.getDesktop().browse(ev.getURL().toURI());
 			} catch (IOException | URISyntaxException ex) {
 				ex.printStackTrace();
 			}

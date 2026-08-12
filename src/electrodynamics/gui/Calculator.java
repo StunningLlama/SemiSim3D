@@ -1,3 +1,7 @@
+// Copyright (c) Brandon Li 2026
+// This file is part of Brandon's Semiconductor Simulator which is released under GNU GPL v3.0.
+// See LICENSE.txt for full license details.
+
 package electrodynamics.gui;
 
 import java.awt.BorderLayout;
@@ -18,6 +22,7 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
+import java.awt.Dimension;
 
 public class Calculator extends JDialog implements ActionListener {
 
@@ -46,6 +51,7 @@ public class Calculator extends JDialog implements ActionListener {
 	 * Create the dialog.
 	 */
 	public Calculator(MaterialManager parent) {
+		getContentPane().setPreferredSize(new Dimension(450, 270));
 		setTitle("Band structure calculator");
 		this.parent = parent;
 		setBounds(100, 100, 505, 349);
@@ -258,6 +264,8 @@ public class Calculator extends JDialog implements ActionListener {
 				buttonPane.add(cancelButton);
 			}
 		}
+		
+		pack();
 	}
 
 	@Override

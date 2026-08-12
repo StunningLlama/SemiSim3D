@@ -33,6 +33,8 @@ public abstract class Probe implements Cloneable, OctahedralAction {
 	public abstract boolean checkInBounds(Simulation e);
 	public abstract void drag(int mx, int my, int mz);
 	public abstract void draw(Renderer r);
+	public abstract double getXcenter();
+	public abstract double getYcenter();
 	public abstract String getText(Units units);
 	
 	@Override

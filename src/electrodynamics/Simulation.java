@@ -116,6 +116,8 @@ public class Simulation extends PeriodicTask {
 	public long frame;
 	public int lastsimspeed = 0;
 	public int iteration_multiplier = 0;
+	public double targetframerate = 60;
+	public double frameduration = 1000/targetframerate;
 	
 	public void resetTime() {
 		time = 0;
@@ -531,7 +533,7 @@ public class Simulation extends PeriodicTask {
 	Timer t7 = new Timer("Poisson potential solver", 10, true);
 	Timer t6 = new Timer("Iterate simulation", 40, true);
 	Timer t8 = new Timer("Calc misc fields", 20, true);
-	Timer t9 = new Timer("Debug", 20, false);
+	Timer t9 = new Timer("Stamp pixels", 20, true);
 	Timer simFPStimer = new Timer("Simulation FPS", 10, true);
 
 	public Simulation() {
@@ -590,9 +592,9 @@ public class Simulation extends PeriodicTask {
     			iteration_multiplier = opts.gui_simspeed_2.getValue();
 
     			if (controls.clear) {
-    				SwingUtilities.invokeLater(() -> {
+    				new Thread(() -> {
     					reset(false, null);
-    				});
+    				}).start();
     				controls.clear = false;
     			}
     			
@@ -611,17 +613,9 @@ public class Simulation extends PeriodicTask {
     			}
 
     			if (controls.updateimagesize) {
-
-    				SwingUtilities.invokeLater(() -> {
-    					rwLock.writeLock().lock();
-    					try {
-    						renderer.setCanvasSize();
-    						//opts.pack();
-    					}
-    					finally {
-    						rwLock.writeLock().unlock();
-    					}
-    				});
+    				new Thread(() -> {
+    					renderer.setCanvasSize();
+    				}).start();
     				controls.updateimagesize = false;
     			}
 
@@ -629,19 +623,15 @@ public class Simulation extends PeriodicTask {
     			dt = dt_maximum*(lastsimspeed/20.0);
 
     			if (controls.undo) {
-    				SwingUtilities.invokeLater(() -> {
-    					controls.undoredo.undo(this);
-    				});
+    				controls.undoredo.undo(this);
     				controls.undo = false;
     			}
 
     			if (controls.redo) {
-    				SwingUtilities.invokeLater(() -> {
-    					controls.undoredo.redo(this);
-    				});
+    				controls.undoredo.redo(this);
     				controls.redo = false;
     			}
-    			
+
     			controls.handleMouseInput();
 
     			if (!opts.gui_paused.isSelected() || controls.advanceframe) {
@@ -661,7 +651,6 @@ public class Simulation extends PeriodicTask {
     			
     			if (numerical_overflow)
     				opts.gui_paused.setSelected(true);
-
 
     			if (controls.save) {
     				savemanager.writeFile(false);
@@ -700,7 +689,7 @@ public class Simulation extends PeriodicTask {
 			SteamAPI.runCallbacks();
 		}
 		
-        SemiSim.instance.threadPool.schedule(this, nextDelay(renderer.frameduration), TimeUnit.MILLISECONDS);
+        SemiSim.instance.threadPool.schedule(this, nextDelay(frameduration), TimeUnit.MILLISECONDS);
 	}
 
 	TimerTask potentialSolver = new PeriodicTask() {
@@ -717,7 +706,7 @@ public class Simulation extends PeriodicTask {
 	        } finally {
 	            rwLock.readLock().unlock();
 	        }
-	        SemiSim.instance.threadPool.schedule(this, nextDelay(renderer.frameduration), TimeUnit.MILLISECONDS);
+	        SemiSim.instance.threadPool.schedule(this, nextDelay(frameduration), TimeUnit.MILLISECONDS);
 		}
 	};
 	
@@ -1041,6 +1030,7 @@ public class Simulation extends PeriodicTask {
 			controls.selection.clear();
 			controls.clipboard.clear();
 			
+			//TODO
 			if (resetall || size_changed) {
 				controls.EMF_selected = false;
 				controls.changesmade = false;
