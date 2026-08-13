@@ -639,7 +639,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		gui_probetype.setMaximumRowCount(16);
 		gui_probetype.setBounds(201, 106, 171, 22);
 		panel.add(gui_probetype);
-		JPanel panel_3 = new JPanel();
+		panel_3 = new JPanel();
 		//panel_3.setBorder(new EmptyBorder(0, 0, 0, 0));
 		contentPane.add(panel_3, BorderLayout.CENTER);
 		panel_3.setLayout(new BorderLayout(0, 0));
@@ -649,10 +649,9 @@ public class MainWindow extends JFrame implements ComponentListener {
 		panel_3.add(panel_4, BorderLayout.NORTH);
 		panel_4.setLayout(new BoxLayout(panel_4, BoxLayout.X_AXIS));
 		panel_4.setBorder(new EmptyBorder(2, 0, 2, 0));
-		
-		panel_3.add(e.canvas, BorderLayout.CENTER);
 	}
 
+	JPanel panel_3;
 	JPanel panel_4;
 	
 	public void listSettings() {
@@ -910,7 +909,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		
 
 		e.renderer.create3dCanvas();
-		getContentPane().add(e.renderer.imgpanel, BorderLayout.CENTER);
+		panel_3.add(e.renderer.imgpanel, BorderLayout.CENTER);
 
 		e.renderer.set3Dmode();
 		

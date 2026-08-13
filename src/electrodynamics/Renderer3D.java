@@ -50,6 +50,7 @@ public class Renderer3D implements GLEventListener {
     int height;
     boolean isMainCanvas = false;
     boolean isOrtho = false;
+    boolean pick = false;
     Random rand = new Random();
     
     TextRenderer smallFont;
@@ -137,41 +138,43 @@ public class Renderer3D implements GLEventListener {
 
     		// Pick
 
-    		gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport);
-    		gl.glMatrixMode(GL2.GL_PROJECTION);
-    		gl.glLoadIdentity();
-    		glu.gluPickMatrix(((float)e.controls.mx_screen)*width/canvas.getWidth(), (canvas.getHeight()-(float)e.controls.my_screen)*height/canvas.getHeight(), 1, 1, viewport);
-    		setupProjectionMat(gl);
+    		if (pick) {
+    			gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport);
+    			gl.glMatrixMode(GL2.GL_PROJECTION);
+    			gl.glLoadIdentity();
+    			glu.gluPickMatrix(((float)e.controls.mx_screen)*width/canvas.getWidth(), (canvas.getHeight()-(float)e.controls.my_screen)*height/canvas.getHeight(), 1, 1, viewport);
+    			setupProjectionMat(gl);
 
-    		gl.glMatrixMode(GL2.GL_MODELVIEW);
-    		gl.glLoadIdentity();
-    		setupModelMat(gl);
+    			gl.glMatrixMode(GL2.GL_MODELVIEW);
+    			gl.glLoadIdentity();
+    			setupModelMat(gl);
 
-    		gl.glSelectBuffer(selectBuf.capacity()*Integer.SIZE, selectBuf);
-    		gl.glRenderMode(GL2.GL_SELECT);
-    		gl.glInitNames();
-    		gl.glPushName(-1);
-    		drawHitboxes(gl);
-    		int hits = gl.glRenderMode(GL2.GL_RENDER);
-    		if (hits > 0 && e.controls.update3dCursor) {
-    			//System.out.println(hits + " hits");
+    			gl.glSelectBuffer(selectBuf.capacity()*Integer.SIZE, selectBuf);
+    			gl.glRenderMode(GL2.GL_SELECT);
+    			gl.glInitNames();
+    			gl.glPushName(-1);
+    			drawHitboxes(gl);
+    			int hits = gl.glRenderMode(GL2.GL_RENDER);
+    			if (hits > 0 && e.controls.update3dCursor) {
+    				//System.out.println(hits + " hits");
 
-    			long maxdepth = Long.MAX_VALUE;
-    			int m_nearest = 0;
-    			for (int m = 0; m < hits; m++) {
-    				long depth = Integer.toUnsignedLong(selectBuf.get(4*m+2));
-    				//System.out.println(depth + " depth");
-    				if (depth < maxdepth) {
-    					maxdepth = depth;
-    					m_nearest = m;
+    				long maxdepth = Long.MAX_VALUE;
+    				int m_nearest = 0;
+    				for (int m = 0; m < hits; m++) {
+    					long depth = Integer.toUnsignedLong(selectBuf.get(4*m+2));
+    					//System.out.println(depth + " depth");
+    					if (depth < maxdepth) {
+    						maxdepth = depth;
+    						m_nearest = m;
+    					}
     				}
+
+
+
+    				int index = selectBuf.get(4*m_nearest+3);
+    				this.unpackCoords(index);
+    				e.controls.update3dCursor = false;
     			}
-
-
-
-    			int index = selectBuf.get(4*m_nearest+3);
-    			this.unpackCoords(index);
-    			e.controls.update3dCursor = false;
     		}
 
     		gl.glFlush();
