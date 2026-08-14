@@ -108,12 +108,12 @@ public class Preferences extends JFrame implements ActionListener {
 		
 		JLabel lblUnitSystem = new JLabel("Unit system");
 		lblUnitSystem.setHorizontalAlignment(SwingConstants.TRAILING);
-		lblUnitSystem.setBounds(288, 134, 116, 16);
+		lblUnitSystem.setBounds(287, 106, 116, 16);
 		contentPane.add(lblUnitSystem);
 		
 		gui_units = new JComboBox<>();
 		gui_units.setModel(new DefaultComboBoxModel<>(Units.values()));
-		gui_units.setBounds(416, 132, 146, 23);
+		gui_units.setBounds(415, 104, 146, 23);
 		contentPane.add(gui_units);
 		
 		JLabel lblDisplayHeightpx = new JLabel("Display height [px]");
@@ -168,12 +168,12 @@ public class Preferences extends JFrame implements ActionListener {
 		contentPane.add(chkbox_matname);
 		
 		gui_lookfeel = new JComboBox<>();
-		gui_lookfeel.setBounds(416, 161, 146, 23);
+		gui_lookfeel.setBounds(415, 133, 146, 23);
 		contentPane.add(gui_lookfeel);
 		
 		JLabel lblUiTheme = new JLabel("UI theme");
 		lblUiTheme.setHorizontalAlignment(SwingConstants.TRAILING);
-		lblUiTheme.setBounds(288, 164, 116, 16);
+		lblUiTheme.setBounds(287, 136, 116, 16);
 		contentPane.add(lblUiTheme);
 
 		gui_lookfeel.setModel(new DefaultComboBoxModel<Theme>(Theme.values));
@@ -183,7 +183,7 @@ public class Preferences extends JFrame implements ActionListener {
 		chkbox_voltage.setActionCommand("");
 		chkbox_voltage.setHorizontalTextPosition(SwingConstants.LEADING);
 		chkbox_voltage.setHorizontalAlignment(SwingConstants.TRAILING);
-		chkbox_voltage.setBounds(307, 99, 255, 23);
+		chkbox_voltage.setBounds(307, 71, 255, 23);
 		contentPane.add(chkbox_voltage);
 		
 		JLabel lblTargetSimulationFps = new JLabel("Target simulation FPS");

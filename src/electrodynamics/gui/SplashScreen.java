@@ -7,6 +7,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JRootPane;
 import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 
@@ -40,6 +41,7 @@ public class SplashScreen extends JFrame {
 		lblNewLabel_1.setHorizontalAlignment(SwingConstants.CENTER);
 		panel.add(lblNewLabel_1, BorderLayout.SOUTH);
 		
+		this.setUndecorated(true);
 		this.setLocationRelativeTo(null);
 		this.setAlwaysOnTop(true);
 		this.pack();

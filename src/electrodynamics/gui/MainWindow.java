@@ -766,6 +766,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_workshop.addActionListener(e.controls);
 		menu_load_workshop.addActionListener(e.controls);
 		gui_slice.addAdjustmentListener(e.controls);
+		gui_parallax.addAdjustmentListener(e.controls);
 		menu_browse.addActionListener(e.controls);
 		
 		gui_reset				.setActionCommand("gui_reset");
@@ -931,6 +932,8 @@ public class MainWindow extends JFrame implements ComponentListener {
 		addToolButton(Brush.RECTANGLE, 25);
 		addToolButton(Brush.TEXT, 25);
 		addToolButton(Brush.SELECT, 25);
+		addToolButton(Brush.CAMERA, 25);
+		addToolButton(Brush.ZOOM, 25);
 		addToolButton(Brush.PAN, 25);
 		
 		if (BuildFlags.steam_enabled)

@@ -261,15 +261,17 @@ public class Renderer3D implements GLEventListener {
 		gl.glRotatef(90f, 0.0f, 0.0f, 1.0f);
 		gl.glRotatef(90f, 0.0f, 1.0f, 0.0f);
 	}
-
+	
+	float d = 2;
+	
 	public void setupModelMat(GL2 gl) {
 
 		g.x = Math.cos(e.renderer.yaw)*Math.cos(e.renderer.pitch);
 		g.y = Math.sin(e.renderer.yaw)*Math.cos(e.renderer.pitch);
 		g.z = Math.sin(e.renderer.pitch);
 
-		//gl.glTranslatef(48, 0, 0);
-		gl.glRotatef(-eye_offset, 0.0f, 0.0f, 1.0f);
+		gl.glTranslatef(0, eye_offset, 0);
+		gl.glRotatef(-eye_offset/d, 0.0f, 0.0f, 1.0f);
 		gl.glRotatef(e.renderer.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
 		gl.glRotatef(-e.renderer.yaw*(float)(180/Math.PI), 0.0f, 0.0f, 1.0f);
 		gl.glTranslatef(-e.renderer.cam_x, -e.renderer.cam_y, -e.renderer.cam_z);
@@ -278,16 +280,22 @@ public class Renderer3D implements GLEventListener {
 	public void setupText(GL2 gl, float x, float y, float z) {
 		gl.glMatrixMode(GL2.GL_MODELVIEW);
 		gl.glLoadIdentity();
-		//gl.glTranslatef(48, 0, 0);
-		gl.glRotatef(-eye_offset, 0.0f, 0.0f, 1.0f);
+
+		gl.glTranslatef(0, eye_offset, 0);
+		gl.glRotatef(-eye_offset/d, 0.0f, 0.0f, 1.0f);
 		gl.glRotatef(e.renderer.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
 		gl.glRotatef(-e.renderer.yaw*(float)(180/Math.PI), 0.0f, 0.0f, 1.0f);
+		
 		gl.glTranslatef(-e.renderer.cam_x, -e.renderer.cam_y, -e.renderer.cam_z);
 
 		gl.glTranslatef(x, y, z);
+		
+		//Inverse of previous operations
 		gl.glRotatef(e.renderer.yaw*(float)(180/Math.PI), 0.0f, 0.0f, 1.0f);
 		gl.glRotatef(-e.renderer.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
-		gl.glRotatef(eye_offset, 0.0f, 0.0f, 1.0f);
+		gl.glRotatef(eye_offset/d, 0.0f, 0.0f, 1.0f);
+		gl.glTranslatef(0, -eye_offset, 0);
+		
 		gl.glRotatef((float)(90), 1.0f, 0.0f, 0.0f);
 		gl.glRotatef((float)(-90), 0.0f, 1.0f, 0.0f);
 		gl.glTranslatef(-x, -y, -z);
@@ -297,10 +305,6 @@ public class Renderer3D implements GLEventListener {
 		gl.glEnable(GL2.GL_BLEND);
 		gl.glDepthMask(true);
 		gl.glBlendFuncSeparate(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA, GL2.GL_ONE, GL2.GL_ONE);
-
-		// Draw a triangle
-
-		//System.out.println("Here3");
 
 		RenderMode mode = e.controls.rendermode.getOption();
 

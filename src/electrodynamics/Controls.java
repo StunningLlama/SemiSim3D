@@ -1050,7 +1050,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 				currentCursor = this.BLANK_CURSOR;
 				rotateCamera(-(mx_screen - mx_prev_screen)*phiscale, -(my_screen - my_prev_screen)*thetascale);
 			} else if (!looking && pressed_left) {
-				rotateCamera((mx_screen - mx_prev_screen)*phiscale, (my_screen - my_prev_screen)*thetascale);
+				rotateCamera(-(mx_screen - mx_prev_screen)*phiscale, -(my_screen - my_prev_screen)*thetascale);
 			}
 			break;
 		}
@@ -1546,8 +1546,9 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		e.renderer.pitch -= (float)dtheta;
 		e.renderer.yaw -= (float)dphi;
 
-		if (e.renderer.pitch > Math.PI/2) e.renderer.pitch = (float)Math.PI/2;
-		if (e.renderer.pitch < -Math.PI/2) e.renderer.pitch = -(float)Math.PI/2;
+		float max_pitch = (float)(Math.PI/2*0.999);
+		if (e.renderer.pitch > max_pitch) e.renderer.pitch = max_pitch;
+		if (e.renderer.pitch < -max_pitch) e.renderer.pitch = -max_pitch;
 
 		double x = e.renderer.cam_x - e.nx/2.0;
 		double y = e.renderer.cam_y - e.ny/2.0;		
@@ -1560,8 +1561,8 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		theta += (float)dtheta;
 		phi -= (float)dphi;
 
-		if (theta > Math.PI/2) theta = (float)Math.PI/2;
-		if (theta < -Math.PI/2) theta = -(float)Math.PI/2;
+		if (theta > max_pitch) theta = max_pitch;
+		if (theta < -max_pitch) theta = -max_pitch;
 
 		double xp = r*Math.cos(phi)*Math.cos(theta);
 		double yp = r*Math.sin(phi)*Math.cos(theta);
@@ -2673,8 +2674,8 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	public enum Brush {
 		INTERACT("Interact"),
 		LIGHT("Flashlight"),
+		CAMERA("Camera"),
 		ZOOM("Zoom"),
-		CAMERA("Free move"),
 		PAN("Pan"),
 		DRAW("Draw"),
 		REPLACE("Replace"),
