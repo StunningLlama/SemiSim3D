@@ -58,11 +58,10 @@ public class Simulation extends PeriodicTask {
 	//probe types
 	//screenshots
 	
-	//Break up sim loop
 	//Add back text tool
-	//JVM arguments
 	//Update manual
 	//Fix color scale
+	//Add heat and entropy
 	
 	/* Parts */
 	
@@ -1208,212 +1207,21 @@ public class Simulation extends PeriodicTask {
 						stepnumber++;
 					}
 					
-					for (int i = 0; i < nx-1; i++)
-					{
-						if (i >= i_min && i <= i_max) {
-							for (int j = 1; j < ny-1; j++)
-							{
-								for (int k = 1; k < nz-1; k++)
-								{
-									if (conducting_x[i][j][k] == 1) {
-										double emf_phase = ac_x[i][j][k]*AC_amplitude+(1-ac_x[i][j][k]);
-										Fnx[i][j][k] = emf_phase*emfx[i][j][k] + cmfx_n[i][j][k]/q_n + Ex[i][j][k];
-										Fpx[i][j][k] = emf_phase*emfx[i][j][k] + cmfx_p[i][j][k]/q_p + Ex[i][j][k];
-									} else {
-										Fnx[i][j][k] = Ex[i][j][k];
-										Fpx[i][j][k] = Ex[i][j][k];
-									}
-								}
-							}
-						}
-					}
-
-
-					for (int i = 1; i < nx-1; i++)
-					{
-						if (i >= i_min && i <= i_max) {
-							for (int j = 0; j < ny-1; j++)
-							{
-								for (int k = 1; k < nz-1; k++)
-								{
-									if (conducting_y[i][j][k] == 1) {
-										double emf_phase = ac_y[i][j][k]*AC_amplitude+(1-ac_y[i][j][k]);
-										Fny[i][j][k] = emf_phase*emfy[i][j][k] + cmfy_n[i][j][k]/q_n + Ey[i][j][k];
-										Fpy[i][j][k] = emf_phase*emfy[i][j][k] + cmfy_p[i][j][k]/q_p + Ey[i][j][k];
-									} else {
-										Fny[i][j][k] = Ey[i][j][k];
-										Fpy[i][j][k] = Ey[i][j][k];
-									}
-								}
-							}
-						}
-					}
+					calcF();
 					
-					for (int i = 1; i < nx-1; i++)
-					{
-						if (i >= i_min && i <= i_max) {
-							for (int j = 1; j < ny-1; j++)
-							{
-								for (int k = 0; k < nz-1; k++)
-								{
-									if (conducting_z[i][j][k] == 1) {
-										double emf_phase = ac_z[i][j][k]*AC_amplitude+(1-ac_z[i][j][k]);
-										Fnz[i][j][k] = emf_phase*emfz[i][j][k] + cmfz_n[i][j][k]/q_n + Ez[i][j][k];
-										Fpz[i][j][k] = emf_phase*emfz[i][j][k] + cmfz_p[i][j][k]/q_p + Ez[i][j][k];
-									} else {
-										Fnz[i][j][k] = Ey[i][j][k];
-										Fpz[i][j][k] = Ey[i][j][k];
-									}
-								}
-							}
-						}
-					}
-					
-					setB_Boundary();
-
 					mid_barrier.await();
-
-					/* Update E field and currents */
-					// If there are too many lines in this function the simulation slows down 100x... why????? wtf is going on
-					// Thus electric field update has to go into new function
+					
 					updateE();
-
-					for (int i = 1; i < nx-1; i++)
-					{
-						if (i >= i_min && i <= i_max) {
-							for (int j = 0; j < ny-1; j++)
-							{
-								for (int k = 0; k < nz-1; k++)
-								{
-									Bx_laplacian[i][j][k] = (Bx[i+1][j+1][k+1]+Bx[i][j+2][k+1]+Bx[i][j+1][k+2]+Bx[i-1][j+1][k+1]+Bx[i][j][k+1]+Bx[i][j+1][k]-6*Bx[i][j+1][k+1])/(ds*ds);
-								}
-							}
-						}
+					if (store_diff_drift) {
+						storeDD();
+						storeDeff();
 					}
-
-					for (int i = 0; i < nx-1; i++)
-					{
-						if (i >= i_min && i <= i_max) {
-							for (int j = 1; j < ny-1; j++)
-							{
-								for (int k = 0; k < nz-1; k++)
-								{
-									By_laplacian[i][j][k] = (By[i+2][j][k+1]+By[i+1][j+1][k+1]+By[i+1][j][k+2]+By[i][j][k+1]+By[i+1][j-1][k+1]+By[i+1][j][k]-6*By[i+1][j][k+1])/(ds*ds);
-								}
-							}
-						}
-					}
+					updateBlap();
 					
-					for (int i = 0; i < nx-1; i++)
-					{
-						if (i >= i_min && i <= i_max) {
-							for (int j = 0; j < ny-1; j++)
-							{
-								for (int k = 1; k < nz-1; k++)
-								{
-									Bz_laplacian[i][j][k] = (Bz[i+2][j+1][k]+Bz[i+1][j+2][k]+Bz[i+1][j+1][k+1]+Bz[i][j+1][k]+Bz[i+1][j][k]+Bz[i+1][j+1][k-1]-6*Bz[i+1][j+1][k])/(ds*ds);
-								}
-							}
-						}
-					}
-					
-
-					/* Update charge carriers */
-					for (int i = 0; i < nx-1; i++)
-					{
-						if (i >= i_min && i <= i_max) {
-							for (int j = 0; j < ny-1; j++)
-							{
-								for (int k = 0; k < nz-1; k++)
-								{
-									//debug[i][j][k] = (Hx[i+1][j][k]-Hx[i][j][k] + Hy[i][j+1][k]-Hy[i][j][k] + Hz[i][j][k+1]-Hz[i][j][k])/ds;
-									debug[i][j][k] = (Bx[i+1][j+1][k+1]-Bx[i][j+1][k+1] + By[i+1][j+1][k+1]-By[i+1][j][k+1] + Bz[i+1][j+1][k+1]-Bz[i+1][j+1][k])/ds;
-								}
-							}
-						}
-					}
-
 					mid_barrier.await();
-					//Hz_dissipation = 0;
 					
-					for (int i = 1; i < nx-1; i++)
-					{
-						if (i >= i_min && i <= i_max) {
-							for (int j = 0; j < ny-1; j++)
-							{
-								for (int k = 0; k < nz-1; k++)
-								{
-									double sigma = absorptivity_x_dual[i][j][k]*mu_x[i][j][k]*absorbing_coeff;
-									Hx[i][j][k] = (Hx[i][j][k]*(1-0.5*dt*sigma/mu_x[i][j][k]) + (-(Ez[i][j+1][k] - Ez[i][j][k]) + (Ey[i][j][k+1] - Ey[i][j][k]))*dt/(ds*mu_x[i][j][k])
-									+ Hz_dissipation*dt*Bx_laplacian[i][j][k]/mu_x[i][j][k])/(1+0.5*dt*sigma/mu_x[i][j][k]);
-
-									Bx[i][j+1][k+1] = Hx[i][j][k]*mu_x[i][j][k];
-								}
-							}
-						}
-					}
-
-					for (int i = 0; i < nx-1; i++)
-					{
-						if (i >= i_min && i <= i_max) {
-							for (int j = 1; j < ny-1; j++)
-							{
-								for (int k = 0; k < nz-1; k++)
-								{
-									double sigma = absorptivity_y_dual[i][j][k]*mu_y[i][j][k]*absorbing_coeff;
-									Hy[i][j][k] = (Hy[i][j][k]*(1-0.5*dt*sigma/mu_y[i][j][k]) + (-(Ex[i][j][k+1] - Ex[i][j][k]) + (Ez[i+1][j][k] - Ez[i][j][k]))*dt/(ds*mu_y[i][j][k])
-									+ Hz_dissipation*dt*By_laplacian[i][j][k]/mu_y[i][j][k])/(1+0.5*dt*sigma/mu_y[i][j][k]);
-
-									By[i+1][j][k+1] = Hy[i][j][k]*mu_y[i][j][k];
-								}
-							}
-						}
-					}
-
-					for (int i = 0; i < nx-1; i++)
-					{
-						if (i >= i_min && i <= i_max) {
-							for (int j = 0; j < ny-1; j++)
-							{
-								for (int k = 1; k < nz-1; k++)
-								{
-									double sigma = absorptivity_z_dual[i][j][k]*mu_z[i][j][k]*absorbing_coeff;
-									Hz[i][j][k] = (Hz[i][j][k]*(1-0.5*dt*sigma/mu_z[i][j][k]) + (-(Ey[i+1][j][k] - Ey[i][j][k]) + (Ex[i][j+1][k] - Ex[i][j][k]))*dt/(ds*mu_z[i][j][k])
-									+ Hz_dissipation*dt*Bz_laplacian[i][j][k]/mu_z[i][j][k])/(1+0.5*dt*sigma/mu_z[i][j][k]);
-
-									Bz[i+1][j+1][k] = Hz[i][j][k]*mu_z[i][j][k];
-								}
-							}
-						}
-					}
-
-					/* Update charge carriers */
-					for (int i = 1; i < nx-1; i++)
-					{
-						if (i >= i_min && i <= i_max) {
-							for (int j = 1; j < ny-1; j++)
-							{
-								for (int k = 1; k < nz-1; k++)
-								{
-									if (conducting[i][j][k] == 1) {
-										double n = rho_n[i][j][k]/q_n;
-										double p = rho_p[i][j][k]/q_p;
-										double ni = n_i[i][j][k];
-										double rate_const = (k_aug_n[i][j][k]*n+k_aug_p[i][j][k]*p)
-										+ (k_SRH_n[i][j][k]*k_SRH_p[i][j][k])/(k_SRH_n[i][j][k]*(n+ni) + k_SRH_p[i][j][k]*(p+ni) + Double.MIN_VALUE) // Avoid divide by zero
-										+ k_rad[i][j][k];
-										double recomb_rate = rate_const*(n*p - ni*ni) - L[i][j][k];
-
-										rho_n[i][j][k] = rho_n[i][j][k] - (Jx_n[i][j][k]-Jx_n[i-1][j][k] + Jy_n[i][j][k]-Jy_n[i][j-1][k] + Jz_n[i][j][k]-Jz_n[i][j][k-1])*dt/ds - dt*q_n*recomb_rate;
-										rho_p[i][j][k] = rho_p[i][j][k] - (Jx_p[i][j][k]-Jx_p[i-1][j][k] + Jy_p[i][j][k]-Jy_p[i][j-1][k] + Jz_p[i][j][k]-Jz_p[i][j][k-1])*dt/ds - dt*q_p*recomb_rate;
-									}
-
-									rho_abs[i][j][k] = rho_abs[i][j][k] - (Jx_abs[i][j][k]-Jx_abs[i-1][j][k] + Jy_abs[i][j][k]-Jy_abs[i][j-1][k] + Jz_abs[i][j][k]-Jz_abs[i][j][k-1])*dt/ds;
-									rho_free[i][j][k] = rho_abs[i][j][k]+rho_n[i][j][k]+rho_p[i][j][k]+rho_back[i][j][k];
-								}
-							}
-						}
-					}
+					updateH();
+					updateRho();
 
 					mid_barrier.await();
 					
@@ -1438,55 +1246,70 @@ public class Simulation extends PeriodicTask {
 				e.printStackTrace();
 			}
 		}
+		
+		private void calcF() {
+			for (int i = 0; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 1; j < ny-1; j++)
+					{
+						for (int k = 1; k < nz-1; k++)
+						{
+							if (conducting_x[i][j][k] == 1) {
+								double emf_phase = ac_x[i][j][k]*AC_amplitude+(1-ac_x[i][j][k]);
+								Fnx[i][j][k] = emf_phase*emfx[i][j][k] + cmfx_n[i][j][k]/q_n + Ex[i][j][k];
+								Fpx[i][j][k] = emf_phase*emfx[i][j][k] + cmfx_p[i][j][k]/q_p + Ex[i][j][k];
+							} else {
+								Fnx[i][j][k] = Ex[i][j][k];
+								Fpx[i][j][k] = Ex[i][j][k];
+							}
+						}
+					}
+				}
+			}
 
-		public void setB_Boundary() {
+
 			for (int i = 1; i < nx-1; i++)
 			{
 				if (i >= i_min && i <= i_max) {
 					for (int j = 0; j < ny-1; j++)
 					{
-						Bx[i][j+1][0] = Bx[i][j+1][1];
-						Bx[i][j+1][nz] = Bx[i][j+1][nz-1];
-					}
-					for (int k = 0; k < nz-1; k++)
-					{
-						Bx[i][0][k+1] = Bx[i][1][k+1];
-						Bx[i][ny][k+1] = Bx[i][ny-1][k+1];
-					}
-				}
-			}
-
-			for (int j = 1; j < ny-1; j++)
-			{
-				if (j >= j_min && j <= j_max) {
-					for (int i = 0; i < nx-1; i++)
-					{
-						By[i+1][j][0] = By[i+1][j][1];
-						By[i+1][j][nz] = By[i+1][j][nz-1];
-					}
-					for (int k = 0; k < nz-1; k++)
-					{
-						By[0][j][k+1] = By[1][j][k+1];
-						By[nx][j][k+1] = By[nx-1][j][k+1];
+						for (int k = 1; k < nz-1; k++)
+						{
+							if (conducting_y[i][j][k] == 1) {
+								double emf_phase = ac_y[i][j][k]*AC_amplitude+(1-ac_y[i][j][k]);
+								Fny[i][j][k] = emf_phase*emfy[i][j][k] + cmfy_n[i][j][k]/q_n + Ey[i][j][k];
+								Fpy[i][j][k] = emf_phase*emfy[i][j][k] + cmfy_p[i][j][k]/q_p + Ey[i][j][k];
+							} else {
+								Fny[i][j][k] = Ey[i][j][k];
+								Fpy[i][j][k] = Ey[i][j][k];
+							}
+						}
 					}
 				}
 			}
 
-			for (int k = 1; k < nz-1; k++)
+			for (int i = 1; i < nx-1; i++)
 			{
-				if (k >= k_min && k <= k_max) {
-					for (int j = 0; j < ny-1; j++)
+				if (i >= i_min && i <= i_max) {
+					for (int j = 1; j < ny-1; j++)
 					{
-						Bz[0][j+1][k] = Bz[1][j+1][k];
-						Bz[nx][j+1][k] = Bz[nx-1][j+1][k];
-					}
-					for (int i = 0; i < nx-1; i++)
-					{
-						Bz[i+1][0][k] = Bz[i+1][1][k];
-						Bz[i+1][ny][k] = Bz[i+1][ny-1][k];
+						for (int k = 0; k < nz-1; k++)
+						{
+							if (conducting_z[i][j][k] == 1) {
+								double emf_phase = ac_z[i][j][k]*AC_amplitude+(1-ac_z[i][j][k]);
+								Fnz[i][j][k] = emf_phase*emfz[i][j][k] + cmfz_n[i][j][k]/q_n + Ez[i][j][k];
+								Fpz[i][j][k] = emf_phase*emfz[i][j][k] + cmfz_p[i][j][k]/q_p + Ez[i][j][k];
+							} else {
+								Fnz[i][j][k] = Ey[i][j][k];
+								Fpz[i][j][k] = Ey[i][j][k];
+							}
+						}
 					}
 				}
 			}
+
+			setB_Boundary();
 		}
 		
 		public void updateE() {
@@ -1542,31 +1365,9 @@ public class Simulation extends PeriodicTask {
 								+ 2*rho_n_avg*w_n) - sigma_n*ex_prev;
 								Jx_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i+1][j][k] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p)
 								+ 2*rho_p_avg*w_p) - sigma_p*ex_prev;
-
-								if (store_diff_drift) {
-									diff_x_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i+1][j][k] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n));
-									diff_x_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i+1][j][k] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p));
-
-									drift_x_n[i][j][k] = 2*rho_n_avg*w_n*mr_n*d_n/ds;
-									drift_x_p[i][j][k] = 2*rho_p_avg*w_p*mr_p*d_p/ds;
-
-									vel_x_n[i][j][k] = 2*w_n*mr_n*d_n/ds;
-									vel_x_p[i][j][k] = 2*w_p*mr_p*d_p/ds;
-								}
 							} else {
 								Jx_n[i][j][k] = 0;
 								Jx_p[i][j][k] = 0;
-
-								if (store_diff_drift) {
-									diff_x_n[i][j][k] = 0;
-									diff_x_p[i][j][k] = 0;
-
-									drift_x_n[i][j][k] = 0;
-									drift_x_p[i][j][k] = 0;
-
-									vel_x_n[i][j][k] = 0;
-									vel_x_p[i][j][k] = 0;
-								}
 							}
 
 							//if (n_thread == 0) t6.start();
@@ -1641,31 +1442,9 @@ public class Simulation extends PeriodicTask {
 								Jy_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i][j+1][k] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p)
 								+ 2*rho_p_avg*w_p) - sigma_p*ey_prev;
 
-								if (store_diff_drift) {
-									diff_y_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i][j+1][k] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n));
-									diff_y_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i][j+1][k] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p));
-
-									drift_y_n[i][j][k] = 2*rho_n_avg*w_n*mr_n*d_n/ds;
-									drift_y_p[i][j][k] = 2*rho_p_avg*w_p*mr_p*d_p/ds;
-
-									vel_y_n[i][j][k] = 2*w_n*mr_n*d_n/ds;
-									vel_y_p[i][j][k] = 2*w_p*mr_p*d_p/ds;
-								}
-
 							} else {
 								Jy_n[i][j][k] = 0;
 								Jy_p[i][j][k] = 0;
-
-								if (store_diff_drift) {
-									diff_y_n[i][j][k] = 0;
-									diff_y_p[i][j][k] = 0;
-
-									drift_y_n[i][j][k] = 0;
-									drift_y_p[i][j][k] = 0;
-
-									vel_y_n[i][j][k] = 0;
-									vel_y_p[i][j][k] = 0;
-								}
 							}
 
 							Jy_abs[i][j][k] = 0;
@@ -1739,31 +1518,9 @@ public class Simulation extends PeriodicTask {
 								Jz_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i][j][k+1] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p)
 								+ 2*rho_p_avg*w_p) - sigma_p*ez_prev;
 
-								if (store_diff_drift) {
-									diff_z_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i][j][k+1] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n));
-									diff_z_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i][j][k+1] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p));
-
-									drift_z_n[i][j][k] = 2*rho_n_avg*w_n*mr_n*d_n/ds;
-									drift_z_p[i][j][k] = 2*rho_p_avg*w_p*mr_p*d_p/ds;
-
-									vel_z_n[i][j][k] = 2*w_n*mr_n*d_n/ds;
-									vel_z_p[i][j][k] = 2*w_p*mr_p*d_p/ds;
-								}
-
 							} else {
 								Jz_n[i][j][k] = 0;
 								Jz_p[i][j][k] = 0;
-
-								if (store_diff_drift) {
-									diff_z_n[i][j][k] = 0;
-									diff_z_p[i][j][k] = 0;
-
-									drift_z_n[i][j][k] = 0;
-									drift_z_p[i][j][k] = 0;
-
-									vel_z_n[i][j][k] = 0;
-									vel_z_p[i][j][k] = 0;
-								}
 							}
 
 							Jz_abs[i][j][k] = 0;
@@ -1779,6 +1536,422 @@ public class Simulation extends PeriodicTask {
 							Jz_n[i][j][k] += 0.5*sigma_n*(ez_prev + Ez[i][j][k]);
 							Jz_p[i][j][k] += 0.5*sigma_p*(ez_prev + Ez[i][j][k]);
 						}
+					}
+				}
+			}
+		}
+		
+		public void storeDD() {
+			for (int i = 0; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 1; j < ny-1; j++)
+					{
+						for (int k = 1; k < nz-1; k++)
+						{
+							if (conducting_x[i][j][k] == 1) {
+
+								double d_n = 0.5*(D_n[i+1][j][k] + D_n[i][j][k]);
+								double d_p = 0.5*(D_p[i+1][j][k] + D_p[i][j][k]);
+
+								double rho_n_avg = 0.5*(rho_n[i+1][j][k] + rho_n[i][j][k]);
+								double rho_p_avg = 0.5*(rho_p[i+1][j][k] + rho_p[i][j][k]);
+
+								double Esat_n = 0.5*(v_sat_n[i+1][j][k] + v_sat_n[i][j][k])/(d_n*e_charge*beta);
+								double Esat_p = 0.5*(v_sat_p[i+1][j][k] + v_sat_p[i][j][k])/(d_p*e_charge*beta);
+
+								double Fny_avg = 0.25*(Fny[i][j][k] + Fny[i][j-1][k] + Fny[i+1][j][k] + Fny[i+1][j-1][k]);
+								double Fpy_avg = 0.25*(Fpy[i][j][k] + Fpy[i][j-1][k] + Fpy[i+1][j][k] + Fpy[i+1][j-1][k]);
+
+								double Fnz_avg = 0.25*(Fnz[i][j][k] + Fnz[i][j][k-1] + Fnz[i+1][j][k] + Fnz[i+1][j][k-1]);
+								double Fpz_avg = 0.25*(Fpz[i][j][k] + Fpz[i][j][k-1] + Fpz[i+1][j][k] + Fpz[i+1][j][k-1]);
+
+								double Fn_ratio = (Fny_avg*Fny_avg+Fnz_avg*Fnz_avg)/(Esat_n*Esat_n);
+								double Fp_ratio = (Fpy_avg*Fpy_avg+Fpz_avg*Fpz_avg)/(Esat_n*Esat_n);
+
+								double w_n = Fnx[i][j][k]*q_n*beta*ds/2;
+								double w_p = Fpx[i][j][k]*q_p*beta*ds/2;
+
+								double mr_n = 1/Math.sqrt((Fnx[i][j][k]*Fnx[i][j][k])/(Esat_n*Esat_n) + Fn_ratio + 1);
+								double mr_p = 1/Math.sqrt((Fpx[i][j][k]*Fpx[i][j][k])/(Esat_p*Esat_p) + Fp_ratio + 1);
+
+								// whether to use taylor series approximation around x=0
+								boolean approx_n = Math.abs(w_n) < 0.2;
+								boolean approx_p = Math.abs(w_p) < 0.2;
+
+								double exp_2wn = approx_n? 1 : FastExp.exp(2*w_n);
+								double exp_2wp = approx_p? 1 : FastExp.exp(2*w_p);
+
+								diff_x_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i+1][j][k] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n));
+								diff_x_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i+1][j][k] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p));
+
+								drift_x_n[i][j][k] = 2*rho_n_avg*w_n*mr_n*d_n/ds;
+								drift_x_p[i][j][k] = 2*rho_p_avg*w_p*mr_p*d_p/ds;
+
+								vel_x_n[i][j][k] = 2*w_n*mr_n*d_n/ds;
+								vel_x_p[i][j][k] = 2*w_p*mr_p*d_p/ds;
+							} else {
+								diff_x_n[i][j][k] = 0;
+								diff_x_p[i][j][k] = 0;
+
+								drift_x_n[i][j][k] = 0;
+								drift_x_p[i][j][k] = 0;
+
+								vel_x_n[i][j][k] = 0;
+								vel_x_p[i][j][k] = 0;
+							}
+						}
+					}
+				}
+			}
+
+			for (int i = 1; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 0; j < ny-1; j++)
+					{
+
+						for (int k = 1; k < nz-1; k++)
+						{
+							if (conducting_y[i][j][k] == 1) {
+
+								double d_n = 0.5*(D_n[i][j+1][k] + D_n[i][j][k]);
+								double d_p = 0.5*(D_p[i][j+1][k] + D_p[i][j][k]);
+
+								double rho_n_avg = 0.5*(rho_n[i][j+1][k] + rho_n[i][j][k]);
+								double rho_p_avg = 0.5*(rho_p[i][j+1][k] + rho_p[i][j][k]);
+
+								double Esat_n = 0.5*(v_sat_n[i][j+1][k] + v_sat_n[i][j][k])/(d_n*e_charge*beta);
+								double Esat_p = 0.5*(v_sat_p[i][j+1][k] + v_sat_p[i][j][k])/(d_p*e_charge*beta);
+
+								double Fnx_avg = 0.25*(Fnx[i][j][k] + Fnx[i-1][j][k] + Fnx[i][j+1][k] + Fnx[i-1][j+1][k]);
+								double Fpx_avg = 0.25*(Fpx[i][j][k] + Fpx[i-1][j][k] + Fpx[i][j+1][k] + Fpx[i-1][j+1][k]);
+
+								double Fnz_avg = 0.25*(Fnx[i][j][k] + Fnx[i][j][k-1] + Fnx[i][j+1][k] + Fnx[i][j+1][k-1]);
+								double Fpz_avg = 0.25*(Fpx[i][j][k] + Fpx[i][j][k-1] + Fpx[i][j+1][k] + Fpx[i][j+1][k-1]);
+
+								double Fn_ratio = (Fnx_avg*Fnx_avg+Fnz_avg*Fnz_avg)/(Esat_n*Esat_n);
+								double Fp_ratio = (Fpx_avg*Fpx_avg+Fpz_avg*Fpz_avg)/(Esat_n*Esat_n);
+
+								double w_n = Fny[i][j][k]*q_n*beta*ds/2;
+								double w_p = Fpy[i][j][k]*q_p*beta*ds/2;
+
+								double mr_n = 1/Math.sqrt((Fny[i][j][k]*Fny[i][j][k])/(Esat_n*Esat_n)+Fn_ratio+1);
+								double mr_p = 1/Math.sqrt((Fpy[i][j][k]*Fpy[i][j][k])/(Esat_p*Esat_p)+Fp_ratio+1);
+
+								boolean approx_n = Math.abs(w_n) < 0.2;
+								boolean approx_p = Math.abs(w_p) < 0.2;
+
+								double exp_2wn = approx_n? 1 : FastExp.exp(2*w_n);
+								double exp_2wp = approx_p? 1 : FastExp.exp(2*w_p);
+
+								diff_y_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i][j+1][k] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n));
+								diff_y_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i][j+1][k] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p));
+
+								drift_y_n[i][j][k] = 2*rho_n_avg*w_n*mr_n*d_n/ds;
+								drift_y_p[i][j][k] = 2*rho_p_avg*w_p*mr_p*d_p/ds;
+
+								vel_y_n[i][j][k] = 2*w_n*mr_n*d_n/ds;
+								vel_y_p[i][j][k] = 2*w_p*mr_p*d_p/ds;
+
+							} else {
+								diff_y_n[i][j][k] = 0;
+								diff_y_p[i][j][k] = 0;
+
+								drift_y_n[i][j][k] = 0;
+								drift_y_p[i][j][k] = 0;
+
+								vel_y_n[i][j][k] = 0;
+								vel_y_p[i][j][k] = 0;
+							}
+						}
+					}
+				}
+			}
+
+
+			for (int i = 1; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 1; j < ny-1; j++)
+					{
+
+						for (int k = 0; k < nz-1; k++)
+						{
+							if (conducting_z[i][j][k] == 1) {
+
+								double d_n = 0.5*(D_n[i][j][k+1] + D_n[i][j][k]);
+								double d_p = 0.5*(D_p[i][j][k+1] + D_p[i][j][k]);
+
+								double rho_n_avg = 0.5*(rho_n[i][j][k+1] + rho_n[i][j][k]);
+								double rho_p_avg = 0.5*(rho_p[i][j][k+1] + rho_p[i][j][k]);
+
+								double Esat_n = 0.5*(v_sat_n[i][j][k+1] + v_sat_n[i][j][k])/(d_n*e_charge*beta);
+								double Esat_p = 0.5*(v_sat_p[i][j][k+1] + v_sat_p[i][j][k])/(d_p*e_charge*beta);
+
+								double Fnx_avg = 0.25*(Fnx[i][j][k] + Fnx[i-1][j][k] + Fnx[i][j][k+1] + Fnx[i-1][j][k+1]);
+								double Fpx_avg = 0.25*(Fpx[i][j][k] + Fpx[i-1][j][k] + Fpx[i][j][k+1] + Fpx[i-1][j][k+1]);
+
+								double Fny_avg = 0.25*(Fny[i][j][k] + Fny[i][j-1][k] + Fny[i][j][k+1] + Fny[i][j-1][k+1]);
+								double Fpy_avg = 0.25*(Fpy[i][j][k] + Fpy[i][j-1][k] + Fpy[i][j][k+1] + Fpy[i][j-1][k+1]);
+
+								double Fn_ratio = (Fnx_avg*Fnx_avg+Fny_avg*Fny_avg)/(Esat_n*Esat_n);
+								double Fp_ratio = (Fpx_avg*Fpx_avg+Fpy_avg*Fpy_avg)/(Esat_n*Esat_n);
+
+								double w_n = Fnz[i][j][k]*q_n*beta*ds/2;
+								double w_p = Fpz[i][j][k]*q_p*beta*ds/2;
+
+								double mr_n = 1/Math.sqrt((Fnz[i][j][k]*Fnz[i][j][k])/(Esat_n*Esat_n)+Fn_ratio+1);
+								double mr_p = 1/Math.sqrt((Fpz[i][j][k]*Fpz[i][j][k])/(Esat_p*Esat_p)+Fp_ratio+1);
+
+								boolean approx_n = Math.abs(w_n) < 0.2;
+								boolean approx_p = Math.abs(w_p) < 0.2;
+
+								double exp_2wn = approx_n? 1 : FastExp.exp(2*w_n);
+								double exp_2wp = approx_p? 1 : FastExp.exp(2*w_p);
+
+								diff_z_n[i][j][k] = mr_n*d_n/ds*(-(rho_n[i][j][k+1] - rho_n[i][j][k])*Utils.xtanhxm1(w_n, exp_2wn, approx_n));
+								diff_z_p[i][j][k] = mr_p*d_p/ds*(-(rho_p[i][j][k+1] - rho_p[i][j][k])*Utils.xtanhxm1(w_p, exp_2wp, approx_p));
+
+								drift_z_n[i][j][k] = 2*rho_n_avg*w_n*mr_n*d_n/ds;
+								drift_z_p[i][j][k] = 2*rho_p_avg*w_p*mr_p*d_p/ds;
+
+								vel_z_n[i][j][k] = 2*w_n*mr_n*d_n/ds;
+								vel_z_p[i][j][k] = 2*w_p*mr_p*d_p/ds;
+
+							} else {
+								diff_z_n[i][j][k] = 0;
+								diff_z_p[i][j][k] = 0;
+
+								drift_z_n[i][j][k] = 0;
+								drift_z_p[i][j][k] = 0;
+
+								vel_z_n[i][j][k] = 0;
+								vel_z_p[i][j][k] = 0;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		private void storeDeff()
+		{	
+			for (int i = 1; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 1; j < ny-1; j++)
+					{
+						for (int k = 1; k < nz-1; k++)
+						{
+							if (conducting[i][j][k] == 1) {
+								double Fxn_avg = 0.5*(Fnx[i][j][k]+Fnx[i-1][j][k]);
+								double Fyn_avg = 0.5*(Fny[i][j][k]+Fny[i][j-1][k]);
+								double Fzn_avg = 0.5*(Fnz[i][j][k]+Fnz[i][j][k-1]);
+
+								double Fxp_avg = 0.5*(Fpx[i][j][k]+Fpx[i-1][j][k]);
+								double Fyp_avg = 0.5*(Fpx[i][j][k]+Fpx[i][j-1][k]);
+								double Fzp_avg = 0.5*(Fpz[i][j][k]+Fpz[i][j][k-1]);
+
+								double Esat_n = v_sat_n[i][j][k]/(D_n[i][j][k]*e_charge*beta);
+								double Esat_p = v_sat_p[i][j][k]/(D_p[i][j][k]*e_charge*beta);
+
+								sqrt_D_eff_n[i][j][k] = Math.sqrt(D_n[i][j][k]/Math.sqrt((Fxn_avg*Fxn_avg+Fyn_avg*Fyn_avg+Fzn_avg*Fzn_avg)/(Esat_n*Esat_n) + 1));
+								sqrt_D_eff_p[i][j][k] = Math.sqrt(D_p[i][j][k]/Math.sqrt((Fxp_avg*Fxp_avg+Fyp_avg*Fyp_avg+Fzp_avg*Fzp_avg)/(Esat_p*Esat_p) + 1));
+							} else {
+								sqrt_D_eff_n[i][j][k] = 0;
+								sqrt_D_eff_p[i][j][k] = 0;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		private void updateBlap() {
+			for (int i = 1; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 0; j < ny-1; j++)
+					{
+						for (int k = 0; k < nz-1; k++)
+						{
+							Bx_laplacian[i][j][k] = (Bx[i+1][j+1][k+1]+Bx[i][j+2][k+1]+Bx[i][j+1][k+2]+Bx[i-1][j+1][k+1]+Bx[i][j][k+1]+Bx[i][j+1][k]-6*Bx[i][j+1][k+1])/(ds*ds);
+						}
+					}
+				}
+			}
+
+			for (int i = 0; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 1; j < ny-1; j++)
+					{
+						for (int k = 0; k < nz-1; k++)
+						{
+							By_laplacian[i][j][k] = (By[i+2][j][k+1]+By[i+1][j+1][k+1]+By[i+1][j][k+2]+By[i][j][k+1]+By[i+1][j-1][k+1]+By[i+1][j][k]-6*By[i+1][j][k+1])/(ds*ds);
+						}
+					}
+				}
+			}
+
+			for (int i = 0; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 0; j < ny-1; j++)
+					{
+						for (int k = 1; k < nz-1; k++)
+						{
+							Bz_laplacian[i][j][k] = (Bz[i+2][j+1][k]+Bz[i+1][j+2][k]+Bz[i+1][j+1][k+1]+Bz[i][j+1][k]+Bz[i+1][j][k]+Bz[i+1][j+1][k-1]-6*Bz[i+1][j+1][k])/(ds*ds);
+						}
+					}
+				}
+			}
+
+
+			for (int i = 0; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 0; j < ny-1; j++)
+					{
+						for (int k = 0; k < nz-1; k++)
+						{
+							//debug[i][j][k] = (Hx[i+1][j][k]-Hx[i][j][k] + Hy[i][j+1][k]-Hy[i][j][k] + Hz[i][j][k+1]-Hz[i][j][k])/ds;
+							debug[i][j][k] = (Bx[i+1][j+1][k+1]-Bx[i][j+1][k+1] + By[i+1][j+1][k+1]-By[i+1][j][k+1] + Bz[i+1][j+1][k+1]-Bz[i+1][j+1][k])/ds;
+						}
+					}
+				}
+			}
+		}
+
+		private void updateH() {
+			for (int i = 1; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 0; j < ny-1; j++)
+					{
+						for (int k = 0; k < nz-1; k++)
+						{
+							double sigma = absorptivity_x_dual[i][j][k]*mu_x[i][j][k]*absorbing_coeff;
+							Hx[i][j][k] = (Hx[i][j][k]*(1-0.5*dt*sigma/mu_x[i][j][k]) + (-(Ez[i][j+1][k] - Ez[i][j][k]) + (Ey[i][j][k+1] - Ey[i][j][k]))*dt/(ds*mu_x[i][j][k])
+									+ Hz_dissipation*dt*Bx_laplacian[i][j][k]/mu_x[i][j][k])/(1+0.5*dt*sigma/mu_x[i][j][k]);
+
+							Bx[i][j+1][k+1] = Hx[i][j][k]*mu_x[i][j][k];
+						}
+					}
+				}
+			}
+
+			for (int i = 0; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 1; j < ny-1; j++)
+					{
+						for (int k = 0; k < nz-1; k++)
+						{
+							double sigma = absorptivity_y_dual[i][j][k]*mu_y[i][j][k]*absorbing_coeff;
+							Hy[i][j][k] = (Hy[i][j][k]*(1-0.5*dt*sigma/mu_y[i][j][k]) + (-(Ex[i][j][k+1] - Ex[i][j][k]) + (Ez[i+1][j][k] - Ez[i][j][k]))*dt/(ds*mu_y[i][j][k])
+									+ Hz_dissipation*dt*By_laplacian[i][j][k]/mu_y[i][j][k])/(1+0.5*dt*sigma/mu_y[i][j][k]);
+
+							By[i+1][j][k+1] = Hy[i][j][k]*mu_y[i][j][k];
+						}
+					}
+				}
+			}
+
+			for (int i = 0; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 0; j < ny-1; j++)
+					{
+						for (int k = 1; k < nz-1; k++)
+						{
+							double sigma = absorptivity_z_dual[i][j][k]*mu_z[i][j][k]*absorbing_coeff;
+							Hz[i][j][k] = (Hz[i][j][k]*(1-0.5*dt*sigma/mu_z[i][j][k]) + (-(Ey[i+1][j][k] - Ey[i][j][k]) + (Ex[i][j+1][k] - Ex[i][j][k]))*dt/(ds*mu_z[i][j][k])
+									+ Hz_dissipation*dt*Bz_laplacian[i][j][k]/mu_z[i][j][k])/(1+0.5*dt*sigma/mu_z[i][j][k]);
+
+							Bz[i+1][j+1][k] = Hz[i][j][k]*mu_z[i][j][k];
+						}
+					}
+				}
+			}
+		}
+
+		private void updateRho() {
+			/* Update charge carriers */
+			for (int i = 1; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 1; j < ny-1; j++)
+					{
+						for (int k = 1; k < nz-1; k++)
+						{
+							if (conducting[i][j][k] == 1) {
+								double n = rho_n[i][j][k]/q_n;
+								double p = rho_p[i][j][k]/q_p;
+								double ni = n_i[i][j][k];
+								double rate_const = (k_aug_n[i][j][k]*n+k_aug_p[i][j][k]*p)
+										+ (k_SRH_n[i][j][k]*k_SRH_p[i][j][k])/(k_SRH_n[i][j][k]*(n+ni) + k_SRH_p[i][j][k]*(p+ni) + Double.MIN_VALUE) // Avoid divide by zero
+										+ k_rad[i][j][k];
+								double recomb_rate = rate_const*(n*p - ni*ni) - L[i][j][k];
+
+								rho_n[i][j][k] = rho_n[i][j][k] - (Jx_n[i][j][k]-Jx_n[i-1][j][k] + Jy_n[i][j][k]-Jy_n[i][j-1][k] + Jz_n[i][j][k]-Jz_n[i][j][k-1])*dt/ds - dt*q_n*recomb_rate;
+								rho_p[i][j][k] = rho_p[i][j][k] - (Jx_p[i][j][k]-Jx_p[i-1][j][k] + Jy_p[i][j][k]-Jy_p[i][j-1][k] + Jz_p[i][j][k]-Jz_p[i][j][k-1])*dt/ds - dt*q_p*recomb_rate;
+							}
+
+							rho_abs[i][j][k] = rho_abs[i][j][k] - (Jx_abs[i][j][k]-Jx_abs[i-1][j][k] + Jy_abs[i][j][k]-Jy_abs[i][j-1][k] + Jz_abs[i][j][k]-Jz_abs[i][j][k-1])*dt/ds;
+							rho_free[i][j][k] = rho_abs[i][j][k]+rho_n[i][j][k]+rho_p[i][j][k]+rho_back[i][j][k];
+						}
+					}
+				}
+			}
+		}
+
+		public void setB_Boundary() {
+			for (int i = 1; i < nx-1; i++)
+			{
+				if (i >= i_min && i <= i_max) {
+					for (int j = 0; j < ny-1; j++)
+					{
+						Bx[i][j+1][0] = Bx[i][j+1][1];
+						Bx[i][j+1][nz] = Bx[i][j+1][nz-1];
+					}
+					for (int k = 0; k < nz-1; k++)
+					{
+						Bx[i][0][k+1] = Bx[i][1][k+1];
+						Bx[i][ny][k+1] = Bx[i][ny-1][k+1];
+					}
+				}
+			}
+
+			for (int j = 1; j < ny-1; j++)
+			{
+				if (j >= j_min && j <= j_max) {
+					for (int i = 0; i < nx-1; i++)
+					{
+						By[i+1][j][0] = By[i+1][j][1];
+						By[i+1][j][nz] = By[i+1][j][nz-1];
+					}
+					for (int k = 0; k < nz-1; k++)
+					{
+						By[0][j][k+1] = By[1][j][k+1];
+						By[nx][j][k+1] = By[nx-1][j][k+1];
+					}
+				}
+			}
+
+			for (int k = 1; k < nz-1; k++)
+			{
+				if (k >= k_min && k <= k_max) {
+					for (int j = 0; j < ny-1; j++)
+					{
+						Bz[0][j+1][k] = Bz[1][j+1][k];
+						Bz[nx][j+1][k] = Bz[nx-1][j+1][k];
+					}
+					for (int i = 0; i < nx-1; i++)
+					{
+						Bz[i+1][0][k] = Bz[i+1][1][k];
+						Bz[i+1][ny][k] = Bz[i+1][ny-1][k];
 					}
 				}
 			}
@@ -1995,37 +2168,6 @@ public class Simulation extends PeriodicTask {
 				}
 			}
 		}*/
-		
-		if (need_diff_drift)
-		{	
-			for (int i = 1; i < nx-1; i++)
-			{
-				for (int j = 1; j < ny-1; j++)
-				{
-					for (int k = 1; k < nz-1; k++)
-					{
-						if (conducting[i][j][k] == 1) {
-							double Fxn_avg = 0.5*(Fnx[i][j][k]+Fnx[i-1][j][k]);
-							double Fyn_avg = 0.5*(Fny[i][j][k]+Fny[i][j-1][k]);
-							double Fzn_avg = 0.5*(Fnz[i][j][k]+Fnz[i][j][k-1]);
-							
-							double Fxp_avg = 0.5*(Fpx[i][j][k]+Fpx[i-1][j][k]);
-							double Fyp_avg = 0.5*(Fpx[i][j][k]+Fpx[i][j-1][k]);
-							double Fzp_avg = 0.5*(Fpz[i][j][k]+Fpz[i][j][k-1]);
-							
-							double Esat_n = v_sat_n[i][j][k]/(D_n[i][j][k]*e_charge*beta);
-							double Esat_p = v_sat_p[i][j][k]/(D_p[i][j][k]*e_charge*beta);
-							
-							sqrt_D_eff_n[i][j][k] = Math.sqrt(D_n[i][j][k]/Math.sqrt((Fxn_avg*Fxn_avg+Fyn_avg*Fyn_avg+Fzn_avg*Fzn_avg)/(Esat_n*Esat_n) + 1));
-							sqrt_D_eff_p[i][j][k] = Math.sqrt(D_p[i][j][k]/Math.sqrt((Fxp_avg*Fxp_avg+Fyp_avg*Fyp_avg+Fzp_avg*Fzp_avg)/(Esat_p*Esat_p) + 1));
-						} else {
-							sqrt_D_eff_n[i][j][k] = 0;
-							sqrt_D_eff_p[i][j][k] = 0;
-						}
-					}
-				}
-			}
-		}
 		
 		updateMiscFields = false;
 

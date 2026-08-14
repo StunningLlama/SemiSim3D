@@ -298,11 +298,15 @@ public class Renderer extends PeriodicTask {
 		C_prev = 0;
 	}
 	
-
 	public void set3Dmode() {
 		e.rwLock.writeLock().lock();
 		try {
-			RenderMode mode = e.controls.rendermode.getOption();
+			renderer_left_eye.animator.pause();
+			renderer_right_eye.animator.pause();
+			
+			imgpanel.remove(e.canvas);
+			imgpanel.remove(renderer_left_eye.canvas);
+			imgpanel.remove(renderer_right_eye.canvas);
 
 			e.opts.gui_slice.setVisible(!threeD_mode);
 			e.opts.gui_slicelabel.setVisible(!threeD_mode);
@@ -312,21 +316,17 @@ public class Renderer extends PeriodicTask {
 			e.opts.gui_slice.setValue(1);
 			e.opts.gui_slice.setValue(tmp);
 
-			imgpanel.remove(e.canvas);
-			imgpanel.remove(renderer_left_eye.canvas);
-			imgpanel.remove(renderer_right_eye.canvas);
-
-			renderer_left_eye.animator.stop();
-			renderer_right_eye.animator.stop();
-
+			RenderMode mode = e.controls.rendermode.getOption();
 			if (threeD_mode) {
 				imgpanel.add(renderer_left_eye.canvas);
-				renderer_left_eye.animator.start();
+				renderer_left_eye.animator.resume();
+				if (!renderer_left_eye.animator.isStarted()) renderer_left_eye.animator.start();
 
 				if (RenderMode.isStereoscopic(mode)) {
 					e.opts.gui_parallax.setVisible(true);
 					e.opts.gui_parallaxlabel.setVisible(true);
-					renderer_right_eye.animator.start();
+					renderer_right_eye.animator.resume();
+					if (!renderer_right_eye.animator.isStarted()) renderer_right_eye.animator.start();
 					imgpanel.add(renderer_right_eye.canvas);
 				} else {
 					e.opts.gui_parallax.setVisible(false);
@@ -460,57 +460,6 @@ public class Renderer extends PeriodicTask {
 				}
 			}
 		}
-	}
-
-	public void stampPixelData() {
-		e.t9.start();
-
-		if (slice_z) {
-			int k_slice = getSlice();
-			for (int x = 0; x < imgwidth; x++) {
-				for (int y = 0; y < imgheight; y++) {
-					int i = x/scalefactor;
-					int j = e.ny-1-y/scalefactor;
-					double scale = 1f/max(image_r[i][j][k_slice], image_g[i][j][k_slice], image_b[i][j][k_slice], 1f);
-					int rgb = clamp((int)(256*image_r[i][j][k_slice]*scale), 0, 255) << 16
-					| clamp((int)(256*image_g[i][j][k_slice]*scale), 0, 255) << 8
-					| clamp((int)(256*image_b[i][j][k_slice]*scale), 0, 255);
-					imgData[x + y*imgwidth] = rgb;
-				}
-			}
-		}
-		if (slice_x) {
-			int i_slice = getSlice();
-			for (int x = 0; x < imgwidth; x++) {
-				for (int y = 0; y < imgheight; y++) {
-					int j = x/scalefactor;
-					int k = e.nz-1-y/scalefactor;
-					double scale = 1f/max(image_r[i_slice][j][k], image_g[i_slice][j][k], image_b[i_slice][j][k], 1f);
-					int rgb = clamp((int)(256*image_r[i_slice][j][k]*scale), 0, 255) << 16
-					| clamp((int)(256*image_g[i_slice][j][k]*scale), 0, 255) << 8
-					| clamp((int)(256*image_b[i_slice][j][k]*scale), 0, 255);
-					imgData[x + y*imgwidth] = rgb;
-				}
-			}
-		}
-
-		if (slice_y) {
-			//System.out.println(e.nx*e.nz*scalefactor*scalefactor+ " " + imgData.length);
-			int j_slice = getSlice();
-			for (int x = 0; x < imgwidth; x++) {
-				for (int y = 0; y < imgheight; y++) {
-					int i = x/scalefactor;
-					int k = e.nz-1-y/scalefactor;
-					double scale = 1f/max(image_r[i][j_slice][k], image_g[i][j_slice][k], image_b[i][j_slice][k], 1f);
-					int rgb = clamp((int)(256*image_r[i][j_slice][k]*scale), 0, 255) << 16
-					| clamp((int)(256*image_g[i][j_slice][k]*scale), 0, 255) << 8
-					| clamp((int)(256*image_b[i][j_slice][k]*scale), 0, 255);
-					imgData[x + y*imgwidth] = rgb;
-				}
-			}
-		}
-
-		e.t9.stop();
 	}
 
 	public void drawPixel(int x, int y) {
@@ -733,7 +682,7 @@ public class Renderer extends PeriodicTask {
 			e.rwLock.readLock().lock();
 			try {
 				t5.start();
-				drawPixels(true);
+				drawPixels();
 				drawOverlay(true);
 				//drawText();
 				//Graphics2D g = img_back.createGraphics();
@@ -777,7 +726,7 @@ public class Renderer extends PeriodicTask {
 	    return dst;
 	}
 
-	void drawPixels(boolean stamp) {
+	void drawPixels() {
 
 		for (int i = 0; i < e.nx; i++) {
 			for (int j = 0; j < e.ny; j++) {
@@ -1233,10 +1182,6 @@ public class Renderer extends PeriodicTask {
 		//if (e.controls.texting) {
 		//	drawPixelLine(e.controls.text_x, e.controls.text_y, e.controls.text_x, e.controls.text_y+7);
 		//}
-
-		if (stamp)
-			stampPixelData();
-
 	}
 	
 	synchronized void drawOverlay(boolean render) {
@@ -1525,6 +1470,27 @@ public class Renderer extends PeriodicTask {
 		
 		int n_thread;
 		int n_threads;
+
+		double arrowlength;
+		double vectorscalingconstant;
+		int density_x;
+		int density_y;
+		double randomness = 0;
+		
+		double grid_offset;
+		double dual_offset;
+
+		double[][][] vfr_x;
+		double[][][] vfr_y;
+		double[][][] vfr_z;
+		
+		double[][][] vf_x;
+		double[][][] vf_y;
+		
+		int npx;
+		int npy;
+		int slice;
+		
 		Random rand = new Random();
 
 		public GraphicsThread(int n, int n_threads) {
@@ -1546,16 +1512,21 @@ public class Renderer extends PeriodicTask {
 			try {
 				while (true) {
 					graphics_start_barrier.await();
+					
+					if (imgData != null) {
+						stampPixelData();
+					}
 
 					if (synchronized_vector_display_mode != VectorMode.NONE && synchronized_vector_view != VectorView.NONE)
 					{
-						double arrowlength = 25.0/scalefactor;
-						double vectorscalingconstant = 10*Math.pow(10.0, e.opts.gui_brightness_vec.getValue()/10.0)/e.controls.vectorview.getOption().getScalingConstant(e);
-						int density_x = 10*scalefactor*rx/256;
-						int density_y = 10*scalefactor*ry/256;
-						boolean conductors_only = synchronized_vector_view.isConductorOnly();
+						graphics_mid_barrier.await();
+						
+						arrowlength = 25.0/scalefactor;
+						vectorscalingconstant = 10*Math.pow(10.0, e.opts.gui_brightness_vec.getValue()/10.0)/e.controls.vectorview.getOption().getScalingConstant(e);
+						density_x = 10*scalefactor*rx/256;
+						density_y = 10*scalefactor*ry/256;
 
-						double randomness = 0;
+						randomness = 0;
 						if (synchronized_vector_display_mode == VectorMode.ARROWS) {
 							randomness = 0.5;
 						} else if (synchronized_vector_display_mode == VectorMode.LINES) {
@@ -1564,17 +1535,17 @@ public class Renderer extends PeriodicTask {
 						
 						double[][][][] vf = {null, null, null};
 						e.computeVectorField(vf, synchronized_vector_view);
-						double grid_offset = synchronized_vector_view.getGridOffset();
-						double dual_offset = synchronized_vector_view.getDualOffset();
+						grid_offset = synchronized_vector_view.getGridOffset();
+						dual_offset = synchronized_vector_view.getDualOffset();
 
-						double[][][] vfr_x = vf[0];
-						double[][][] vfr_y = vf[1];
-						double[][][] vfr_z = vf[2];
+						vfr_x = vf[0];
+						vfr_y = vf[1];
+						vfr_z = vf[2];
 						
-						double[][][] vf_x = null;
-						double[][][] vf_y = null;
-						int npx = 0;
-						int npy = 0;
+						vf_x = null;
+						vf_y = null;
+						npx = 0;
+						npy = 0;
 
 						if (slice_x) {
 							vf_x = vf[1];
@@ -1593,410 +1564,28 @@ public class Renderer extends PeriodicTask {
 							npy = e.ny;
 						}
 
-						int slice = e.renderer.getSlice();
+						slice = e.renderer.getSlice();
 
 						if (synchronized_vector_display_mode == VectorMode.LINES && synchronized_render) {
-							rand.setSeed(n_thread);
-							for (int i = lower(density_x); i < upper(density_x); i++) {
-								for (int j = 0; j < density_y; j++) {
-
-									//double x = (npx-1)*(i+0.5)/50;
-									//double y = (npy-1)*(j+0.5)/50;
-									double x = npx*(i+randomness*(rand.nextFloat()-0.5))/density_x;
-									double y = npy*(j+randomness*(rand.nextFloat()-0.5))/density_y;
-									for (int sign = -1; sign <= 1; sign += 2) {
-
-										double prevx = x;
-										double prevy = y;
-										double dx = 0;
-										double dy = 0;
-
-
-										int steps = 30;
-										for (int k = 0; k < steps; k++) {
-											if (slice_x) {
-												dx = Utils.bilinearinterp(vf_x, slice+dual_offset, prevx+grid_offset, prevy+dual_offset);
-												dy = Utils.bilinearinterp(vf_y, slice+dual_offset, prevx+dual_offset, prevy+grid_offset);
-											} else if (slice_y) {
-												dx = Utils.bilinearinterp(vf_x, prevx+grid_offset, slice+dual_offset, prevy+dual_offset);
-												dy = Utils.bilinearinterp(vf_y, prevx+dual_offset, slice+dual_offset, prevy+grid_offset);
-											} else if (slice_z) {
-												dx = Utils.bilinearinterp(vf_x, prevx+grid_offset, prevy+dual_offset, slice+dual_offset);
-												dy = Utils.bilinearinterp(vf_y, prevx+dual_offset, prevy+grid_offset, slice+dual_offset);
-											}
-
-											double fieldmagnitude = Math.sqrt(dx*dx+dy*dy);
-											double alphaFG = bump(0.5*(1.0-k/(double)(steps-1)), 0.5)*Math.min(1, vectorscalingconstant*fieldmagnitude);
-
-											if (fieldmagnitude != 0) {
-												dx /= fieldmagnitude;
-												dy /= fieldmagnitude;
-											}
-
-											double nextx = prevx + dx*arrowlength*0.25*sign;
-											double nexty = prevy + dy*arrowlength*0.25*sign;
-
-											drawLine((int)((prevx+0.5)*scalefactor), (int)((prevy+0.5)*scalefactor), (int)((nextx+0.5)*scalefactor), (int)((nexty+0.5)*scalefactor), k == 0 && sign == 1,
-											1f, 1f, 1f, (float) alphaFG, 1f);
-
-											prevx = nextx;
-											prevy = nexty;
-										}
-									}
-								}
-
-							}
+							drawLines();
 						} else if (synchronized_vector_display_mode == VectorMode.ARROWS && synchronized_render) {
-							rand.setSeed(n_thread);
-							
-							Vector ctr = new Vector(0,0);
-							Vector arrow = new Vector(0,0);
-							Vector tip1 = new Vector(0,0);
-							Vector tip2 = new Vector(0,0);
-							Vector body1 = new Vector(0,0);
-							Vector body2 = new Vector(0,0);
-							
-							for (int i = lower(density_x); i < upper(density_x); i++) {
-								for (int j = 0; j < density_y; j++) {
-
-									//double x = (npx-1)*(i+0.5)/50;
-									//double y = (npy-1)*(j+0.5)/50;
-									double x = npx*(i+randomness*(rand.nextFloat()-0.5))/density_x;
-									double y = npy*(j+randomness*(rand.nextFloat()-0.5))/density_y;
-									ctr.x = x+0.5;
-									ctr.y = y+0.5;
-
-									if (slice_x) {
-										arrow.x = Utils.bilinearinterp(vf_x, slice+dual_offset, x+grid_offset, y+dual_offset);
-										arrow.y = Utils.bilinearinterp(vf_y, slice+dual_offset, x+dual_offset, y+grid_offset);
-									} else if (slice_y) {
-										arrow.x = Utils.bilinearinterp(vf_x,x+grid_offset, slice+dual_offset, y+dual_offset);
-										arrow.y = Utils.bilinearinterp(vf_y,x+dual_offset, slice+dual_offset, y+grid_offset);
-									} else if (slice_z) {
-										arrow.x = Utils.bilinearinterp(vf_x,x+grid_offset, y+dual_offset, slice+dual_offset);
-										arrow.y = Utils.bilinearinterp(vf_y,x+dual_offset, y+grid_offset, slice+dual_offset);
-									}
-
-									double fieldmagnitude = Math.max(0.1, 10*vectorscalingconstant*Math.sqrt(arrow.dot(arrow)));
-									arrow.normalize();
-									tip1.copy(arrow);
-									tip2.copy(arrow);
-									tip1.rotate(Math.PI*5.0/6.0);
-									tip2.rotate(Math.PI*7.0/6.0);
-
-									body1.copy(ctr);
-									body1.addmult(arrow, -0.5*arrowlength);
-									body2.copy(ctr);
-									body2.addmult(arrow, 0.5*arrowlength);
-									tip1.scalarmult(0.35*arrowlength);
-									tip1.add(body2);
-									tip2.scalarmult(0.35*arrowlength);
-									tip2.add(body2);
-									double alphaFG = (0.1*Math.sqrt(fieldmagnitude));
-									drawLine((int)(body1.x*scalefactor), (int)(body1.y*scalefactor), (int)(body2.x*scalefactor), (int)(body2.y*scalefactor), true,
-									(float)fieldmagnitude, (float)fieldmagnitude, (float)fieldmagnitude, (float)alphaFG, 1f);
-									drawLine((int)(body2.x*scalefactor), (int)(body2.y*scalefactor), (int)(tip1.x*scalefactor), (int)(tip1.y*scalefactor), false,
-									(float)fieldmagnitude, (float)fieldmagnitude, (float)fieldmagnitude, (float)alphaFG, 1f);
-									drawLine((int)(body2.x*scalefactor), (int)(body2.y*scalefactor), (int)(tip2.x*scalefactor), (int)(tip2.y*scalefactor), false,
-									(float)fieldmagnitude, (float)fieldmagnitude, (float)fieldmagnitude, (float)alphaFG, 1f);
-								}
-							}
+							drawArrows();
 						} else if (synchronized_vector_display_mode == VectorMode.DOTS) {
-							boolean paused = e.opts.gui_paused.isSelected();
-
-							int lower = lower(dots.size());
-							int upper = upper(dots.size());
-							for (int i = lower; i < upper; i++) {
-								Dot d = dots.get(i);
-								if (d.time <= 0 || d.x < 0 || d.y < 0 || d.z < 0 || d.x >= e.nx || d.y >= e.ny || d.z >= e.nz) {
-									d.x = e.nx*rand.nextDouble();
-									d.y = e.ny*rand.nextDouble();
-									d.z = e.nz*rand.nextDouble();
-									d.lifespan = 100*(1+rand.nextDouble());
-									d.time = d.lifespan;
-									if (conductors_only && Utils.bilinearinterp(e.conducting, d.x, d.y, d.z) == 0) {
-										d.lifespan = 0;
-										d.time = 0;
-									}
-								}
-							}
-							
-							setColorFloat(1, 1, 1);
-							int dot_offset = (int)(0.25*scalefactor-1)/2;
-							for (int i = lower; i < upper; i++) {
-								Dot d = dots.get(i);
-								if (d.time > 0) {
-									double dx = 0;
-									double dy = 0;
-									double dz = 0;
-									int steps = 10;
-
-									if (!paused) {
-										for (int k = 0; k < steps; k++) {
-											dx = Utils.bilinearinterp(vfr_x,d.x+grid_offset, d.y+dual_offset, d.z+dual_offset)*vectorscalingconstant/steps;
-											dy = Utils.bilinearinterp(vfr_y,d.x+dual_offset, d.y+grid_offset, d.z+dual_offset)*vectorscalingconstant/steps;
-											dz = Utils.bilinearinterp(vfr_z,d.x+dual_offset, d.y+dual_offset, d.z+grid_offset)*vectorscalingconstant/steps;
-											double maxspeed = 0.5;
-											double factor = Math.min(1, maxspeed/Math.sqrt(dx*dx+dy*dy+dz*dz));
-											d.x += dx*factor;
-											d.y += dy*factor;
-											d.z += dz*factor;
-										}
-
-										double p = d.time/d.lifespan;
-										d.brightness = Math.min(1, Math.max(0.1, 500*Math.sqrt(dx*dx+dy*dy+dz*dz)))*bump(p, 1/3.0);
-										d.time -= 1;
-									}
-
-									double alphaFG = d.brightness;
-									if (synchronized_render) {
-										double x = project_x(d.x, d.y, d.z);
-										double y = project_y(d.x, d.y, d.z);
-										double z = project_z(d.x, d.y, d.z);
-										
-										if (Math.abs(z - slice) < 2)
-											drawRectangle((int)((x+0.5)*scalefactor)-dot_offset, (int)((y+0.5)*scalefactor)-dot_offset, (int)(scalefactor*0.25), (int)(scalefactor*0.25), 1f, 1f, 1f, (float)alphaFG, 1f);
-									}
-								}
-							}
+							drawDots();
 						}
 					}
 					
-
 					if (synchronized_scalar_view != ScalarView.NONE && (synchronized_scalar_display_mode == ScalarMode.CONTOUR_COLORS || synchronized_scalar_display_mode == ScalarMode.CONTOUR) && synchronized_render) {
 						graphics_mid_barrier.await();
-						double spacing = 0.2/scalingconstant;
-						double contourwidth = e.ds;
-
-						int slice = getSlice();
-
-						for (int i = lower(imgwidth); i < upper(imgwidth); i++) {
-							for (int j = 0; j < imgheight; j++) {
-								double u = 0;
-								double v = 0;
-								
-								if (slice_x) {
-									u = Utils.bilinearinterp(scalarfield, slice - 0.5, (double)i/scalefactor - 0.5, (double)j/scalefactor - 0.5)/spacing;
-									v = Utils.bilinearinterp(gradscalarfield, slice - 0.5, (double)i/scalefactor - 0.5, (double)j/scalefactor - 0.5)/spacing;
-								} else if (slice_y) {
-									u = Utils.bilinearinterp(scalarfield, (double)i/scalefactor - 0.5, slice - 0.5, (double)j/scalefactor - 0.5)/spacing;
-									v = Utils.bilinearinterp(gradscalarfield, (double)i/scalefactor - 0.5, slice - 0.5, (double)j/scalefactor - 0.5)/spacing;
-								} else if (slice_z) {
-									u = Utils.bilinearinterp(scalarfield, (double)i/scalefactor - 0.5, (double)j/scalefactor - 0.5, slice - 0.5)/spacing;
-									v = Utils.bilinearinterp(gradscalarfield, (double)i/scalefactor - 0.5, (double)j/scalefactor - 0.5, slice - 0.5)/spacing;
-								}
-								
-								double f = ((((u%1)+1.5)%1)/Math.abs(v))/contourwidth;
-								if (f < 1) {
-									drawPixel(i, j, 1f, 1f, 1f, (float)(2*Math.min(f, 1-f)), 1f);
-								}
-							}
-						}
+						drawContours();
 					}
 					
-					
 					if (synchronized_show_carriers) {
-
 						if (synchronized_update_carriers) {
-							if (n_thread == 0 && carrier_diffusion_warning_timer > 0) {
-								carrier_diffusion_warning_timer--;
-							}
-							
-							double C = cc_default_dot_density*Math.pow(10.0, e.opts.gui_carrier_density.getValue()/20.0);
-
-							if (n_thread == 0) {
-								rho_n_dist.prepare(e.rho_n);
-								rho_p_dist.prepare(e.rho_p);
-								rho_G_dist.prepare(e.G);
-							}
-							
-							int i_low = lower(ccdots.size());
-							int i_high = upper(ccdots.size());
-
-							graphics_mid_barrier.await();
-
-							double A = e.ds*e.ds;
-							double N_G = rho_G_dist.getTotalAmount()*A*e.e_charge*C*delta_t;
-							double N_n = rho_n_dist.getTotalAmount()*A*C*delta_t/tau;
-							double N_p = rho_p_dist.getTotalAmount()*A*C*delta_t/tau;
-
-							double N_n_excess = Math.max(C-C_prev, 0)*rho_n_dist.getTotalAmount()*A;
-							double N_p_excess = Math.max(C-C_prev, 0)*rho_p_dist.getTotalAmount()*A;
-
-							double P_deficit = Math.max(-(C-C_prev)/C_prev, 0);
-
-							boolean show_gen_recomb = e.opts.menu_gen_recomb.isSelected();
-							
-							for (int i = i_low; i < i_high; i++) {
-								ChargeCarrierDot d = ccdots.get(i);
-								if (d == null) continue;
-								
-								d.time -= delta_t;
-								if (d.time < 0) {
-									ccdots.remove(i);
-									i--;
-								}
-								else {
-									double R_tmp = Utils.bilinearinterp(e.R, d.x, d.y, d.z)*e.e_charge;
-									if (d.type == DotType.HOLE) {
-										if (R_tmp > 0 && frand.next() < R_tmp/Utils.bilinearinterp(e.rho_p, d.x, d.y, d.z)*delta_t) {
-											if (show_gen_recomb) {
-												ccdots.replace(i, new ChargeCarrierDot(d.x, d.y, d.z, tau_events, tau_events*0.5, DotType.RECOMBINATION, 1));
-											} else {
-												ccdots.remove(i);
-												i--;
-											}
-											continue;
-										}
-									} else if (d.type == DotType.ELECTRON) {
-										if (R_tmp > 0 && frand.next() < -R_tmp/Utils.bilinearinterp(e.rho_n, d.x, d.y, d.z)*delta_t) {
-											if (show_gen_recomb) {
-												ccdots.replace(i, new ChargeCarrierDot(d.x, d.y, d.z, tau_events, tau_events*0.5, DotType.RECOMBINATION, 1));
-											} else {
-												ccdots.remove(i);
-												i--;
-											}
-											continue;
-										}
-									} else {
-										if (Utils.bilinearinterp(e.semiconducting, d.x, d.y, d.z) == 0) {
-											d.time -= 5*delta_t;
-										}
-									}
-
-									if (P_deficit > 0 && frand.next() < P_deficit) {
-										ccdots.remove(i);
-										i--;
-										continue;
-									}
-								}
-							}
-
-							graphics_mid_barrier.await();
-
-							rho_n_dist.generateSamples(N_n/n_threads, (c) -> { ccdots.add(new ChargeCarrierDot(c.x, c.y, c.z, tau, tau, DotType.ELECTRON, 0)); });
-							rho_p_dist.generateSamples(N_p/n_threads, (c) -> { ccdots.add(new ChargeCarrierDot(c.x, c.y, c.z, tau, tau, DotType.HOLE, 0)); });
-							rho_G_dist.generateSamples(N_G/n_threads, (c) -> {
-								ccdots.add(new ChargeCarrierDot(c.x, c.y, c.z, tau, tau*frand.next(), DotType.ELECTRON, 0));
-								if (show_gen_recomb) ccdots.add(new ChargeCarrierDot(c.x, c.y, c.z, tau_events, tau_events*0.5, DotType.GENERATION, 1));
-							});
-							rho_G_dist.generateSamples(N_G/n_threads, (c) -> {
-								ccdots.add(new ChargeCarrierDot(c.x, c.y, c.z, tau, tau*frand.next(), DotType.HOLE, 0));
-								if (show_gen_recomb) ccdots.add(new ChargeCarrierDot(c.x, c.y, c.z, tau_events, tau_events*0.5, DotType.GENERATION, 1));
-							});
-							rho_n_dist.generateSamples(N_n_excess/n_threads, (c) -> { ccdots.add(new ChargeCarrierDot(c.x, c.y, c.z, tau, tau*frand.next(), DotType.ELECTRON, 0)); });
-							rho_p_dist.generateSamples(N_p_excess/n_threads, (c) -> { ccdots.add(new ChargeCarrierDot(c.x, c.y, c.z, tau, tau*frand.next(), DotType.HOLE, 0)); });
-
-							C_prev = C;
+							updateCarriers();
 						}
-
 						graphics_mid_barrier.await();
-
-						boolean fast = e.opts.menu_hide_carriers_metal.isSelected();
-						boolean show_diffusion = e.opts.menu_carrier_diffusion.isSelected();
-						
-						int lower = lower(ccdots.size());
-						int upper = upper(ccdots.size());
-
-						int steps = fast? 2 : 10;
-						double dt_dot = delta_t/steps;
-
-						int slice = getSlice();
-
-						try {
-							double factor = Math.sqrt(24*dt_dot);
-							int dot_offset = (scalefactor-1)/2;
-							
-							for (int i = lower; i < upper; i++) {
-								ChargeCarrierDot d = ccdots.get(i);
-
-								if (d.time > 0) {
-
-									boolean dorender = !fast || Utils.bilinearinterp(e.semiconducting, d.x, d.y, d.z) > 0;
-
-									if (delta_t > 0) {
-										if (!show_diffusion) {
-											if (d.type == DotType.ELECTRON) {
-												for (int k = 0; k < steps; k++) {
-													double s = dt_dot/(e.ds*Utils.bilinearinterp(e.rho_n, d.x, d.y, d.z));
-													d.x += s*Utils.bilinearinterp(e.Jx_n, d.x-0.5, d.y, d.z);
-													d.y += s*Utils.bilinearinterp(e.Jy_n, d.x, d.y-0.5, d.z);
-													d.z += s*Utils.bilinearinterp(e.Jz_n, d.x, d.y, d.z-0.5);
-												}
-											} else if (d.type == DotType.HOLE) {
-												for (int k = 0; k < steps; k++) {
-													double s = dt_dot/(e.ds*Utils.bilinearinterp(e.rho_p, d.x, d.y, d.z));
-													d.x += s*Utils.bilinearinterp(e.Jx_p, d.x-0.5, d.y, d.z);
-													d.y += s*Utils.bilinearinterp(e.Jy_p, d.x, d.y-0.5, d.z);
-													d.z += s*Utils.bilinearinterp(e.Jz_p, d.x, d.y, d.z-0.5);
-												}
-											}
-										} else {
-											if (d.type == DotType.ELECTRON) {
-												double sqrt_D_n = Utils.bilinearinterp(e.sqrt_D_eff_n, d.x, d.y, d.z);
-												double s = dt_dot/e.ds;
-												double t = factor*sqrt_D_n/e.ds; //Random walk PDF obeys diffusion equation. Variance of uniform dist is 12L^2 and variance of heat kernel is 2Dt
-												for (int k = 0; k < steps; k++) {
-													double dx_diff = t*(frand.next()-0.5) + s*Utils.bilinearinterp(e.vel_x_n, d.x-0.5, d.y, d.z);
-													double dy_diff = t*(frand.next()-0.5) + s*Utils.bilinearinterp(e.vel_y_n, d.x, d.y-0.5, d.z);
-													double dz_diff = t*(frand.next()-0.5) + s*Utils.bilinearinterp(e.vel_z_n, d.x, d.y, d.z-0.5);
-													if (e.conducting[(int)(d.x+dx_diff+0.5)][(int)(d.y+dy_diff+0.5)][(int)(d.z+dz_diff+0.5)] == 1) {
-														d.x += dx_diff;
-														d.y += dy_diff;
-														d.z += dz_diff;
-													}
-												}
-											} else if (d.type == DotType.HOLE) {
-												double sqrt_D_p = Utils.bilinearinterp(e.sqrt_D_eff_p, d.x, d.y, d.z);
-												double s = dt_dot/e.ds;
-												double t = factor*sqrt_D_p/e.ds;
-												
-												for (int k = 0; k < steps; k++) {
-													double dx_diff = t*(frand.next()-0.5) + s*Utils.bilinearinterp(e.vel_x_p, d.x-0.5, d.y, d.z);
-													double dy_diff = t*(frand.next()-0.5) + s*Utils.bilinearinterp(e.vel_y_p, d.x, d.y-0.5, d.z);
-													double dz_diff = t*(frand.next()-0.5) + s*Utils.bilinearinterp(e.vel_z_p, d.x, d.y, d.z-0.5);
-													if (e.conducting[(int)(d.x+dx_diff+0.5)][(int)(d.y+dy_diff+0.5)][(int)(d.z+dz_diff+0.5)] == 1) {
-														d.x += dx_diff;
-														d.y += dy_diff;
-														d.z += dz_diff;
-													}
-												}
-											}
-										}
-
-										double p = d.time/d.lifespan;
-										d.brightness = 1.0*bump(p, 1/3.0);
-									}
-
-									double alphaFG = d.brightness;
-									if (synchronized_render && dorender) {
-
-										double x = project_x(d.x, d.y, d.z);
-										double y = project_y(d.x, d.y, d.z);
-										double z = project_z(d.x, d.y, d.z);
-
-										if (Math.abs(z - slice) < 2){
-											if (d.type == DotType.ELECTRON)
-												drawRectangle((int)((x+0.5)*scalefactor)-dot_offset, (int)((y+0.5)*scalefactor)-dot_offset, scalefactor, scalefactor,
-												0.25f, 0.25f, 1f, (float)alphaFG, 1-(float)alphaFG, d.random_id);
-											else if (d.type == DotType.HOLE)
-												drawRectangle((int)((x+0.5)*scalefactor)-dot_offset, (int)((y+0.5)*scalefactor)-dot_offset, scalefactor, scalefactor,
-												1f, 0.25f, 0.25f, (float)alphaFG, 1-(float)alphaFG, d.random_id);
-											else if (d.type == DotType.GENERATION) {
-												drawRectangle((int)((x+0.5)*scalefactor)-dot_offset, (int)((y+0.5)*scalefactor)-dot_offset, scalefactor, scalefactor,
-												0f, 0f, 0f, (float)alphaFG, 1-(float)alphaFG, d.random_id);
-											} else if (d.type == DotType.RECOMBINATION) {
-												drawRectangle((int)((x+0.5)*scalefactor)-dot_offset, (int)((y+0.5)*scalefactor)-dot_offset, scalefactor, scalefactor,
-												1f, 1f, 1f, (float)alphaFG, 1-(float)alphaFG, d.random_id);
-											}
-										}
-									}
-
-								}
-							}
-						} catch (ArrayIndexOutOfBoundsException e) {
-							carrier_diffusion_warning_timer = 20;
-						}
+						drawCCdots();
 					}
 					graphics_end_barrier.await();
 				}
@@ -2004,6 +1593,461 @@ public class Renderer extends PeriodicTask {
 				e.printStackTrace();
 			}
 		}
+		
+
+		public void stampPixelData() {
+			if (n_thread == 0) e.t9.start();
+
+			int lower = lower(imgwidth);
+			int upper = upper(imgwidth);
+			if (slice_z) {
+				int k_slice = getSlice();
+				for (int x = lower; x < upper; x++) {
+					for (int y = 0; y < imgheight; y++) {
+						int i = x/scalefactor;
+						int j = e.ny-1-y/scalefactor;
+						double scale = 1f/max(image_r[i][j][k_slice], image_g[i][j][k_slice], image_b[i][j][k_slice], 1f);
+						int rgb = clamp((int)(256*image_r[i][j][k_slice]*scale), 0, 255) << 16
+						| clamp((int)(256*image_g[i][j][k_slice]*scale), 0, 255) << 8
+						| clamp((int)(256*image_b[i][j][k_slice]*scale), 0, 255);
+						imgData[x + y*imgwidth] = rgb;
+					}
+				}
+			}
+			if (slice_x) {
+				int i_slice = getSlice();
+				for (int x = lower; x < upper; x++) {
+					for (int y = 0; y < imgheight; y++) {
+						int j = x/scalefactor;
+						int k = e.nz-1-y/scalefactor;
+						double scale = 1f/max(image_r[i_slice][j][k], image_g[i_slice][j][k], image_b[i_slice][j][k], 1f);
+						int rgb = clamp((int)(256*image_r[i_slice][j][k]*scale), 0, 255) << 16
+						| clamp((int)(256*image_g[i_slice][j][k]*scale), 0, 255) << 8
+						| clamp((int)(256*image_b[i_slice][j][k]*scale), 0, 255);
+						imgData[x + y*imgwidth] = rgb;
+					}
+				}
+			}
+
+			if (slice_y) {
+				int j_slice = getSlice();
+				for (int x = lower; x < upper; x++) {
+					for (int y = 0; y < imgheight; y++) {
+						int i = x/scalefactor;
+						int k = e.nz-1-y/scalefactor;
+						double scale = 1f/max(image_r[i][j_slice][k], image_g[i][j_slice][k], image_b[i][j_slice][k], 1f);
+						int rgb = clamp((int)(256*image_r[i][j_slice][k]*scale), 0, 255) << 16
+						| clamp((int)(256*image_g[i][j_slice][k]*scale), 0, 255) << 8
+						| clamp((int)(256*image_b[i][j_slice][k]*scale), 0, 255);
+						imgData[x + y*imgwidth] = rgb;
+					}
+				}
+			}
+
+			if (n_thread == 0) e.t9.stop();
+		}
+		
+		private void drawLines() {
+			rand.setSeed(n_thread);
+			for (int i = lower(density_x); i < upper(density_x); i++) {
+				for (int j = 0; j < density_y; j++) {
+
+					//double x = (npx-1)*(i+0.5)/50;
+					//double y = (npy-1)*(j+0.5)/50;
+					double x = npx*(i+randomness*(rand.nextFloat()-0.5))/density_x;
+					double y = npy*(j+randomness*(rand.nextFloat()-0.5))/density_y;
+					for (int sign = -1; sign <= 1; sign += 2) {
+
+						double prevx = x;
+						double prevy = y;
+						double dx = 0;
+						double dy = 0;
+
+
+						int steps = 30;
+						for (int k = 0; k < steps; k++) {
+							if (slice_x) {
+								dx = Utils.bilinearinterp(vf_x, slice+dual_offset, prevx+grid_offset, prevy+dual_offset);
+								dy = Utils.bilinearinterp(vf_y, slice+dual_offset, prevx+dual_offset, prevy+grid_offset);
+							} else if (slice_y) {
+								dx = Utils.bilinearinterp(vf_x, prevx+grid_offset, slice+dual_offset, prevy+dual_offset);
+								dy = Utils.bilinearinterp(vf_y, prevx+dual_offset, slice+dual_offset, prevy+grid_offset);
+							} else if (slice_z) {
+								dx = Utils.bilinearinterp(vf_x, prevx+grid_offset, prevy+dual_offset, slice+dual_offset);
+								dy = Utils.bilinearinterp(vf_y, prevx+dual_offset, prevy+grid_offset, slice+dual_offset);
+							}
+
+							double fieldmagnitude = Math.sqrt(dx*dx+dy*dy);
+							double alphaFG = bump(0.5*(1.0-k/(double)(steps-1)), 0.5)*Math.min(1, vectorscalingconstant*fieldmagnitude);
+
+							if (fieldmagnitude != 0) {
+								dx /= fieldmagnitude;
+								dy /= fieldmagnitude;
+							}
+
+							double nextx = prevx + dx*arrowlength*0.25*sign;
+							double nexty = prevy + dy*arrowlength*0.25*sign;
+
+							drawLine((int)((prevx+0.5)*scalefactor), (int)((prevy+0.5)*scalefactor), (int)((nextx+0.5)*scalefactor), (int)((nexty+0.5)*scalefactor), k == 0 && sign == 1,
+							1f, 1f, 1f, (float) alphaFG, 1f);
+
+							prevx = nextx;
+							prevy = nexty;
+						}
+					}
+				}
+			}
+		}
+		
+		private void drawArrows() {
+			rand.setSeed(n_thread);
+			
+			Vector ctr = new Vector(0,0);
+			Vector arrow = new Vector(0,0);
+			Vector tip1 = new Vector(0,0);
+			Vector tip2 = new Vector(0,0);
+			Vector body1 = new Vector(0,0);
+			Vector body2 = new Vector(0,0);
+			
+			for (int i = lower(density_x); i < upper(density_x); i++) {
+				for (int j = 0; j < density_y; j++) {
+
+					//double x = (npx-1)*(i+0.5)/50;
+					//double y = (npy-1)*(j+0.5)/50;
+					double x = npx*(i+randomness*(rand.nextFloat()-0.5))/density_x;
+					double y = npy*(j+randomness*(rand.nextFloat()-0.5))/density_y;
+					ctr.x = x+0.5;
+					ctr.y = y+0.5;
+
+					if (slice_x) {
+						arrow.x = Utils.bilinearinterp(vf_x, slice+dual_offset, x+grid_offset, y+dual_offset);
+						arrow.y = Utils.bilinearinterp(vf_y, slice+dual_offset, x+dual_offset, y+grid_offset);
+					} else if (slice_y) {
+						arrow.x = Utils.bilinearinterp(vf_x,x+grid_offset, slice+dual_offset, y+dual_offset);
+						arrow.y = Utils.bilinearinterp(vf_y,x+dual_offset, slice+dual_offset, y+grid_offset);
+					} else if (slice_z) {
+						arrow.x = Utils.bilinearinterp(vf_x,x+grid_offset, y+dual_offset, slice+dual_offset);
+						arrow.y = Utils.bilinearinterp(vf_y,x+dual_offset, y+grid_offset, slice+dual_offset);
+					}
+
+					double fieldmagnitude = Math.max(0.1, 10*vectorscalingconstant*Math.sqrt(arrow.dot(arrow)));
+					arrow.normalize();
+					tip1.copy(arrow);
+					tip2.copy(arrow);
+					tip1.rotate(Math.PI*5.0/6.0);
+					tip2.rotate(Math.PI*7.0/6.0);
+
+					body1.copy(ctr);
+					body1.addmult(arrow, -0.5*arrowlength);
+					body2.copy(ctr);
+					body2.addmult(arrow, 0.5*arrowlength);
+					tip1.scalarmult(0.35*arrowlength);
+					tip1.add(body2);
+					tip2.scalarmult(0.35*arrowlength);
+					tip2.add(body2);
+					double alphaFG = (0.1*Math.sqrt(fieldmagnitude));
+					drawLine((int)(body1.x*scalefactor), (int)(body1.y*scalefactor), (int)(body2.x*scalefactor), (int)(body2.y*scalefactor), true,
+					(float)fieldmagnitude, (float)fieldmagnitude, (float)fieldmagnitude, (float)alphaFG, 1f);
+					drawLine((int)(body2.x*scalefactor), (int)(body2.y*scalefactor), (int)(tip1.x*scalefactor), (int)(tip1.y*scalefactor), false,
+					(float)fieldmagnitude, (float)fieldmagnitude, (float)fieldmagnitude, (float)alphaFG, 1f);
+					drawLine((int)(body2.x*scalefactor), (int)(body2.y*scalefactor), (int)(tip2.x*scalefactor), (int)(tip2.y*scalefactor), false,
+					(float)fieldmagnitude, (float)fieldmagnitude, (float)fieldmagnitude, (float)alphaFG, 1f);
+				}
+			}
+		}
+		
+		private void drawDots() {
+			boolean paused = e.opts.gui_paused.isSelected();
+			boolean conductors_only = synchronized_vector_view.isConductorOnly();
+
+			int lower = lower(dots.size());
+			int upper = upper(dots.size());
+			for (int i = lower; i < upper; i++) {
+				Dot d = dots.get(i);
+				if (d.time <= 0 || d.x < 0 || d.y < 0 || d.z < 0 || d.x >= e.nx || d.y >= e.ny || d.z >= e.nz) {
+					d.x = e.nx*rand.nextDouble();
+					d.y = e.ny*rand.nextDouble();
+					d.z = e.nz*rand.nextDouble();
+					d.lifespan = 100*(1+rand.nextDouble());
+					d.time = d.lifespan;
+					if (conductors_only && Utils.bilinearinterp(e.conducting, d.x, d.y, d.z) == 0) {
+						d.lifespan = 0;
+						d.time = 0;
+					}
+				}
+			}
+			
+			setColorFloat(1, 1, 1);
+			int dot_offset = (int)(0.25*scalefactor-1)/2;
+			for (int i = lower; i < upper; i++) {
+				Dot d = dots.get(i);
+				if (d.time > 0) {
+					double dx = 0;
+					double dy = 0;
+					double dz = 0;
+					int steps = 10;
+
+					if (!paused) {
+						for (int k = 0; k < steps; k++) {
+							dx = Utils.bilinearinterp(vfr_x,d.x+grid_offset, d.y+dual_offset, d.z+dual_offset)*vectorscalingconstant/steps;
+							dy = Utils.bilinearinterp(vfr_y,d.x+dual_offset, d.y+grid_offset, d.z+dual_offset)*vectorscalingconstant/steps;
+							dz = Utils.bilinearinterp(vfr_z,d.x+dual_offset, d.y+dual_offset, d.z+grid_offset)*vectorscalingconstant/steps;
+							double maxspeed = 0.5;
+							double factor = Math.min(1, maxspeed/Math.sqrt(dx*dx+dy*dy+dz*dz));
+							d.x += dx*factor;
+							d.y += dy*factor;
+							d.z += dz*factor;
+						}
+
+						double p = d.time/d.lifespan;
+						d.brightness = Math.min(1, Math.max(0.1, 500*Math.sqrt(dx*dx+dy*dy+dz*dz)))*bump(p, 1/3.0);
+						d.time -= 1;
+					}
+
+					double alphaFG = d.brightness;
+					if (synchronized_render) {
+						double x = project_x(d.x, d.y, d.z);
+						double y = project_y(d.x, d.y, d.z);
+						double z = project_z(d.x, d.y, d.z);
+						
+						if (Math.abs(z - slice) < 2)
+							drawRectangle((int)((x+0.5)*scalefactor)-dot_offset, (int)((y+0.5)*scalefactor)-dot_offset, (int)(scalefactor*0.25), (int)(scalefactor*0.25), 1f, 1f, 1f, (float)alphaFG, 1f);
+					}
+				}
+			}
+		}
+		
+		private void drawContours() {
+			double spacing = 0.2/scalingconstant;
+			double contourwidth = e.ds;
+
+			int slice = getSlice();
+
+			for (int i = lower(imgwidth); i < upper(imgwidth); i++) {
+				for (int j = 0; j < imgheight; j++) {
+					double u = 0;
+					double v = 0;
+					
+					if (slice_x) {
+						u = Utils.bilinearinterp(scalarfield, slice - 0.5, (double)i/scalefactor - 0.5, (double)j/scalefactor - 0.5)/spacing;
+						v = Utils.bilinearinterp(gradscalarfield, slice - 0.5, (double)i/scalefactor - 0.5, (double)j/scalefactor - 0.5)/spacing;
+					} else if (slice_y) {
+						u = Utils.bilinearinterp(scalarfield, (double)i/scalefactor - 0.5, slice - 0.5, (double)j/scalefactor - 0.5)/spacing;
+						v = Utils.bilinearinterp(gradscalarfield, (double)i/scalefactor - 0.5, slice - 0.5, (double)j/scalefactor - 0.5)/spacing;
+					} else if (slice_z) {
+						u = Utils.bilinearinterp(scalarfield, (double)i/scalefactor - 0.5, (double)j/scalefactor - 0.5, slice - 0.5)/spacing;
+						v = Utils.bilinearinterp(gradscalarfield, (double)i/scalefactor - 0.5, (double)j/scalefactor - 0.5, slice - 0.5)/spacing;
+					}
+					
+					double f = ((((u%1)+1.5)%1)/Math.abs(v))/contourwidth;
+					if (f < 1) {
+						drawPixel(i, j, 1f, 1f, 1f, (float)(2*Math.min(f, 1-f)), 1f);
+					}
+				}
+			}
+		}
+		
+		private void updateCarriers() throws InterruptedException, BrokenBarrierException {
+			if (n_thread == 0 && carrier_diffusion_warning_timer > 0) {
+				carrier_diffusion_warning_timer--;
+			}
+			
+			double C = cc_default_dot_density*Math.pow(10.0, e.opts.gui_carrier_density.getValue()/20.0);
+
+			if (n_thread == 0) {
+				rho_n_dist.prepare(e.rho_n);
+				rho_p_dist.prepare(e.rho_p);
+				rho_G_dist.prepare(e.G);
+			}
+			
+			int i_low = lower(ccdots.size());
+			int i_high = upper(ccdots.size());
+
+			graphics_mid_barrier.await();
+
+			double A = e.ds*e.ds;
+			double N_G = rho_G_dist.getTotalAmount()*A*e.e_charge*C*delta_t;
+			double N_n = rho_n_dist.getTotalAmount()*A*C*delta_t/tau;
+			double N_p = rho_p_dist.getTotalAmount()*A*C*delta_t/tau;
+
+			double N_n_excess = Math.max(C-C_prev, 0)*rho_n_dist.getTotalAmount()*A;
+			double N_p_excess = Math.max(C-C_prev, 0)*rho_p_dist.getTotalAmount()*A;
+
+			double P_deficit = Math.max(-(C-C_prev)/C_prev, 0);
+
+			boolean show_gen_recomb = e.opts.menu_gen_recomb.isSelected();
+			
+			for (int i = i_low; i < i_high; i++) {
+				ChargeCarrierDot d = ccdots.get(i);
+				if (d == null) continue;
+				
+				d.time -= delta_t;
+				if (d.time < 0) {
+					ccdots.remove(i);
+					i--;
+				}
+				else {
+					double R_tmp = Utils.bilinearinterp(e.R, d.x, d.y, d.z)*e.e_charge;
+					if (d.type == DotType.HOLE) {
+						if (R_tmp > 0 && frand.next() < R_tmp/Utils.bilinearinterp(e.rho_p, d.x, d.y, d.z)*delta_t) {
+							if (show_gen_recomb) {
+								ccdots.replace(i, new ChargeCarrierDot(d.x, d.y, d.z, tau_events, tau_events*0.5, DotType.RECOMBINATION, 1));
+							} else {
+								ccdots.remove(i);
+								i--;
+							}
+							continue;
+						}
+					} else if (d.type == DotType.ELECTRON) {
+						if (R_tmp > 0 && frand.next() < -R_tmp/Utils.bilinearinterp(e.rho_n, d.x, d.y, d.z)*delta_t) {
+							if (show_gen_recomb) {
+								ccdots.replace(i, new ChargeCarrierDot(d.x, d.y, d.z, tau_events, tau_events*0.5, DotType.RECOMBINATION, 1));
+							} else {
+								ccdots.remove(i);
+								i--;
+							}
+							continue;
+						}
+					} else {
+						if (Utils.bilinearinterp(e.semiconducting, d.x, d.y, d.z) == 0) {
+							d.time -= 5*delta_t;
+						}
+					}
+
+					if (P_deficit > 0 && frand.next() < P_deficit) {
+						ccdots.remove(i);
+						i--;
+						continue;
+					}
+				}
+			}
+
+			graphics_mid_barrier.await();
+
+			rho_n_dist.generateSamples(N_n/n_threads, (c) -> { ccdots.add(new ChargeCarrierDot(c.x, c.y, c.z, tau, tau, DotType.ELECTRON, 0)); });
+			rho_p_dist.generateSamples(N_p/n_threads, (c) -> { ccdots.add(new ChargeCarrierDot(c.x, c.y, c.z, tau, tau, DotType.HOLE, 0)); });
+			rho_G_dist.generateSamples(N_G/n_threads, (c) -> {
+				ccdots.add(new ChargeCarrierDot(c.x, c.y, c.z, tau, tau*frand.next(), DotType.ELECTRON, 0));
+				if (show_gen_recomb) ccdots.add(new ChargeCarrierDot(c.x, c.y, c.z, tau_events, tau_events*0.5, DotType.GENERATION, 1));
+			});
+			rho_G_dist.generateSamples(N_G/n_threads, (c) -> {
+				ccdots.add(new ChargeCarrierDot(c.x, c.y, c.z, tau, tau*frand.next(), DotType.HOLE, 0));
+				if (show_gen_recomb) ccdots.add(new ChargeCarrierDot(c.x, c.y, c.z, tau_events, tau_events*0.5, DotType.GENERATION, 1));
+			});
+			rho_n_dist.generateSamples(N_n_excess/n_threads, (c) -> { ccdots.add(new ChargeCarrierDot(c.x, c.y, c.z, tau, tau*frand.next(), DotType.ELECTRON, 0)); });
+			rho_p_dist.generateSamples(N_p_excess/n_threads, (c) -> { ccdots.add(new ChargeCarrierDot(c.x, c.y, c.z, tau, tau*frand.next(), DotType.HOLE, 0)); });
+
+			C_prev = C;
+		}
+		
+		public void drawCCdots() {
+			boolean fast = e.opts.menu_hide_carriers_metal.isSelected();
+			boolean show_diffusion = e.opts.menu_carrier_diffusion.isSelected();
+			
+			int lower = lower(ccdots.size());
+			int upper = upper(ccdots.size());
+
+			int steps = fast? 2 : 10;
+			double dt_dot = delta_t/steps;
+
+			int slice = getSlice();
+
+			try {
+				double factor = Math.sqrt(24*dt_dot);
+				int dot_offset = (scalefactor-1)/2;
+				
+				for (int i = lower; i < upper; i++) {
+					ChargeCarrierDot d = ccdots.get(i);
+
+					if (d.time > 0) {
+
+						boolean dorender = !fast || Utils.bilinearinterp(e.semiconducting, d.x, d.y, d.z) > 0;
+
+						if (delta_t > 0) {
+							if (!show_diffusion) {
+								if (d.type == DotType.ELECTRON) {
+									for (int k = 0; k < steps; k++) {
+										double s = dt_dot/(e.ds*Utils.bilinearinterp(e.rho_n, d.x, d.y, d.z));
+										d.x += s*Utils.bilinearinterp(e.Jx_n, d.x-0.5, d.y, d.z);
+										d.y += s*Utils.bilinearinterp(e.Jy_n, d.x, d.y-0.5, d.z);
+										d.z += s*Utils.bilinearinterp(e.Jz_n, d.x, d.y, d.z-0.5);
+									}
+								} else if (d.type == DotType.HOLE) {
+									for (int k = 0; k < steps; k++) {
+										double s = dt_dot/(e.ds*Utils.bilinearinterp(e.rho_p, d.x, d.y, d.z));
+										d.x += s*Utils.bilinearinterp(e.Jx_p, d.x-0.5, d.y, d.z);
+										d.y += s*Utils.bilinearinterp(e.Jy_p, d.x, d.y-0.5, d.z);
+										d.z += s*Utils.bilinearinterp(e.Jz_p, d.x, d.y, d.z-0.5);
+									}
+								}
+							} else {
+								if (d.type == DotType.ELECTRON) {
+									double sqrt_D_n = Utils.bilinearinterp(e.sqrt_D_eff_n, d.x, d.y, d.z);
+									double s = dt_dot/e.ds;
+									double t = factor*sqrt_D_n/e.ds; //Random walk PDF obeys diffusion equation. Variance of uniform dist is 12L^2 and variance of heat kernel is 2Dt
+									for (int k = 0; k < steps; k++) {
+										double dx_diff = t*(frand.next()-0.5) + s*Utils.bilinearinterp(e.vel_x_n, d.x-0.5, d.y, d.z);
+										double dy_diff = t*(frand.next()-0.5) + s*Utils.bilinearinterp(e.vel_y_n, d.x, d.y-0.5, d.z);
+										double dz_diff = t*(frand.next()-0.5) + s*Utils.bilinearinterp(e.vel_z_n, d.x, d.y, d.z-0.5);
+										if (e.conducting[(int)(d.x+dx_diff+0.5)][(int)(d.y+dy_diff+0.5)][(int)(d.z+dz_diff+0.5)] == 1) {
+											d.x += dx_diff;
+											d.y += dy_diff;
+											d.z += dz_diff;
+										}
+									}
+								} else if (d.type == DotType.HOLE) {
+									double sqrt_D_p = Utils.bilinearinterp(e.sqrt_D_eff_p, d.x, d.y, d.z);
+									double s = dt_dot/e.ds;
+									double t = factor*sqrt_D_p/e.ds;
+									
+									for (int k = 0; k < steps; k++) {
+										double dx_diff = t*(frand.next()-0.5) + s*Utils.bilinearinterp(e.vel_x_p, d.x-0.5, d.y, d.z);
+										double dy_diff = t*(frand.next()-0.5) + s*Utils.bilinearinterp(e.vel_y_p, d.x, d.y-0.5, d.z);
+										double dz_diff = t*(frand.next()-0.5) + s*Utils.bilinearinterp(e.vel_z_p, d.x, d.y, d.z-0.5);
+										if (e.conducting[(int)(d.x+dx_diff+0.5)][(int)(d.y+dy_diff+0.5)][(int)(d.z+dz_diff+0.5)] == 1) {
+											d.x += dx_diff;
+											d.y += dy_diff;
+											d.z += dz_diff;
+										}
+									}
+								}
+							}
+
+							double p = d.time/d.lifespan;
+							d.brightness = 1.0*bump(p, 1/3.0);
+						}
+
+						double alphaFG = d.brightness;
+						if (synchronized_render && dorender) {
+
+							double x = project_x(d.x, d.y, d.z);
+							double y = project_y(d.x, d.y, d.z);
+							double z = project_z(d.x, d.y, d.z);
+
+							if (Math.abs(z - slice) < 2){
+								if (d.type == DotType.ELECTRON)
+									drawRectangle((int)((x+0.5)*scalefactor)-dot_offset, (int)((y+0.5)*scalefactor)-dot_offset, scalefactor, scalefactor,
+									0.25f, 0.25f, 1f, (float)alphaFG, 1-(float)alphaFG, d.random_id);
+								else if (d.type == DotType.HOLE)
+									drawRectangle((int)((x+0.5)*scalefactor)-dot_offset, (int)((y+0.5)*scalefactor)-dot_offset, scalefactor, scalefactor,
+									1f, 0.25f, 0.25f, (float)alphaFG, 1-(float)alphaFG, d.random_id);
+								else if (d.type == DotType.GENERATION) {
+									drawRectangle((int)((x+0.5)*scalefactor)-dot_offset, (int)((y+0.5)*scalefactor)-dot_offset, scalefactor, scalefactor,
+									0f, 0f, 0f, (float)alphaFG, 1-(float)alphaFG, d.random_id);
+								} else if (d.type == DotType.RECOMBINATION) {
+									drawRectangle((int)((x+0.5)*scalefactor)-dot_offset, (int)((y+0.5)*scalefactor)-dot_offset, scalefactor, scalefactor,
+									1f, 1f, 1f, (float)alphaFG, 1-(float)alphaFG, d.random_id);
+								}
+							}
+						}
+
+					}
+				}
+			} catch (ArrayIndexOutOfBoundsException e) {
+				carrier_diffusion_warning_timer = 20;
+			}
+		}
+		
 	}
 
 	public void clearStrings() {

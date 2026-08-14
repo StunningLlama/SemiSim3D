@@ -135,12 +135,16 @@ public class Renderer3D implements GLEventListener {
 
 		if (!e.renderer.threeD_mode)
 			return;
-
+		
 		if (isMainCanvas) e.renderer.t5.start();
 
-		e.rwLock.readLock().lock();
+		boolean locked = e.rwLock.readLock().tryLock();
+		if (!locked) {
+			if (isMainCanvas) e.renderer.t5.stop();
+			return;
+		}
 		try {
-			e.renderer.drawPixels(false);
+			e.renderer.drawPixels();
 			e.renderer.drawOverlay(false);
 
 			if (isMainCanvas && e.opts.gui_rotate.isSelected()) {
@@ -655,7 +659,7 @@ public class Renderer3D implements GLEventListener {
 		}
 
 		gl.glDepthMask(false);
-		gl.glBlendFuncSeparate(GL2.GL_SRC_ALPHA, GL2.GL_ONE, GL2.GL_ZERO, GL2.GL_ONE);
+		gl.glBlendFuncSeparate(GL2.GL_ONE, GL2.GL_ZERO, GL2.GL_ONE, GL2.GL_ZERO);
 		gl.glLineWidth(3f);
 		gl.glBegin(GL2.GL_LINES);
 
