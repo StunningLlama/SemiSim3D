@@ -21,7 +21,6 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
-import javax.swing.JDialog;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.LookAndFeel;
@@ -29,7 +28,6 @@ import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.UnsupportedLookAndFeelException;
-import javax.swing.WindowConstants;
 import javax.swing.filechooser.FileSystemView;
 
 import com.formdev.flatlaf.FlatDarkLaf;
@@ -42,6 +40,7 @@ import com.formdev.flatlaf.intellijthemes.materialthemeuilite.FlatMTMaterialDark
 import electrodynamics.Renderer.GraphicsThread;
 import electrodynamics.Simulation.SimulationThread;
 import electrodynamics.gui.Preferences.Theme;
+import electrodynamics.gui.SplashScreen;
 import electrodynamics.plot.Plot;
 
 public class SemiSim {
@@ -51,13 +50,14 @@ public class SemiSim {
 
 	public static String name = "Brandon's semiconductor simulator 3D";
 	public static String about = "<html><body><p style='width: 250px;'>Brandon's Semiconductor Simulator 3D.<br>"
-									+ "Version 2.0<br>"
+									+ "Version $version<br>"
 									+ "(c) 2026 Brandon Li<br><br>"
 									+ "Thanks to Paul Falstad, Ariel Baksh, and retconaway for providing help, feedback, and suggestions.<br><br>"
 									+ "Data taken from:<br>"
 									+ "Sitlisky, Vadim. &ldquo;New Semiconductor Materials. Characteristics and Properties&rdquo;. <a href=\"http://www.ioffe.ru\"><em>www.ioffe.ru</em></a>.<br> Retrieved June 2026.<br>"
 									+ "Schroder, D. K. (2006). <em>Semiconductor material<br> and device characterization</em>. John Wiley &amp; Sons.</p></body></html>";
-
+	public static String version = "";
+	
 	public static Path rootdir = Paths.get(".");
 	public static Path userdir = Paths.get(".");
 	public static OS os;
@@ -275,6 +275,8 @@ public class SemiSim {
 
 			for (Plot p : sim.plots) SwingUtilities.updateComponentTreeUI(p.frame);
 			
+			sim.canvas.updateUI();
+			
 			if (Steam.downloadui != null) SwingUtilities.updateComponentTreeUI(Steam.downloadui);
 			if (Steam.uploadui != null) SwingUtilities.updateComponentTreeUI(Steam.uploadui);
 		} catch (ClassNotFoundException | InstantiationException | IllegalAccessException | UnsupportedLookAndFeelException e) {
@@ -282,15 +284,10 @@ public class SemiSim {
 		}
 	}
 	
-	public static JDialog displaySplashScreen() {
-		JOptionPane optionPane = new JOptionPane(name + " is starting.", JOptionPane.INFORMATION_MESSAGE, JOptionPane.DEFAULT_OPTION, null, new Object[]{}, null);
-		JDialog dialog = optionPane.createDialog("");
-
-		dialog.setModal(false);
-		dialog.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-		dialog.setVisible(true);
-		
-		return dialog;
+	public static SplashScreen displaySplashScreen() {
+		SplashScreen splash = null;
+		splash = new SplashScreen(SemiSim.getRootFile("images/splash.png").getAbsolutePath(), name + " " + SemiSim.version + " is starting.");
+		return splash;
 	}
 
 	public static void main(String[] args)
@@ -298,10 +295,11 @@ public class SemiSim {
 		String version = SemiSim.class.getPackage().getImplementationVersion();
 		if (version != null) {
 			if (BuildFlags.steam_enabled)
-				SemiSim.about = SemiSim.about.replace("$version", version + " (steam)");
+				SemiSim.version = version + " (steam)";
 			else
-				SemiSim.about = SemiSim.about.replace("$version", version);
+				SemiSim.version = version;
 		}
+		SemiSim.about = SemiSim.about.replace("$version", SemiSim.version);
 		
 		detectOS();
 		
@@ -309,7 +307,7 @@ public class SemiSim {
 		
 		initializeLookAndFeel();
 		
-		JDialog dialog = displaySplashScreen();
+		SplashScreen dialog = displaySplashScreen();
 		
 		Steam.initialize();
 		

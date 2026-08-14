@@ -252,7 +252,7 @@ public class SaveManager {
 						if (testNextObject(fstr, "advsettings")) {
 							fstr.beginObject();
 							e.lock_resolution = true;
-							e.adv_opts.readAdvancedSettings(gson, fstr, version < 4? Preset.VERSION_1 : Preset.DEFAULT);
+							e.adv_opts.readAdvancedSettings(gson, fstr, Preset.DEFAULT);
 							e.calculateDependentConstants();
 							e.calculateMaxTimestep();
 							e.lock_resolution = false;

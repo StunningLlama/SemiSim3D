@@ -150,7 +150,7 @@ public class Renderer3D implements GLEventListener {
 			GL2 gl = drawable.getGL().getGL2();
 
 			gl.glEnable(GL2.GL_DEPTH_TEST);
-			gl.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+			gl.glClearColor(e.canvas.bg.getRed()/255f, e.canvas.bg.getGreen()/255f, e.canvas.bg.getBlue()/255f, 1.0f);
 			gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
 
 			// Draw scene
@@ -176,7 +176,6 @@ public class Renderer3D implements GLEventListener {
 			// Pick
 
 			if (pick) {
-				gl.glEnable(GL2.GL_TEXTURE_2D);
 				gl.glBindFramebuffer(GL2.GL_FRAMEBUFFER, pick_fbo.get(0));
 
 				gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport);
@@ -213,6 +212,8 @@ public class Renderer3D implements GLEventListener {
 					this.unpackCoords(index);
 					e.controls.update3dCursor = false;
 				}
+				
+				e.controls.mouse_in_bounds = index > 0;
 
 				gl.glBindFramebuffer(GL2.GL_FRAMEBUFFER, 0);
 			}

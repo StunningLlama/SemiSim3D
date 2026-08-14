@@ -119,68 +119,48 @@ td:first-child, th:first-child {
           src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js">
   </script>
 
-<h1>Installation Troubleshooting</h1>
-<h2>Running the Program</h2>
-<ol>
-  <li>Make sure you have the latest version of Java installed.</li>
-  <li>If SemiSim crashes when loading a file:
-    <ul>
-      <li>Make sure you have a 64-bit version of Java installed.</li>
-    </ul>
-  </li>
-</ol>
-
-<h2>Mac OS</h2>
-<ol>
-  <li>If you see "<i>SemiSim.jar cannot be opened because it is from an unidentified developer</i>":
-    <ul>
-      <li>Right click "SemiSim.jar" and click <b>Open</b>.</li>
-      <li>Click <b>Open</b> again on the popup window.</li>
-    </ul>
-  </li>
-  <li>If you are unable to see and open files:
-    <ul>
-      <li>Go into <b>System Preferences → Security → Privacy → Full Disk Access</b>.</li>
-      <li>Add <code>/System/Library/CoreServices/Jar Launcher.app</code> to the list and give it disk access.</li>
-    </ul>
-  </li>
-</ol>
-
-
+<h1 style="text-align: center;">Manual for SemiSim<sup>3</sup> v2.0</h1>
 <h1>Introduction</h1>
-Brandon's electromagnetic simulation simulates simple circuits in three dimensions. Like <a href="https://brandonli.net/semisim">SemiSim</a>, it allows users to create their own circuits with a simple interface.
-There is a variety of materials to choose from and a variety of premade examples to look at.
+(Brandon's semiconductor simulator)<sup>3</sup> is the 3D version of Brandon's semiconductor simulator.
 
 <h2>Physics</h2>
-The simulation takes place on a three-dimensional cubic grid. It uses an FDTD method to compute the dynamics of the E and B fields. This simulation demonstrates the following concepts:
+The simulation is set on a two-dimensional grid over which it solves the 2D Maxwell equations. The electric field lies in the same plane as the surface of the screen whereas the magnetic field is perpendicular to it.
+On top of this, there are two types of charge carriers, electrons and holes, which feel electric and chemical forces that determine their dynamics.
+The simulation uses a FDTD (finite-difference time domain) scheme obtained by discretizing the Maxwell equations and the drift-diffusion equations and coupling the two together.
+This results in a simulation that demonstrates many of the important properties of semiconductors and semiconductor devices, such as:
 <ul>
-<li>Electromagnetic fields</li>
-<li>Charges</li>
-<li>Current and voltage</li>
-<li>Capacitance and inductance</li>
-<li>Basic electrical circuits</li>
+<li>PN junctions</li>
+<li>Metal-semiconductor junctions</li>
+<li>Thermoelectricity</li>
+<li>Contact potentials</li>
+<li>Heterojunctions</li>
+<li>Simulation of common semiconductor devices, eg. BJTs, MOSFETs, JFETs, diodes, etc.
+</ul>
+Since version 2.0, the simulation also supports the following:
+<ul>
+<li>Velocity saturation</li>
+<li>Radiative, trap-assisted, and auger recombination</li>
+<li>User-defined materials</li>
 </ul>
 
-<h1>Simulation features</h1>
-The interface consists of the simulation area which the user can interact with and the settings panel containing all the simulation controls. <figure><img src="images/app.png" alt="Application" style="max-width:60%"><figcaption>Simulation area (left) and settings (right).</figcaption></figure>
-The main way to interact with circuits is to change the strength of voltage sources and turn switches on and off. The quickest way to get started is to load one of the examples and start changing the voltages.
-<h2>Simulation variables</h2>
-Listed below are the most important variables that capture the state of the simulation at a given time:
-<table>
+<h2>Limitations</h2>
+Because the simulation uses a very simplified model of how semiconductors work, it is not able capture some phenomena that show up in real systems. Things that the simulation cannot handle include:
 <ul>
-  <tr><td>\(\vec{E} = (E_x, E_y, 0)\)</td><td>Electric field [V/m]</td></tr>
-  <tr><td>\(\vec{B} = (0, 0, B_z)\)</td><td>Magnetic field [T]</td></tr>
-  <tr><td>\(\rho\)</td><td>Charge density [C/m^3]</td></tr>
-  <tr><td>\(\vec{J}\)</td><td>Current density [A/m^2]</td></tr>
-  <tr><td>\(\vec{D} = \epsilon \vec{E}\)</td><td>Electric displacement field [C/m^2]</td></tr>
-  <tr><td>\(\vec{H} = \frac{1}{\mu} \vec{B}\)</td><td>Magnetic field [A/m]</td></tr>
-  <tr><td>\(\vec{S} = \vec{E}\times \vec{H}\)</td><td>Poynting vector [W/m^2]</td></tr>
-  <tr><td>\(u = \frac{1}{2}(\vec{E}\cdot \vec{D} + \vec{B} \cdot \vec{H})\)</td><td>Electromagnetic energy density [J/m^3]</td></tr>
-  <tr><td>\(\phi\)</td><td>Electric scalar potential [V]</td></tr>
-  <tr><td>\(Q\)</td><td>Heat dissipation [J/(s m^3)]</td></tr>
-  <tr><td>\(S\)</td><td>Entropy generation [J/ (K s m^3)]</td></tr>
+<li>Quantum tunnelling</li>
+<li>Surface states (Eg. fermi level pinning, surface recombination) *</li>
+<li>Ballistic conduction</li>
+<li>Electrical breakdown *</li>
+<li>Metallic band structures</li>
+<li>Hall effect *</li>
 </ul>
-</table>
+The default semiconductor material is designed to showcase the general behavior of semiconductors but does not, however, correspond to an existing substance. In version 2.0, the simulation comes with models of real materials that can be accessed via the advanced settings menu. These predefined materials are Si, Ge, GaAs and GaN.
+
+<br><br>
+* These could be implemented straightforwardly if there is interest.
+<h1>Simulation features</h1>
+The interface consists of the simulation area which the user can interact with, simulation controls that allow various parameters to be adjusted, and a menu bar containing different settings and tools. <figure><img src="images/app.png" alt="Application" style="max-width:60%"><figcaption>Simulation area (purple), controls (blue), and menu bar (green).</figcaption></figure>
+The main way to interact with circuits is through voltage sources and switches. A good way to get started with this software is to load one of the many examples.
+
 <h2>Vector view modes</h2>
   <p><strong>Arrows:</strong> The direction and brightness of arrows corresponds to the direction and magnitude of the vector field. <figure><img src="images/arrows.png" alt="Arrows"></figure></p>
   <p><strong>Lines:</strong> 
@@ -202,106 +182,198 @@ The brightness and density of lines indicates the magnitude of the field. <figur
   <tr><td>3D stereoscopic (cross-eye)</td><td>Renders a binocular image that allows the viewer to see depth by <a href="https://en.wikipedia.org/wiki/Stereoscopy">crossing their eyes.<figure><img src="images/3d_4.png" alt="Band plot" style="max-width:40%"></figure></a></td></tr>
   <tr><td>3D stereoscopic (parallel)</td><td>Left and right eyes are flipped with respect to cross-eye.</a></td></tr>
 </table>
-
+	
 <h2>Options</h2>
 <table>
-  <tr><td>Pause</td><td>Pauses and unpauses the simulation.</td></tr>
-  <tr><td>Show detailed info</td><td>Displays a tooltip that contains the values of all the simulation variables at the cursor's location.</td></tr>
-  <tr><td>Show text background</td><td>Gives text boxes a black background, making the text easier to see.</td></tr>
-  <tr><td>Display interface</td><td>Shows probe info, graph locations, time, and tooltip.</td></tr>
   <tr><td>Boundary condition</td><td>Choose between a boundary that absorbs outgoing radiation or a perfectly conductive boundary that reflects it.</td></tr>
-  <tr><td>Scalar view</td><td>Choose which field to display as a color scale over the simulation field.</td></tr>
-  <tr><td>Vector view</td><td>Choose which vector field to visualize (only works for 2D vectors, see "Vector view modes").</td></tr>
-  <tr><td>3D mode</td><td>Choose between different two and three-dimensional persectives.</td></tr>
-  <tr><td>Show material colors</td><td>If checked, gives each material a different color, making them easier to tell apart.</td></tr>
   <tr><td>Timestep</td><td>Sets the simulation timestep. The maximum timestep is determined by the CFL condition for the wave equation and diffusion equations for each charge carrier.</td></tr>
   <tr><td>Sim steps/frame</td><td>Sets the number of iterations performed during each frame. Most of the examples require at least 10 steps/frame to run responsively.
     The maximum number depends on how good the user's computer is.</td></tr>
-  <tr><td>Scalar brightness</td><td>Sets the brightness of the scalar field.</td></tr>
-  <tr><td>Vector brightness</td><td>Sets the brightness of the vector field.</td></tr>
-  <tr><td>Parallax</td><td>Determines the angle between the two eyes in stereoscopic mode (adjust for comfort).</td></tr>
-  <tr><td>Save scenario</td><td>Saves the current simulation to a file.</td></tr>
-  <tr><td>Load scenario</td><td>Loads a simulation from a file. SemiSim comes with a variety of pre-made simulations located in the "examples" folder.</td></tr>
-  <tr><td>Clear all</td><td>Removes all materials and resets all fields.</td></tr>
-  <tr><td>Set fields to zero</td><td>Sets all fields to their default values, leaving the materials unchanged.</td></tr>
-  <tr><td>Rotate view<br> </td><td>Makes the 3D scene spin around.</td></tr>
-  <tr><td>Tool</td><td>Selects one of the tools.</td></tr>
+  <tr><td>Reset fields</td><td>Sets all fields to their default values, leaving the materials unchanged.</td></tr>
+  <tr><td>Preferences</td><td>Contains options for display size, units, and other software settings.</td></tr>
+  <tr><td>Simulation settings</td><td>Contains settings for simulation domain size, physical constants, and material properties.</td></tr>
+  <tr><td>Custom materials</td><td>Allows user to add their own materials.</td></tr>
+  <tr><td>Material viewer</td><td>Displays data for every material such as dielectric constant, conductivity, etc.</td></tr>
   </table>
 
 <h2>Tools</h2>
 <table>
     <tr><td>Interact</td><td>Allows user to control voltage sources and turn switches on and off by clicking.</td></tr>
+    <tr><td>Flashlight</td><td>Shines a light on the region under the cursor, creating pairs of electrons and holes.</td></tr>
+    <tr><td>Zoom</td><td>Click and drag to zoom into a rectangular region. Click to fully zoom out.</td></tr>
+	<tr><td>Pan</td><td>Hold mouse to pan the view. Scroll to zoom in or out.</td></tr>
     <tr><td>Draw</td><td>Adds material to the field.</td></tr>
-    <tr><td>Voltage</td><td>Adds a voltage probe that measures electrochemical potential at a certain point (See "What do voltmeters actually measure").</td></tr>
-    <tr><td>Current <br><small>[click and drag]</small></td><td>Adds a current probe that measures current across a wire.
-    </td></tr>
-    <tr><td>Ground</td><td>Specifies the point relative to which probes measure voltage (optional).</td></tr>
-    <tr><td>Delete probe</td><td>Click to delete a probe.</td></tr>
     <tr><td>Replace</td><td>Similar to the draw tool, but overwrites occupied areas.</td></tr>
-    <tr><td>Line <br><small>[click and drag]</small></td><td>Draws a line of material.</td></tr>
+    <tr><td>Line <br><small></small></td><td>Draws a line of material.</td></tr>
     <tr><td>Fill</td><td>Fills a region with a certain material, similar to the bucket tool.</td></tr>
-    <tr><td>Erase</td><td>Erases material.</td></tr>
-    <tr><td>Select</td><td>Makes a rectangular selection which can be dragged around and moved.</td></tr>
-    <tr><td>Select region</td><td>Selects a contiguous region, similar to the bucket tool.</td></tr>
+	<tr><td>Rectangle</td><td>Draws a rectangle.</td></tr>
+    <tr><td>Eraser</td><td>Erases material.</td></tr>
+    <tr><td>Select and Move</td><td>Makes a rectangular selection which can be dragged around and moved.</td></tr>
+    <tr><td>Flood select</td><td>Selects a contiguous region, similar to the bucket tool.</td></tr>
+    <tr><td>Text</td><td>Place a text cursor allowing text to be typed on the screen.</td></tr>
+    <tr><td>Voltage probe</td><td>Adds a voltage probe that measures electrochemical potential at a certain point (See "What do voltmeters actually measure").</td></tr>
+    <tr><td>Current probe</td><td>Click and drag to add a current probe that measures current across a wire.</td></tr>
+    <tr><td>Charge probe</td><td>Click and drag to add a charge probe that measures electrical charge within a given region.</td></tr>
+    <tr><td>Magnetic flux probe</td><td>Click and drag to add a probe that measures magnetic flux.</td></tr>
+    <tr><td>Ground</td><td>Specifies the point relative to which probes measure voltage (optional).</td></tr>
+	<tr><td>Custom probe</td><td>Can measure any scalar, vector, or volumetric quantity.</td></tr>
+    <tr><td>Delete probe</td><td>Click to delete a probe.</td></tr>
+    <tr><td>Move label</td><td>Moves labels attached to probes.</td></tr>
+	<tr><td>Ruler</td><td>Measures euclidean length.</td></tr>
+    <tr><td>Plot bands</td><td>Click and drag to plot energy bands along a line (click multiple times to make a segmented path, double click to finish).
+      The plot contains the conduction and valence energy band edges as well as the quasi-Fermi levels of electrons and holes.  <figure><img src="images/bandplot.png" alt="Band plot" style="max-width:70%"><figcaption>Valence and conduction band energies shown as solid lines. Quasi-Fermi levels are dashed lines.</figcaption></figure></td></tr>
+    <tr><td>Plot scalar field</td><td>Click and drag to make a plot of the currently selected scalar field.</td></tr>
+    <tr><td>Plot carriers</td><td>Click an drag to make a logarithmic plot of the number density of electrons and holes.</td></tr>
+    <tr><td>Plot probe data</td><td>Selecting this will create a plot of probe measurements over time, similar to an oscilloscope.</td></tr>
+	<tr><td>Plot XY</td><td>Creates a plot where the x and y axes can be any pair of probe measurements.</td></tr>
 </table>
 
-<h2>Keyboard/Mouse Controls</h2>
+<h2>Extra keyboard/mouse controls</h2>
+This table includes keyboard commands that do not have corresponding menu options. For all commands, see <a href="keybinds.html">keybinds.html</a>.
 <table>
-    <tr><td>P or Space</td><td>Pause &amp; unpause</td></tr>
+	<tr><td>F1</td><td>Open quick reference</td></tr>
     <tr><td>F</td><td>Advance frame</td></tr>
     <tr><td>Q</td><td>Change brush shape</td></tr>
-    <tr><td>C</td><td>Toggle material color</td></tr>
-    <tr><td>V</td><td>Toggle vectors</td></tr>
-    <tr><td>S</td><td>Toggle scalar colors</td></tr>
-    <tr><td>T</td><td>Toggle tooltip</td></tr>
-    <tr><td>G</td><td>Toggle text background</td></tr>
-    <tr><td>H</td><td>Toggle user interface</td></tr>
-    <tr><td>Mouse wheel</td><td>Change brush size</td></tr>
-    <tr><td>Shift</td><td>Draw straight lines</td></tr>
-    <tr><td>Ctrl</td><td>Fill area</td></tr>
-    <tr><td>Alt or Option</td><td>Pick material</td></tr>
-    <tr><td>Ctrl-X</td><td>Cut</td></tr>
-    <tr><td>Ctrl-C</td><td>Copy</td></tr>
-    <tr><td>Ctrl-V</td><td>Paste</td></tr>
-    <tr><td>Left mouse</td><td>Draw material</td></tr>
-    <tr><td>Right mouse</td><td>Erase material</td></tr>
-    <tr><td>Middle mouse</td><td>Pick material</td></tr>
+	<tr><td>X</td><td>Toggle crosshairs</td></tr>
+    <tr><td>R</td><td>Record probe data (saves to probedata.txt)</td></tr>
+    <tr><td>[</td><td>Previous tool</td></tr>
+    <tr><td>]</td><td>Next tool</td></tr>
+	<tr><td>Hold ~</td><td>Open material selector</td></tr>
+	<tr><td>F12</td><td>Take screenshot</td></tr>
+	<tr><td>Left mouse</td><td>Draw material</td></tr>
+	<tr><td>Right mouse</td><td>Erase material</td></tr>
+	<tr><td>Middle mouse</td><td>Pick material</td></tr>
+	<tr><td>Mouse wheel</td><td>Change brush size</td></tr>
+	<tr><td>Hold Shift</td><td>Draw line</td></tr>
+	<tr><td>Hold Alt/Option</td><td>Draw vertical, horizontal, and diagonal lines</td></tr>
 </table>
+Notes: Cut/copy commands must be used after selecting a region. Flip command only works after paste.
 
-<h2>Materials</h2>
+<h2>Default materials</h2>
 <table>
     <tr><td>Voltage source</td><td>Generates a voltage that can be used to power circuits.</td></tr>
     <tr><td>AC voltage source</td><td>Voltage source that oscillates sinusoidally at a fixed frequency.</td></tr>
+    <tr><td>Current source</td><td>Approximation of an ideal current source. Used to generate a constant current density.</td></tr>
     <tr><td>Switch</td><td>Conductivity can be switched on and off by the user.</td></tr>
     <tr><td>Metal</td><td>Material that conducts electricity very well.</td></tr>
     <tr><td>Conductive metal</td><td>More conductive than regular metal.</td></tr>
     <tr><td>Resistive metal</td><td>Less conductive than regular metal.</td></tr>
+    <tr><td>High workfunction metal</td><td>Metal that forms an ohmic contact with p-type semiconductor.</td></tr>
+    <tr><td>Low workfunction metal</td><td>Metal that forms an ohmic contact with n-type semiconductor.</td></tr>
+    <tr><td>Intrinsic semiconductor</td><td>Undoped, with equal number of electrons and holes.</td></tr>
+    <tr><td>P-type semiconductor</td><td>Represents a semiconductor doped with holes.</td></tr>
+    <tr><td>N-type semiconductor</td><td>Represents a semiconductor doped with electrons.</td></tr>
+    <tr><td>Heavily doped P-type semiconductor</td><td>Has a large concentration of holes.</td></tr>
+    <tr><td>Heavily doped N-type semiconductor</td><td>Has a large concentration of electrons.</td></tr>
+    <tr><td>Lightly doped P-type semiconductor</td><td>Has a small concentration of holes.</td></tr>
+    <tr><td>Lightly doped N-type semiconductor</td><td>Has a small concentration of electrons.</td></tr>
     <tr><td>Dielectric</td><td>Material with a large permittivity/dielectric constant.</td></tr>
     <tr><td>Ferromagnet</td><td>Magnetic material with high relative permeability.</td></tr>
     <tr><td>Positive static charge</td><td>Positively charged insulating material.</td></tr>
     <tr><td>Negative static charge</td><td>Negatively charged insulating material.</td></tr>
+    <tr><td>Absorber</td><td>Absorbs incoming electromagnetic radiation very effectively.</td></tr>
     <tr><td>Decoration</td><td>Used for text or circuit symbols, has no effect otherwise.</td></tr>
     <tr><td>Vacuum</td><td>Empty space.</td></tr>
 </table>
+<figure><img src="images/palette.png" alt="Palette"><figcaption>Colors of all the materials.</figcaption></figure>
 
-<!--
-<h1>Technical details</h1>
-The simulation runs on a staggered grid with B and rho...
-- equations
-- discretization scheme
-- numerical stability & CFL condition
-- logarithmic mean
-- parallelism
-[TODO]
--->
+
+<h1>Advanced topics</h1>
+<h2>Performance/Benchmarking</h2>
+SemiSim requires a couple hundred MB of RAM at the default resolution. The amount of memory needed is proportional to the number of grid points, which is the square of the resolution. Resolutions greater than 512 require a huge amount of memory.
+<p>
+The speed of simulation depends slightly on the fraction of area filled with conductive material. I like to use the file "realistic BJT.semisim" as a benchmark since it covers the majority of the area with semiconductor. Running this setup on my M2 macbook pro, I get around 1100 steps/s.
+</p>
+<p>
+It's possible to slightly increase the simulation speed by decreasing "Target graphics FPS" in the preferences. This is more effective on slow computers.
+</p>
+
+<h2>Numerical stability</h2>
+Because the simulation is based on the finite difference method, care must be taken to ensure the simulation remains numerically stable. SemiSim automatically limits the maximum time step to maintain stability, but the user may adjust the simulation settings for optimal speed. In the simulation, let the width of a single pixel be \(\Delta s\), equal to the total width divided by the resolution. The simulation moves forward in time in discrete intervals \(\Delta t\). The following three conditions are required for stability:
+$$\begin{aligned}
+\sqrt{2} c \frac{\Delta t}{\Delta s} < 1 \qquad&\text{(Wave equation)}\\
+4D \frac{\Delta t}{\Delta s^2} < 1  \qquad&\text{(Diffusion equation)}\\
+\frac{\sigma}{4\epsilon} \Delta t \lesssim 1  \qquad&\text{(Charge relaxation)}
+\end{aligned}
+$$
+Here \(c\) is the speed of light in a medium, \(D\) is the diffusion constant, \(\sigma\) the electrical conductivity, and \(\epsilon\) the absolute permittivity. The conditions must be satisfied for every material in the simulation and the diffusion inequality must hold for both electrons and holes. The timestep \(\Delta t\) is adjusted to satisfy all of these conditions. In practice, electrons usually have larger diffusion constants so we are free to ignore the holes. The charge relaxation inequality only matters for the most conductive material, which is conductive metal.
+<p>To optimize the time step, first open debug mode by pressing "D" and then scroll down through the text box on the right. At the bottom, it will display the ratios defined above, and the greatest of them indicates which condition is closest to being violated. Ideally, we would want all the ratios to be close to 1. If the wave equation ratio is much larger than the others, you can make the simulation faster by increasing the vacuum permeability \(\mu_0\), and thus decreasing the speed of light, which is calculated as
+$$
+c = \frac{1}{\sqrt{\mu \epsilon}}
+$$
+This has the same effect as encasing the circuit in a ferromagnetic material. For semiconductor simulations, this will not affect the steady state charge and current distributions, but it will slightly affect the behavior of transients.
+</p>
+<p>If the charge relaxation ratio is too high, that means one of the materials is too conductive. This can be fixed by decreasing the equilibrium carrier concentration or lowering the mobility. If it is not possible to do so (eg. for a fixed semiconductor doping level), an alternative fix is to decrease the pixel width or increase the spatial resolution.
+<h2>Junction smoothing</h2>
+Numerical instability may also be caused by interfaces between materials with very different chemical potentials or Fermi levels. If high frequency oscillations occur at junctions, it may be a sign of instability. To fix this, you may increase the "junction smoothing" setting which automatically smooths the Fermi level over space. Typically, a value of 3 pixels is enough to remove all instabilities. The downside is that metal-semiconductor junctions do not work properly when smoothing is greater than around 2. An alternative option is to decrease the saturation velocity until the instability dissapears. The rule of thumb is
+$$
+E_\text{sat} \lesssim \frac{2}{\beta e \Delta s} \text{, or equivalently, } v_\text{sat} \lesssim \frac{2D}{\Delta s}
+$$
+Bear in mind that this is not a hard limit and the saturation velocity can be set to arbitrarily high values.
+<h2>Velocity saturation</h2>
+The model of velocity saturation used by the simulation is
+$$
+\mu(E) = \frac{\mu(0)}{\sqrt{(E/E_\text{sat})^2 + 1}}\\
+E_\text{sat} = \frac{v_\text{sat}}{\beta e D}
+$$
+Here \(E_\text{sat}\) and \(v_\text{sat}\) denote the saturation field and velocity, which are proportional to each other. This equation is a special case of the power law relationship that is typically used to describe saturation. The simulation is unable to handle more complicated functional relationships, such as in the case of Gallium Arsenide, because it would incur a large performance cost.
+<h2>Doping dependent mobility</h2>
+Charge carrier mobility in a semiconductor depends on the level of doping. The more dopant atoms there are, the more electrons get scattered. The simulation models this dependency with the following equation:
+$$
+\mu = \frac{\mu_0}{(n/n_c)^{1/2}+1}
+$$
+where \(\mu_0\) is the mobility of electrons or holes in undoped semiconductor, \(n\) is the doping density, and \(n_c\) is the doping density at which mobility drops to \(1/2\) of its original value.
+<h2>Recombination</h2>
+The recombination rate is given by a sum of contributions from three processes: Radiative, Shockley-Read-Hall, and Auger. The mathematical expression for the net recombination rate is
+$$
+r = (np - n_i^2) \left(k_\text{rad} + \frac{k_\text{SRH,n}\cdot k_\text{SRH,p}}{k_\text{SRH,n}(n+n_i)+k_\text{SRH,p}(p+n_i)} + k_\text{Aug,n}\cdot n + k_\text{Aug,p}\cdot p\right)
+$$
 
 <h1>Miscellaneous questions and answers</h1>
+<h2>Why does this simulation exist?</h2>
+I created this simulator because I wanted to get a deeper understanding of how semiconductors work.
+It's been my experience that there's been a lack of good simulations that demonstrate advanced topics in physics.
+There certainly exists many educational physics simulations, but they're all either aimed at lower educational levels, or they are very restricted in how the user can interact with the system.
+The only examples I've seen of simulations that combine advanced topics with a generous amount of interactivity are the physics applets written by Paul Falstad, to whom I'm also grateful for looking over my project and helping to convert it to Javascript.
+I've tried to give users many different ways of interacting with the simulation. Circuits can be drawn with just a few clicks of the mouse, allowing users to easily experiment with their own circuits.
+There are also many different ways of visualizing the underlying physics that I've incorporated into the settings. Each one gives a different perspective on the physics that is happening.
 
-<h2>Why aren't there semiconductors?</h2>
-The grid resolution of 32x32x32 is not enough to accurately simulate a semiconductor junction. In the future, higher resolutions may become possible.
+<h2>What do the colors mean?</h2>
+In general, the color red is associated with either holes or a positive field. Blue represents electrons or negative fields. White means both electrons and holes exist a location.
+For magnetic fields, cyan/yellow represent fields going in to and out of the page, respectively. Finally, green is used for quantities that are always positive (eg. energy density).
+Note: Each material also has its own color which is unrelated to the aforementioned color scheme.
+
+<h2>What do voltmeters actually measure?</h2>
+You might notice that the reading from a voltage probe doesn't match the electric potential Φ. In reality, voltmeters do not measure Φ but rather differences in electrochemical potential of charge carriers.
+Things get a bit trickier when we ask what the voltage is in a piece of semiconductor, because now there are multiple charge carriers! In this case we can try to define voltage as the reading we get when we stick a small metallic
+probe at a certain point. This can actually be performed in the simulation, and the result is that the electrochemical potential of the metal lies between that of electrons and holes, closer to whichever one has a larger density.
+I approximate this with a simple weighted average, the result of which is displayed on the voltage probe.
+
+<h2>Why does the electric field change instantly when I add or remove charges?</h2>
+According to Maxwell's equations, EM fields cannot propagate faster than the speed of light. This is automatically the case as long as charge is conserved. When charge is added or removed,
+the simulation has to recompute the electric field to make sure Gauss's law is satisfied.
+
+<h1>Build Instructions</h1>
+
+Clone the repository using
+<code>bash
+git clone https://github.com/StunningLlama/SemiSim3D.git
+</code><br>
+Note: Building requires Java 25 and Maven for dependency management. You may need to update your IDE.
+<br><br>
+The JVM options
+<code>-XX:-TieredCompilation
+-XX:CompileThresholdScaling=0.25</code> are required for good performance.
+
+<h2>Eclipse</h2>
+<ol>
+<li>Go to File/Import/Existing Maven Projects</li>
+<li>Select the cloned repository folder</li>
+<li>Click Finish</li>
+</ol>
 
 <p>
-    Copyright (c) 2025 Brandon Li<br>
+    Copyright (c) 2026 Brandon Li<br>
     <a href="mailto:brandonli.lex@gmail.com">brandonli.lex@gmail.com</a>
 </p>
 </main>

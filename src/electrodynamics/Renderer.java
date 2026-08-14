@@ -96,6 +96,9 @@ public class Renderer extends PeriodicTask {
 	public String screenshot_name = "";
 	public int screenshot_timer = 0;
 	
+	public int rx;
+	public int ry;
+	
 	/* 3D */
 	public JPanel imgpanel;
 	public Renderer3D renderer_left_eye;
@@ -250,12 +253,14 @@ public class Renderer extends PeriodicTask {
 		slice_y = (mode == RenderMode.SLICE_Y);
 		slice_z = (mode == RenderMode.SLICE_Z);
 
-		scalefactor_real = Math.min(imgpanel.getWidth()/(double)project_x(e.nx, e.ny, e.nz), imgpanel.getHeight()/(double)project_y(e.nx, e.ny, e.nz));
+		rx = e.renderer.project_x(e.nx, e.ny, e.nz);
+		ry = e.renderer.project_y(e.nx, e.ny, e.nz);
+
+		scalefactor_real = Math.min(imgpanel.getWidth()/(double)rx, imgpanel.getHeight()/(double)ry);
 		scalefactor = (int)scalefactor_real;
 		if (scalefactor < 1) scalefactor = 1;
-
-		int imgwidth_new = project_x((int)Math.ceil(scalefactor*e.nx), (int)Math.ceil(scalefactor*e.ny), (int)Math.ceil(scalefactor*e.nz));
-		int imgheight_new = project_y((int)Math.ceil(scalefactor*e.nx), (int)Math.ceil(scalefactor*e.ny), (int)Math.ceil(scalefactor*e.nz));
+		int imgwidth_new = (int)Math.ceil(scalefactor*rx);
+		int imgheight_new = (int)Math.ceil(scalefactor*ry);
 		e.opts.gui_slice.setMaximum(project_z(e.nx, e.ny, e.nz) + e.opts.gui_slice.getVisibleAmount() - 1);
 		
 		if (!threeD_mode && (imgwidth_new != imgwidth || imgheight_new != imgheight)) {
@@ -409,6 +414,17 @@ public class Renderer extends PeriodicTask {
 		image_r[i][j][k] = (float)(image_r[i][j][k]*alphaBG + col_r*alphaFG);
 		image_g[i][j][k] = (float)(image_g[i][j][k]*alphaBG + col_g*alphaFG);
 		image_b[i][j][k] = (float)(image_b[i][j][k]*alphaBG + col_b*alphaFG);
+	}
+	
+	public void setPixelTranslucent(int i, int j, int k) {
+		if (i < 0 || j < 0  || k < 0 || i >= e.nx || j >= e.ny || k >= e.nz)
+			return;
+
+		image_r[i][j][k] = (float)(image_r[i][j][k]*alphaBG + col_r*alphaFG);
+		image_g[i][j][k] = (float)(image_g[i][j][k]*alphaBG + col_g*alphaFG);
+		image_b[i][j][k] = (float)(image_b[i][j][k]*alphaBG + col_b*alphaFG);
+		
+		translucent[i][j][k] |= true;
 	}
 	
 	public boolean inBounds(int i, int j, int k) {
@@ -1132,23 +1148,54 @@ public class Renderer extends PeriodicTask {
 		setalphaFG(1);
 		setColorFloat(0.7f, 0.7f, 0.7f);
 
-		if (Brush.drawLine(brush) && (e.controls.activated_prev_left || e.controls.activated_prev_right)) {
+		if (Brush.drawLine(brush) && (e.controls.mouse_pressed_prev_left || e.controls.mouse_pressed_prev_right)) {
 			drawPixelLine(e.controls.mx_start, e.controls.my_start, e.controls.mz_start, e.controls.mx, e.controls.my, e.controls.mz);
 		}
 
-		/*if (brush == Brush.ZOOM && e.controls.mouse_pressed_prev_left && !e.controls.shift_down) {
-			int x1 = e.controls.mx_start;
-			int y1 = e.controls.my_start;
-			int z1 = e.controls.mz_start;
-			int x2 = e.controls.mx;
-			int y2 = e.controls.my;
-			int z2 = e.controls.mz;
-			drawPixelLine(x1, y1, x2, y1);
-			drawPixelLine(x2, y1, x2, y2);
-			drawPixelLine(x2, y2, x1, y2);
-			drawPixelLine(x1, y2, x1, y1);
-			//TODO
-		}*/
+		setalphaFG(0.5);
+		if ((brush == Brush.ZOOM && e.controls.mouse_pressed_prev_left
+				|| brush == Brush.RECTANGLE && (e.controls.mouse_pressed_prev_left || e.controls.mouse_pressed_prev_right))) {
+			
+
+			int mx0 = Math.min(e.controls.mx_start, e.controls.mx);
+			int my0 = Math.min(e.controls.my_start, e.controls.my);
+			int mz0 = Math.min(e.controls.mz_start, e.controls.mz);
+			int mx1 = Math.max(e.controls.mx_start, e.controls.mx);
+			int my1 = Math.max(e.controls.my_start, e.controls.my);
+			int mz1 = Math.max(e.controls.mz_start, e.controls.mz);
+
+			for (int i = mx0; i <= mx1; i++)
+			{
+				for (int j = my0; j <= my1; j++)
+				{
+					for (int k = mz0; k <= mz1; k++)
+					{
+						setPixelTranslucent(i, j, k);
+					}
+				}
+			}
+		}
+
+		if (brush == Brush.RECTANGLE) {
+			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx+3, e.controls.my, e.controls.mz);
+			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx-3, e.controls.my, e.controls.mz);
+			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx, e.controls.my+3, e.controls.mz);
+			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx, e.controls.my-3, e.controls.mz);
+			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx, e.controls.my, e.controls.mz+3);
+			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx, e.controls.my, e.controls.mz-3);
+		}
+
+
+		if (drawCrosshairGuides) {
+			drawPixelLine(e.controls.mx-4, e.controls.my, e.controls.mz, 0, e.controls.my, e.controls.mz);
+			drawPixelLine(e.controls.mx+4, e.controls.my, e.controls.mz, e.nx-1, e.controls.my, e.controls.mz);
+			drawPixelLine(e.controls.mx, e.controls.my-4, e.controls.mz, e.controls.mx, 0, e.controls.mz);
+			drawPixelLine(e.controls.mx, e.controls.my+4, e.controls.mz, e.controls.mx, e.ny-1, e.controls.mz);
+			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz-4, e.controls.mx, e.controls.my, 0);
+			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz+4, e.controls.mx, e.controls.my, e.nz-1);
+			setPixelTranslucent(e.controls.mx, e.controls.my, e.controls.mz);
+		}
+		setalphaFG(1);
 
 
 		if (e.opts.menu_interface.isSelected())
@@ -1504,8 +1551,8 @@ public class Renderer extends PeriodicTask {
 					{
 						double arrowlength = 25.0/scalefactor;
 						double vectorscalingconstant = 10*Math.pow(10.0, e.opts.gui_brightness_vec.getValue()/10.0)/e.controls.vectorview.getOption().getScalingConstant(e);
-						int density_x = 10*scalefactor*project_x(e.nx, e.ny, e.nz)/256;
-						int density_y = 10*scalefactor*project_y(e.nx, e.ny, e.nz)/256;
+						int density_x = 10*scalefactor*rx/256;
+						int density_y = 10*scalefactor*ry/256;
 						boolean conductors_only = synchronized_vector_view.isConductorOnly();
 
 						double randomness = 0;
@@ -2464,6 +2511,7 @@ public class Renderer extends PeriodicTask {
 		public int zoom_bound_y = 0;
 		public int offset_x = 0;
 		public int offset_y = 0;
+		Color bg;
 
 		Simulation e;
 
@@ -2471,42 +2519,58 @@ public class Renderer extends PeriodicTask {
 		public void paintComponent(Graphics real) {
 			draw((Graphics2D)real, getWidth(), getHeight());
 		}
+		
+		@Override
+		public void updateUI() {
+			super.updateUI();
+			Color c = this.getBackground();
+			bg = new Color(clamp((int)(0.95*c.getRed())-5, 0, 255), clamp((int)(0.95*c.getGreen())-5, 0, 255), clamp((int)(0.95*c.getBlue())-5, 0, 255));
+		}
 
 		public void draw(Graphics2D g, int width, int height) {
-			g.setBackground(Color.BLACK);
-			
-			if (g.getClipBounds() != null)
-				g.clearRect(0, 0, width, height);
+			e.rwLock.readLock().lock();
+			try {
+				g.setBackground(bg);
 
-			int canvas_x = width;
-			int canvas_y = height;
+				if (g.getClipBounds() != null)
+					g.clearRect(0, 0, width, height);
 
-			int xw = e.controls.zoom_i2 - e.controls.zoom_i1 + 1;
-			int yw = e.controls.zoom_j2 - e.controls.zoom_j1 + 1;
-			
-			if (xw/(double)yw >= canvas_x/(double) canvas_y) {
-				int dim2 = (int) (canvas_x*yw/(double)xw);
-				zoom_bound_x = canvas_x - 1;
-				zoom_bound_y = dim2 - 1;
-				offset_x = 0;
-				offset_y = (canvas_y - dim2)/2;
-			} else {
-				int dim2 = (int) (canvas_y*xw/(double)yw);
-				zoom_bound_x = dim2 - 1;
-				zoom_bound_y = canvas_y - 1;
-				offset_x = (canvas_x - dim2)/2;
-				offset_y = 0;
-			}
-			
-			g.drawImage(e.renderer.img_front, offset_x, offset_y, zoom_bound_x+1+offset_x, zoom_bound_y+1+offset_y, 
-				e.controls.zoom_i1*e.renderer.scalefactor, e.controls.zoom_j1*e.renderer.scalefactor, (e.controls.zoom_i2+1)*e.renderer.scalefactor, (e.controls.zoom_j2+1)*e.renderer.scalefactor, e.opts);
+				int canvas_x = width;
+				int canvas_y = height;
 
-			e.renderer.drawText((Graphics2D)g);
+				int xw = e.controls.zoom_i2 - e.controls.zoom_i1 + 1;
+				int yw = e.controls.zoom_j2 - e.controls.zoom_j1 + 1;
+
+				if (xw/(double)yw >= canvas_x/(double) canvas_y) {
+					int dim2 = (int) (canvas_x*yw/(double)xw);
+					zoom_bound_x = canvas_x - 1;
+					zoom_bound_y = dim2 - 1;
+					offset_x = 0;
+					offset_y = (canvas_y - dim2)/2;
+				} else {
+					int dim2 = (int) (canvas_y*xw/(double)yw);
+					zoom_bound_x = dim2 - 1;
+					zoom_bound_y = canvas_y - 1;
+					offset_x = (canvas_x - dim2)/2;
+					offset_y = 0;
+				}
+
+				double sf_x = (double)(e.canvas.zoom_bound_x+1)/(e.controls.zoom_i2-e.controls.zoom_i1+1);
+				double sf_y = (double)(e.canvas.zoom_bound_y+1)/(e.controls.zoom_j2-e.controls.zoom_j1+1);
+
+				g.drawImage(e.renderer.img_front, (int) ((-e.controls.zoom_i1)*sf_x+e.canvas.offset_x), (int) ((-e.controls.zoom_j1)*sf_y+e.canvas.offset_y), (int) ((e.nx+1-e.controls.zoom_i1)*sf_x+e.canvas.offset_x), (int) ((e.ny+1-e.controls.zoom_j1)*sf_y+e.canvas.offset_y), 
+						0, 0, (e.nx+1)*e.renderer.scalefactor-1, (e.ny+1)*e.renderer.scalefactor-1, e.opts);
+
+				e.renderer.drawText((Graphics2D)g);
+			} finally {
+	        	e.rwLock.readLock().unlock();
+	        }
 		}
 
 		public RenderCanvas(Simulation w) {
 			e = w;
 			setPreferredSize(new Dimension(768, 768));
+			updateUI();
 		}
 	}
 }

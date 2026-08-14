@@ -58,6 +58,12 @@ public class Simulation extends PeriodicTask {
 	//probe types
 	//screenshots
 	
+	//Break up sim loop
+	//Add back text tool
+	//JVM arguments
+	//Update manual
+	//Fix color scale
+	
 	/* Parts */
 	
 	public Renderer.RenderCanvas canvas;
@@ -303,7 +309,7 @@ public class Simulation extends PeriodicTask {
 		
 		default_flashlight_strength = 1e31;
 
-		junction_size = 1;
+		junction_size = 0;
 		dopant_smoothing_distance = 0;
 		
 		d_crit_n = 1e100;
