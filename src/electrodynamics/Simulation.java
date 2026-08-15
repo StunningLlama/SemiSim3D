@@ -568,6 +568,8 @@ public class Simulation extends PeriodicTask {
 		
 		for (Plot p : plots)
 			p.initialize();
+		
+		renderer.create3dCanvas();
 
 		SemiSim.detect64Bit();
 		

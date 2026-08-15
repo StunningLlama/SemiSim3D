@@ -64,6 +64,13 @@ public class Renderer3D implements GLEventListener {
 	ArrayList<Text> bg_texts = new ArrayList<>();
 	ArrayList<Text> ui_texts = new ArrayList<>();
 
+	public float[][][] image_r;
+	public float[][][] image_g;
+	public float[][][] image_b;
+	
+	int[][][] opaque_surfs;
+	int[][][] translucent_surfs;
+
 	public Renderer3D(Simulation e) {
 		this.e = e;
 		GLProfile profile = GLProfile.get(GLProfile.GL2);
@@ -75,6 +82,14 @@ public class Renderer3D implements GLEventListener {
 		canvas.setSize(768, 768);
 
 		animator = new FPSAnimator(canvas, (int)e.renderer.targetframerate);
+	}
+	
+	public void setResolution() {
+		image_r = new float[e.nx][e.ny][e.nz];
+		image_g = new float[e.nx][e.ny][e.nz];
+		image_b = new float[e.nx][e.ny][e.nz];
+		opaque_surfs = new int[e.nx][e.ny][e.nz];
+		translucent_surfs = new int[e.nx][e.ny][e.nz];
 	}
 
 	IntBuffer pick_fbo = GLBuffers.newDirectIntBuffer(1);
@@ -145,8 +160,7 @@ public class Renderer3D implements GLEventListener {
 			return;
 		}
 		try {
-			e.renderer.drawPixels();
-			e.renderer.drawOverlay(false);
+			e.renderer.draw(this);
 
 			if (isMainCanvas && e.opts.gui_rotate.isSelected()) {
 				e.controls.rotateView(1f/e.renderer.targetframerate, 0);
@@ -155,7 +169,13 @@ public class Renderer3D implements GLEventListener {
 			GL2 gl = drawable.getGL().getGL2();
 
 			gl.glEnable(GL2.GL_DEPTH_TEST);
-			gl.glClearColor(e.canvas.bg.getRed()/255f, e.canvas.bg.getGreen()/255f, e.canvas.bg.getBlue()/255f, 1.0f);
+
+			RenderMode mode = e.controls.rendermode.getOption();
+			if (mode == RenderMode.NORMAL) {
+				gl.glClearColor(e.canvas.bg.getRed()/255f, e.canvas.bg.getGreen()/255f, e.canvas.bg.getBlue()/255f, 1.0f);
+			} else {
+				gl.glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+			}
 			gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
 
 			// Draw scene
@@ -322,66 +342,61 @@ public class Renderer3D implements GLEventListener {
 			gl.glBegin(GL2.GL_TRIANGLES);
 
 			for (int i = 0; i < e.nx; i++) for (int j = 0; j < e.ny; j++) for (int k = 0; k < e.nz; k++) {
-				for (int di = -1; di <= 1; di++) for (int dj = -1; dj <= 1; dj++) for (int dk = -1; dk <= 1; dk++) {
-					if (Math.abs(di)+Math.abs(dj)+Math.abs(dk) == 1
-							&& i+di >= 0 && i + di < e.nx
-							&& j+dj >= 0 && j + dj < e.ny
-							&& k+dk >= 0 && k + dk < e.nz) {
-						if (e.materials[i][j][k].type == MaterialType.ABSORBER && !surfVisible(i, j, k, di, dj, dk))
-							continue;
-
-						if (e.renderer.opaque[i][j][k] && !e.renderer.opaque[i+di][j+dj][k+dk]) {
-							//float r = e.materials[i][j][k].type.color_r/255f;
-							//float g = e.materials[i][j][k].type.color_g/255f;
-							//float b = e.materials[i][j][k].type.color_b/255f;
-							float r = e.renderer.image_r[i][j][k];
-							float g = e.renderer.image_g[i][j][k];
-							float b = e.renderer.image_b[i][j][k];
-							float light = (float)(0.8+0.2*di+0.1*dj+0.05*dk);
-							gl.glColor4f(r*light, g*light, b*light, alpha);
-							if (di == -1) {
-								gl.glVertex3f(i, j, k);
-								gl.glVertex3f(i, j+1, k);
-								gl.glVertex3f(i, j+1, k+1);
-								gl.glVertex3f(i, j, k);
-								gl.glVertex3f(i, j, k+1);
-								gl.glVertex3f(i, j+1, k+1);
-							} else if (di == 1) {
-								gl.glVertex3f(i+1, j, k);
-								gl.glVertex3f(i+1, j+1, k);
-								gl.glVertex3f(i+1, j+1, k+1);
-								gl.glVertex3f(i+1, j, k);
-								gl.glVertex3f(i+1, j, k+1);
-								gl.glVertex3f(i+1, j+1, k+1);
-							} else if (dj == -1) {
-								gl.glVertex3f(i, j, k);
-								gl.glVertex3f(i+1, j, k);
-								gl.glVertex3f(i+1, j, k+1);
-								gl.glVertex3f(i, j, k);
-								gl.glVertex3f(i, j, k+1);
-								gl.glVertex3f(i+1, j, k+1);
-							} else if (dj == 1) {
-								gl.glVertex3f(i, j+1, k);
-								gl.glVertex3f(i+1, j+1, k);
-								gl.glVertex3f(i+1, j+1, k+1);
-								gl.glVertex3f(i, j+1, k);
-								gl.glVertex3f(i, j+1, k+1);
-								gl.glVertex3f(i+1, j+1, k+1);
-							} else if (dk == -1) {
-								gl.glVertex3f(i, j, k);
-								gl.glVertex3f(i, j+1, k);
-								gl.glVertex3f(i+1, j+1, k);
-								gl.glVertex3f(i, j, k);
-								gl.glVertex3f(i+1, j, k);
-								gl.glVertex3f(i+1, j+1, k);
-							} else if (dk == 1) {
-								gl.glVertex3f(i, j, k+1);
-								gl.glVertex3f(i, j+1, k+1);
-								gl.glVertex3f(i+1, j+1, k+1);
-								gl.glVertex3f(i, j, k+1);
-								gl.glVertex3f(i+1, j, k+1);
-								gl.glVertex3f(i+1, j+1, k+1);
-							}
+				for (int direction = 1; direction <= 0b100000; direction = direction << 1) {
+					if ((e.renderer.opaque_surfs[i][j][k] & direction) != 0) {
+						int di = ((direction&0b000011)+1)%3 - 1;
+						int dj = (((direction&0b001100) >> 2)+1)%3 - 1;
+						int dk = (((direction&0b110000) >> 4)+1)%3 - 1;
+						//float r = e.materials[i][j][k].type.color_r/255f;
+						//float g = e.materials[i][j][k].type.color_g/255f;
+						//float b = e.materials[i][j][k].type.color_b/255f;
+						float r = e.renderer.image_r[i][j][k];
+						float g = e.renderer.image_g[i][j][k];
+						float b = e.renderer.image_b[i][j][k];
+						float light = (float)(0.8+0.2*di+0.1*dj+0.05*dk);
+						gl.glColor4f(r*light, g*light, b*light, alpha);
+						if (di == -1) {
+							gl.glVertex3f(i, j, k);
+							gl.glVertex3f(i, j+1, k);
+							gl.glVertex3f(i, j+1, k+1);
+							gl.glVertex3f(i, j, k);
+							gl.glVertex3f(i, j, k+1);
+							gl.glVertex3f(i, j+1, k+1);
+						} else if (di == 1) {
+							gl.glVertex3f(i+1, j, k);
+							gl.glVertex3f(i+1, j+1, k);
+							gl.glVertex3f(i+1, j+1, k+1);
+							gl.glVertex3f(i+1, j, k);
+							gl.glVertex3f(i+1, j, k+1);
+							gl.glVertex3f(i+1, j+1, k+1);
+						} else if (dj == -1) {
+							gl.glVertex3f(i, j, k);
+							gl.glVertex3f(i+1, j, k);
+							gl.glVertex3f(i+1, j, k+1);
+							gl.glVertex3f(i, j, k);
+							gl.glVertex3f(i, j, k+1);
+							gl.glVertex3f(i+1, j, k+1);
+						} else if (dj == 1) {
+							gl.glVertex3f(i, j+1, k);
+							gl.glVertex3f(i+1, j+1, k);
+							gl.glVertex3f(i+1, j+1, k+1);
+							gl.glVertex3f(i, j+1, k);
+							gl.glVertex3f(i, j+1, k+1);
+							gl.glVertex3f(i+1, j+1, k+1);
+						} else if (dk == -1) {
+							gl.glVertex3f(i, j, k);
+							gl.glVertex3f(i, j+1, k);
+							gl.glVertex3f(i+1, j+1, k);
+							gl.glVertex3f(i, j, k);
+							gl.glVertex3f(i+1, j, k);
+							gl.glVertex3f(i+1, j+1, k);
+						} else if (dk == 1) {
+							gl.glVertex3f(i, j, k+1);
+							gl.glVertex3f(i, j+1, k+1);
+							gl.glVertex3f(i+1, j+1, k+1);
+							gl.glVertex3f(i, j, k+1);
+							gl.glVertex3f(i+1, j, k+1);
+							gl.glVertex3f(i+1, j+1, k+1);
 						}
 					}
 				}
@@ -389,65 +404,60 @@ public class Renderer3D implements GLEventListener {
 
 
 			for (int i = 0; i < e.nx; i++) for (int j = 0; j < e.ny; j++) for (int k = 0; k < e.nz; k++) {
-				for (int di = -1; di <= 1; di++) for (int dj = -1; dj <= 1; dj++) for (int dk = -1; dk <= 1; dk++) {
-					if (Math.abs(di)+Math.abs(dj)+Math.abs(dk) == 1
-							&& i+di >= 0 && i + di < e.nx
-							&& j+dj >= 0 && j + dj < e.ny
-							&& k+dk >= 0 && k + dk < e.nz) {
-						if (!surfVisible(i, j, k, di, dj, dk))
-							continue;
+				for (int direction = 1; direction <= 0b100000; direction = direction << 1) {
+					if ((e.renderer.translucent_surfs[i][j][k] & direction) != 0) {
+						int di = ((direction&0b000011)+1)%3 - 1;
+						int dj = (((direction&0b001100) >> 2)+1)%3 - 1;
+						int dk = (((direction&0b110000) >> 4)+1)%3 - 1;
+						float r = e.renderer.image_r[i][j][k];
+						float g = e.renderer.image_g[i][j][k];
+						float b = e.renderer.image_b[i][j][k];
+						float light = (float)(0.8+0.2*di+0.1*dj+0.05*dk);
 
-						if (e.renderer.translucent[i][j][k] && !e.renderer.translucent[i+di][j+dj][k+dk]) {
-							float r = e.renderer.image_r[i][j][k];
-							float g = e.renderer.image_g[i][j][k];
-							float b = e.renderer.image_b[i][j][k];
-							float light = (float)(0.8+0.2*di+0.1*dj+0.05*dk);
-
-							gl.glColor4f(r*light, g*light, b*light, 0.4f);
-							float eps = 0.01f;
-							if (di == -1) {
-								gl.glVertex3f(i-eps, j-eps, k-eps);
-								gl.glVertex3f(i-eps, j+1+eps, k-eps);
-								gl.glVertex3f(i-eps, j+1+eps, k+1+eps);
-								gl.glVertex3f(i-eps, j-eps, k-eps);
-								gl.glVertex3f(i-eps, j-eps, k+1+eps);
-								gl.glVertex3f(i-eps, j+1+eps, k+1+eps);
-							} else if (di == 1) {
-								gl.glVertex3f(i+1+eps, j-eps, k-eps);
-								gl.glVertex3f(i+1+eps, j+1+eps, k-eps);
-								gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
-								gl.glVertex3f(i+1+eps, j-eps, k-eps);
-								gl.glVertex3f(i+1+eps, j-eps, k+1+eps);
-								gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
-							} else if (dj == -1) {
-								gl.glVertex3f(i-eps, j-eps, k-eps);
-								gl.glVertex3f(i+1+eps, j-eps, k-eps);
-								gl.glVertex3f(i+1+eps, j-eps, k+1+eps);
-								gl.glVertex3f(i-eps, j-eps, k-eps);
-								gl.glVertex3f(i-eps, j-eps, k+1+eps);
-								gl.glVertex3f(i+1+eps, j-eps, k+1+eps);
-							} else if (dj == 1) {
-								gl.glVertex3f(i-eps, j+1+eps, k-eps);
-								gl.glVertex3f(i+1+eps, j+1+eps, k-eps);
-								gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
-								gl.glVertex3f(i-eps, j+1+eps, k-eps);
-								gl.glVertex3f(i-eps, j+1+eps, k+1+eps);
-								gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
-							} else if (dk == -1) {
-								gl.glVertex3f(i-eps, j-eps, k-eps);
-								gl.glVertex3f(i-eps, j+1+eps, k-eps);
-								gl.glVertex3f(i+1+eps, j+1+eps, k-eps);
-								gl.glVertex3f(i-eps, j-eps, k-eps);
-								gl.glVertex3f(i+1+eps, j-eps, k-eps);
-								gl.glVertex3f(i+1+eps, j+1+eps, k-eps);
-							} else if (dk == 1) {
-								gl.glVertex3f(i-eps, j-eps, k+1+eps);
-								gl.glVertex3f(i-eps, j+1+eps, k+1+eps);
-								gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
-								gl.glVertex3f(i-eps, j-eps, k+1+eps);
-								gl.glVertex3f(i+1+eps, j-eps, k+1+eps);
-								gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
-							}
+						gl.glColor4f(r*light, g*light, b*light, 0.4f);
+						float eps = 0.01f;
+						if (di == -1) {
+							gl.glVertex3f(i-eps, j-eps, k-eps);
+							gl.glVertex3f(i-eps, j+1+eps, k-eps);
+							gl.glVertex3f(i-eps, j+1+eps, k+1+eps);
+							gl.glVertex3f(i-eps, j-eps, k-eps);
+							gl.glVertex3f(i-eps, j-eps, k+1+eps);
+							gl.glVertex3f(i-eps, j+1+eps, k+1+eps);
+						} else if (di == 1) {
+							gl.glVertex3f(i+1+eps, j-eps, k-eps);
+							gl.glVertex3f(i+1+eps, j+1+eps, k-eps);
+							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
+							gl.glVertex3f(i+1+eps, j-eps, k-eps);
+							gl.glVertex3f(i+1+eps, j-eps, k+1+eps);
+							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
+						} else if (dj == -1) {
+							gl.glVertex3f(i-eps, j-eps, k-eps);
+							gl.glVertex3f(i+1+eps, j-eps, k-eps);
+							gl.glVertex3f(i+1+eps, j-eps, k+1+eps);
+							gl.glVertex3f(i-eps, j-eps, k-eps);
+							gl.glVertex3f(i-eps, j-eps, k+1+eps);
+							gl.glVertex3f(i+1+eps, j-eps, k+1+eps);
+						} else if (dj == 1) {
+							gl.glVertex3f(i-eps, j+1+eps, k-eps);
+							gl.glVertex3f(i+1+eps, j+1+eps, k-eps);
+							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
+							gl.glVertex3f(i-eps, j+1+eps, k-eps);
+							gl.glVertex3f(i-eps, j+1+eps, k+1+eps);
+							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
+						} else if (dk == -1) {
+							gl.glVertex3f(i-eps, j-eps, k-eps);
+							gl.glVertex3f(i-eps, j+1+eps, k-eps);
+							gl.glVertex3f(i+1+eps, j+1+eps, k-eps);
+							gl.glVertex3f(i-eps, j-eps, k-eps);
+							gl.glVertex3f(i+1+eps, j-eps, k-eps);
+							gl.glVertex3f(i+1+eps, j+1+eps, k-eps);
+						} else if (dk == 1) {
+							gl.glVertex3f(i-eps, j-eps, k+1+eps);
+							gl.glVertex3f(i-eps, j+1+eps, k+1+eps);
+							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
+							gl.glVertex3f(i-eps, j-eps, k+1+eps);
+							gl.glVertex3f(i+1+eps, j-eps, k+1+eps);
+							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
 						}
 					}
 				}
@@ -940,60 +950,55 @@ public class Renderer3D implements GLEventListener {
 
 		gl.glBegin(GL2.GL_TRIANGLES);
 		for (int i = 0; i < e.nx; i++) for (int j = 0; j < e.ny; j++) for (int k = 0; k < e.nz; k++) {
-			for (int di = -1; di <= 1; di++) for (int dj = -1; dj <= 1; dj++) for (int dk = -1; dk <= 1; dk++) {
-				if (Math.abs(di)+Math.abs(dj)+Math.abs(dk) == 1
-						&& i+di >= 0 && i + di < e.nx
-						&& j+dj >= 0 && j + dj < e.ny
-						&& k+dk >= 0 && k + dk < e.nz) {
-					if (!surfVisible(i, j, k, di, dj, dk))
-						continue;
+			for (int direction = 1; direction <= 0b100000; direction = direction << 1) {
+				if ((e.renderer.opaque_surfs[i][j][k] & direction) != 0) {
+					int di = ((direction&0b000011)+1)%3 - 1;
+					int dj = (((direction&0b001100) >> 2)+1)%3 - 1;
+					int dk = (((direction&0b110000) >> 4)+1)%3 - 1;
+					storeInt(gl, packCoords(i, j, k, di, dj, dk));
 
-					if (e.renderer.solid[i][j][k] && !e.renderer.solid[i+di][j+dj][k+dk]) {
-						storeInt(gl, packCoords(i, j, k, di, dj, dk));
-						
-						if (di == -1) {
-							gl.glVertex3f(i, j, k);
-							gl.glVertex3f(i, j+1, k);
-							gl.glVertex3f(i, j+1, k+1);
-							gl.glVertex3f(i, j, k);
-							gl.glVertex3f(i, j, k+1);
-							gl.glVertex3f(i, j+1, k+1);
-						} else if (di == 1) {
-							gl.glVertex3f(i+1, j, k);
-							gl.glVertex3f(i+1, j+1, k);
-							gl.glVertex3f(i+1, j+1, k+1);
-							gl.glVertex3f(i+1, j, k);
-							gl.glVertex3f(i+1, j, k+1);
-							gl.glVertex3f(i+1, j+1, k+1);
-						} else if (dj == -1) {
-							gl.glVertex3f(i, j, k);
-							gl.glVertex3f(i+1, j, k);
-							gl.glVertex3f(i+1, j, k+1);
-							gl.glVertex3f(i, j, k);
-							gl.glVertex3f(i, j, k+1);
-							gl.glVertex3f(i+1, j, k+1);
-						} else if (dj == 1) {
-							gl.glVertex3f(i, j+1, k);
-							gl.glVertex3f(i+1, j+1, k);
-							gl.glVertex3f(i+1, j+1, k+1);
-							gl.glVertex3f(i, j+1, k);
-							gl.glVertex3f(i, j+1, k+1);
-							gl.glVertex3f(i+1, j+1, k+1);
-						} else if (dk == -1) {
-							gl.glVertex3f(i, j, k);
-							gl.glVertex3f(i, j+1, k);
-							gl.glVertex3f(i+1, j+1, k);
-							gl.glVertex3f(i, j, k);
-							gl.glVertex3f(i+1, j, k);
-							gl.glVertex3f(i+1, j+1, k);
-						} else if (dk == 1) {
-							gl.glVertex3f(i, j, k+1);
-							gl.glVertex3f(i, j+1, k+1);
-							gl.glVertex3f(i+1, j+1, k+1);
-							gl.glVertex3f(i, j, k+1);
-							gl.glVertex3f(i+1, j, k+1);
-							gl.glVertex3f(i+1, j+1, k+1);
-						}
+					if (di == -1) {
+						gl.glVertex3f(i, j, k);
+						gl.glVertex3f(i, j+1, k);
+						gl.glVertex3f(i, j+1, k+1);
+						gl.glVertex3f(i, j, k);
+						gl.glVertex3f(i, j, k+1);
+						gl.glVertex3f(i, j+1, k+1);
+					} else if (di == 1) {
+						gl.glVertex3f(i+1, j, k);
+						gl.glVertex3f(i+1, j+1, k);
+						gl.glVertex3f(i+1, j+1, k+1);
+						gl.glVertex3f(i+1, j, k);
+						gl.glVertex3f(i+1, j, k+1);
+						gl.glVertex3f(i+1, j+1, k+1);
+					} else if (dj == -1) {
+						gl.glVertex3f(i, j, k);
+						gl.glVertex3f(i+1, j, k);
+						gl.glVertex3f(i+1, j, k+1);
+						gl.glVertex3f(i, j, k);
+						gl.glVertex3f(i, j, k+1);
+						gl.glVertex3f(i+1, j, k+1);
+					} else if (dj == 1) {
+						gl.glVertex3f(i, j+1, k);
+						gl.glVertex3f(i+1, j+1, k);
+						gl.glVertex3f(i+1, j+1, k+1);
+						gl.glVertex3f(i, j+1, k);
+						gl.glVertex3f(i, j+1, k+1);
+						gl.glVertex3f(i+1, j+1, k+1);
+					} else if (dk == -1) {
+						gl.glVertex3f(i, j, k);
+						gl.glVertex3f(i, j+1, k);
+						gl.glVertex3f(i+1, j+1, k);
+						gl.glVertex3f(i, j, k);
+						gl.glVertex3f(i+1, j, k);
+						gl.glVertex3f(i+1, j+1, k);
+					} else if (dk == 1) {
+						gl.glVertex3f(i, j, k+1);
+						gl.glVertex3f(i, j+1, k+1);
+						gl.glVertex3f(i+1, j+1, k+1);
+						gl.glVertex3f(i, j, k+1);
+						gl.glVertex3f(i+1, j, k+1);
+						gl.glVertex3f(i+1, j+1, k+1);
 					}
 				}
 			}

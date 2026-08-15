@@ -49,9 +49,17 @@ public class Renderer extends PeriodicTask {
 	public int[] depth_buf;
 	public double[][][] scalarfield;
 	public double[][][] gradscalarfield;
+	
 	public float[][][] image_r;
 	public float[][][] image_g;
 	public float[][][] image_b;
+	public int[][][] opaque_surfs;
+	public int[][][] translucent_surfs;
+
+	public float[][][] image_r_2D;
+	public float[][][] image_g_2D;
+	public float[][][] image_b_2D;
+	
 	public float col_r = 0;
 	public float col_g = 0;
 	public float col_b = 0;
@@ -80,7 +88,7 @@ public class Renderer extends PeriodicTask {
 	public int probetexttimer = 0;
 	private boolean synchronized_show_carriers;
 	private boolean synchronized_update_carriers;
-	private boolean synchronized_render;
+	private boolean synchronized_draw3D;
 	private VectorMode synchronized_vector_display_mode;
 	private ScalarMode synchronized_scalar_display_mode;
 	private ScalarView synchronized_scalar_view;
@@ -149,9 +157,9 @@ public class Renderer extends PeriodicTask {
 	public void setResolution() {
 		scalarfield = new double[e.nx][e.ny][e.nz];
 		gradscalarfield = new double[e.nx][e.ny][e.nz];
-		image_r = new float[e.nx][e.ny][e.nz];
-		image_g = new float[e.nx][e.ny][e.nz];
-		image_b = new float[e.nx][e.ny][e.nz];
+		image_r_2D = new float[e.nx][e.ny][e.nz];
+		image_g_2D = new float[e.nx][e.ny][e.nz];
+		image_b_2D = new float[e.nx][e.ny][e.nz];
 		opaque = new boolean[e.nx][e.ny][e.nz];
 		translucent = new boolean[e.nx][e.ny][e.nz];
 		solid = new boolean[e.nx][e.ny][e.nz];
@@ -163,6 +171,9 @@ public class Renderer extends PeriodicTask {
 		setCanvasSize();
 		
 		resetChargeDots();
+
+		renderer_left_eye.setResolution();
+		renderer_right_eye.setResolution();
 	}
 	
 	int project_x(int x, int y, int z) {
@@ -462,10 +473,16 @@ public class Renderer extends PeriodicTask {
 	double[] lambda_g = {0.19971, 0.17932, 0.14919, 0.12037, 0.093617, 0.09458, 0.10426, 0.11275, 0.11462, 0.11727, 0.12455, 0.14908, 0.1933, 0.25787, 0.32737, 0.38708, 0.44274, 0.49603, 0.54306, 0.59225, 0.64252, 0.69595, 0.74892, 0.79799, 0.84018, 0.86705, 0.88432, 0.89322, 0.89768, 0.89173, 0.87677, 0.86048, 0.83734, 0.81313, 0.78437, 0.75141, 0.70945, 0.65984, 0.60119, 0.54323, 0.47406, 0.38514, 0.29591, 0.21448, 0.12878, 0, 0, 0, 0, 0, 0.064417};
 	double[] lambda_b = {0.36184, 0.45077, 0.54787, 0.62678, 0.69213, 0.72851, 0.7625, 0.8006, 0.84243, 0.87363, 0.90106, 0.91545, 0.92739, 0.92995, 0.90334, 0.85833, 0.79228, 0.6955, 0.58576, 0.4834, 0.39609, 0.31148, 0.22847, 0.14139, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.062112, 0.10835, 0.13623, 0.15637, 0.17185, 0.18456, 0.19388, 0.20082, 0.20595, 0.20985};
 
-	public void setColorWavelength(double lambda, double intensity) {
-		col_r = (float)(interp(lambda_r, (lambda-400)/5)*intensity);
-		col_g = (float)(interp(lambda_g, (lambda-400)/5)*intensity);
-		col_b = (float)(interp(lambda_b, (lambda-400)/5)*intensity);
+	public float lambdaToR(double lambda, double intensity) {
+		return (float)(interp(lambda_r, (lambda-400)/5)*intensity);
+	}
+
+	public float lambdaToG(double lambda, double intensity) {
+		return (float)(interp(lambda_g, (lambda-400)/5)*intensity);
+	}
+
+	public float lambdaToB(double lambda, double intensity) {
+		return (float)(interp(lambda_b, (lambda-400)/5)*intensity);
 	}
 	
 	public double interp(double[] y, double x) {
@@ -478,6 +495,32 @@ public class Renderer extends PeriodicTask {
 		return (1-f)*y[i] + f*y[i+1];
 	}
 
+	public void setPixel(int i, int j, int k, int r, int g, int b, float a, float ab) {
+		if (i < 0 || j < 0  || k < 0 || i >= e.nx || j >= e.ny || k >= e.nz)
+			return;
+
+		image_r[i][j][k] = (float)(image_r[i][j][k]*ab + r/255f*a);
+		image_g[i][j][k] = (float)(image_g[i][j][k]*ab + g/255f*a);
+		image_b[i][j][k] = (float)(image_b[i][j][k]*ab + b/255f*a);
+	}
+	
+	public void setPixel(int i, int j, int k, float r, float g, float b, float a, float ab) {
+		if (i < 0 || j < 0  || k < 0 || i >= e.nx || j >= e.ny || k >= e.nz)
+			return;
+
+		if (!(r+b+g < Float.MAX_VALUE)) {
+			return;
+		}
+		float scale = 1f/max(r, g, b, 1f);
+		float col_r = Math.max(r*scale, 0);
+		float col_g = Math.max(g*scale, 0);
+		float col_b = Math.max(b*scale, 0);
+
+		image_r[i][j][k] = (float)(image_r[i][j][k]*ab + col_r*a);
+		image_g[i][j][k] = (float)(image_g[i][j][k]*ab + col_g*a);
+		image_b[i][j][k] = (float)(image_b[i][j][k]*ab + col_b*a);
+	}
+	
 	public void setPixel(int i, int j, int k) {
 		if (i < 0 || j < 0  || k < 0 || i >= e.nx || j >= e.ny || k >= e.nz)
 			return;
@@ -485,17 +528,6 @@ public class Renderer extends PeriodicTask {
 		image_r[i][j][k] = (float)(image_r[i][j][k]*alphaBG + col_r*alphaFG);
 		image_g[i][j][k] = (float)(image_g[i][j][k]*alphaBG + col_g*alphaFG);
 		image_b[i][j][k] = (float)(image_b[i][j][k]*alphaBG + col_b*alphaFG);
-	}
-	
-	public void setPixelTranslucent(int i, int j, int k) {
-		if (i < 0 || j < 0  || k < 0 || i >= e.nx || j >= e.ny || k >= e.nz)
-			return;
-
-		image_r[i][j][k] = (float)(image_r[i][j][k]*alphaBG + col_r*alphaFG);
-		image_g[i][j][k] = (float)(image_g[i][j][k]*alphaBG + col_g*alphaFG);
-		image_b[i][j][k] = (float)(image_b[i][j][k]*alphaBG + col_b*alphaFG);
-		
-		translucent[i][j][k] |= true;
 	}
 	
 	public boolean inBounds(int i, int j, int k) {
@@ -753,11 +785,7 @@ public class Renderer extends PeriodicTask {
 			e.rwLock.readLock().lock();
 			try {
 				t5.start();
-				drawPixels();
-				drawOverlay(true);
-				//drawText();
-				//Graphics2D g = img_back.createGraphics();
-				//drawText(g);
+				draw(null);
 				copyImage(img_back, img_front);
 				e.canvas.repaint();
 				t5.stop();
@@ -797,484 +825,13 @@ public class Renderer extends PeriodicTask {
 	    return dst;
 	}
 
-	void drawPixels() {
 
-		for (int i = 0; i < e.nx; i++) {
-			for (int j = 0; j < e.ny; j++) {
-				for (int k = 0; k < e.nz; k++) {
-					image_r[i][j][k] = 0;
-					image_g[i][j][k] = 0;
-					image_b[i][j][k] = 0;
-					opaque[i][j][k] = false;
-					translucent[i][j][k] = false;
-					solid[i][j][k] = false;
-				}
-			}
+
+	synchronized void draw(Renderer3D canvas3d) {
+		if (canvas3d == null) {
+			delta_t = e.time - t_prev;
+			t_prev = e.time;
 		}
-
-		setalphaBG(0);
-		setalphaFG(1);
-
-		Brush brush = (Brush) e.opts.gui_brush.getSelectedItem();
-		//boolean showborders = e.opts.menu_borders.isSelected();
-
-		if (e.opts.menu_elem_colors.isSelected()) {
-			for (int i = 0; i < e.nx; i++) {
-				for (int j = 0; j < e.ny; j++) {
-					for (int k = 0; k < e.nz; k++) {
-						setColor(e.materials[i][j][k].type.color_r, e.materials[i][j][k].type.color_g, e.materials[i][j][k].type.color_b);
-
-						double alpha = 1.0;
-						/*if (showborders && i > 0 && j > 0 && i < e.nx-1 && j < e.ny-1) {
-							if (e.materials[i+1][j].type != e.materials[i][j][k].type || e.materials[i][j+1].type != e.materials[i][j][k].type)
-								alpha -= 0.1;
-							if (e.materials[i-1][j].type != e.materials[i][j][k].type || e.materials[i][j-1].type != e.materials[i][j][k].type)
-								alpha += 0.1;
-						}*/
-
-						setalphaFG(alpha);
-
-						setPixel(i, j, k);
-						opaque[i][j][k] = e.materials[i][j][k].type != MaterialType.VACUUM;
-						solid[i][j][k] |= e.materials[i][j][k].type != MaterialType.VACUUM;
-					}
-				}
-			}
-		} else {
-			for (int i = 0; i < e.nx; i++) {
-				for (int j = 0; j < e.ny; j++) {
-					for (int k = 0; k < e.nz; k++) {
-						setColor(e.materials[i][j][k].type.color_grayscale, e.materials[i][j][k].type.color_grayscale, e.materials[i][j][k].type.color_grayscale);
-
-						double alpha = 1.0;
-						/*if (showborders && i > 0 && j > 0 && i < e.nx-1 && j < e.ny-1) {
-							if (e.materials[i+1][j].type != e.materials[i][j][k].type || e.materials[i][j+1].type != e.materials[i][j][k].type)
-								alpha -= 0.1;
-							if (e.materials[i-1][j].type != e.materials[i][j][k].type || e.materials[i][j-1].type != e.materials[i][j][k].type)
-								alpha += 0.1;
-						}*/
-
-						setalphaFG(alpha);
-
-						setPixel(i, j, k);
-						opaque[i][j][k] = e.materials[i][j][k].type != MaterialType.VACUUM;
-						solid[i][j][k] |= e.materials[i][j][k].type != MaterialType.VACUUM;
-					}
-				}
-			}
-		}
-
-		if (e.controls.moving_selection) {
-			int offset = e.controls.dragging_selection? 0 : 1;
-			if (e.opts.menu_elem_colors.isSelected()) {
-				for (int i = 0; i < e.nx; i++) {
-					for (int j = 0; j < e.ny; j++) {
-						for (int k = 0; k < e.nz; k++) {
-							int si = i-e.controls.delta_mx + offset*e.controls.selection.i_max/2;
-							int sj = j-e.controls.delta_my + offset*e.controls.selection.j_max/2;
-							int sk = k-e.controls.delta_mz + offset*e.controls.selection.k_max/2;
-							if (si >= 0 && sj >= 0 && sk >= 0 && si < e.nx && sj < e.ny && sk < e.nz && e.controls.selection.mat[si][sj][sk].m.type != MaterialType.VACUUM) {
-								setColor(e.controls.selection.mat[si][sj][sk].m.type.color_r, e.controls.selection.mat[si][sj][sk].m.type.color_g, e.controls.selection.mat[si][sj][sk].m.type.color_b);
-								setPixel(i, j, k);
-								translucent[i][j][k] = true;
-							}
-						}
-					}
-				}
-			} else {
-				for (int i = 0; i < e.nx; i++) {
-					for (int j = 0; j < e.ny; j++) {
-						for (int k = 0; k < e.nz; k++) {
-							int si = i-e.controls.delta_mx + offset*e.controls.selection.i_max/2;
-							int sj = j-e.controls.delta_my + offset*e.controls.selection.j_max/2;
-							int sk = k-e.controls.delta_mz + offset*e.controls.selection.k_max/2;
-							if (si >= 0 && sj >= 0 && sk >= 0 && si < e.nx && sj < e.ny && sk < e.nz && e.controls.selection.mat[si][sj][sk].m.type != MaterialType.VACUUM) {
-								setColor(e.controls.selection.mat[si][sj][sk].m.type.color_grayscale, e.controls.selection.mat[si][sj][sk].m.type.color_grayscale, e.controls.selection.mat[si][sj][sk].m.type.color_grayscale);
-								setPixel(i, j, k);
-								translucent[i][j][k] = true;
-							}
-						}
-					}
-				}
-			}
-		}
-
-		ScalarView scalarview = e.controls.scalarview.getOption();
-		ScalarMode scalarmode = e.controls.scalarmode.getOption();
-
-		scalingconstant = (float) (10*Math.pow(10.0, e.opts.gui_brightness.getValue()/10.0)/scalarview.getScalingConstant(e));
-		scalar_offset = 0;
-
-		if (scalarview != ScalarView.NONE && scalarmode != ScalarMode.NONE) {
-			switch (scalarview) {
-			case ELECTRON_POTENTIAL:
-			case HOLE_POTENTIAL:
-				scalar_offset = -(float) e.global_voltage_offset;
-				break;
-			case ELECTRON_VOLTAGE:
-			case HOLE_VOLTAGE:
-				scalar_offset = (float) e.global_voltage_offset;
-				break;
-			default:
-				break;
-			}
-
-			setalphaBG(1.0);
-			setalphaFG(1.0);
-
-			e.computeScalarField(scalarfield, 0, 0, 0, scalarview);
-
-			if (e.hasGround() && display_relative_voltage) {
-				Ground ground = e.getGround();
-
-				if (scalarview == ScalarView.ELECTRON_VOLTAGE || scalarview == ScalarView.HOLE_VOLTAGE || scalarview == ScalarView.AVERAGE_POTENTIAL) {
-					scalar_offset = (float) scalarfield[ground.x][ground.y][ground.z];
-				}
-
-				if (!Double.isFinite(scalar_offset))
-					scalar_offset = 0;
-			}
-
-			ScalarView.ColorScheme colorscheme = scalarview.colorscheme;
-
-			if (e.opts.menu_colormap.isSelected())
-			{
-				int i1 = (int) (e.nx*0.85);
-				int i2 = (int) (e.nx*0.92);
-
-				int j1 = (int) (e.ny*0.82);
-				int j2 = (int) (e.ny*0.92);
-
-				int k1 = (int) (e.nz*0.82);
-				int k2 = (int) (e.nz*0.92);
-
-
-				for (int i = i1; i <= i2; i++) {
-					for (int j = j1; j <= j2; j++) {
-						for (int k = k1; k <= k2; k++) {
-							double t = 0;
-							if (colorscheme == ScalarView.ColorScheme.RED_BLUE || colorscheme == ScalarView.ColorScheme.CYAN_YELLOW || scalarview == ScalarView.CHARGE) {
-								t = 2*((j2-j)/(double)(j2-j1)-0.5);
-								scalarfield[i][j][k] = t/scalingconstant + scalar_offset;
-							} else if (colorscheme == ScalarView.ColorScheme.WHITE || colorscheme == ScalarView.ColorScheme.GREEN) {
-								t = (j2-j)/(double)(j2-j1);
-								scalarfield[i][j][k] = t/scalingconstant + scalar_offset;
-							} else if (scalarview == ScalarView.LIGHT) {
-								t = (j2-j)/(double)(j2-j1);
-								scalarfield[i][j][k] = -(400+(650-400)*t)*1e50;
-							}
-						}
-					}
-				}
-			}
-		}
-
-		if (scalarmode == ScalarMode.CONTOUR_COLORS || scalarmode == ScalarMode.CONTOUR) {
-			for (int i = 1; i < e.nx-1; i++) {
-				for (int j = 1; j < e.ny-1; j++) {
-					for (int k = 1; k < e.nz-1; k++) {
-						double gx = scalarfield[i+1][j][k]-scalarfield[i-1][j][k];
-						double gy = scalarfield[i][j+1][k]-scalarfield[i][j-1][k];
-						double gz = scalarfield[i][j][k+1]-scalarfield[i][j][k-1];
-						gradscalarfield[i][j][k] = Utils.length((Double.isFinite(gx))? gx : 0, (Double.isFinite(gy))? gy : 0, (Double.isFinite(gz))? gz : 0)/(2*e.ds);
-					}
-				}
-			}
-		}
-
-
-		if (scalarmode == ScalarMode.COLORS || scalarmode == ScalarMode.CONTOUR_COLORS) {
-			ScalarView.ColorScheme colorscheme = e.controls.scalarview.getOption().colorscheme;
-
-			if (colorscheme == ScalarView.ColorScheme.RED_BLUE) {
-				for (int i = 1; i < e.nx-1; i++) {
-					for (int j = 1; j < e.ny-1; j++) {
-						for (int k = 1; k < e.nz-1; k++) {
-							float v = (float) (scalarfield[i][j][k]-scalar_offset)*scalingconstant;
-							setColorFloat(v, 0, -v);
-							setPixel(i, j, k);
-						}
-					}
-				}
-			} else if (colorscheme == ScalarView.ColorScheme.CYAN_YELLOW) {
-				for (int i = 1; i < e.nx-1; i++) {
-					for (int j = 1; j < e.ny-1; j++) {
-						for (int k = 1; k < e.nz-1; k++) {
-							float v = (float) (scalarfield[i][j][k]-scalar_offset)*scalingconstant;
-							setColorFloat(v, Math.abs(v), -v);
-							setPixel(i, j, k);
-						}
-					}
-				}
-			} else if (colorscheme == ScalarView.ColorScheme.GREEN) {
-				for (int i = 1; i < e.nx-1; i++) {
-					for (int j = 1; j < e.ny-1; j++) {
-						for (int k = 1; k < e.nz-1; k++) {
-							float v = (float) (scalarfield[i][j][k]-scalar_offset)*scalingconstant;
-							setColorFloat(0, Math.abs(v), 0);
-							setPixel(i, j, k);
-						}
-					}
-				}
-			} else if (colorscheme == ScalarView.ColorScheme.WHITE) {
-				for (int i = 1; i < e.nx-1; i++) {
-					for (int j = 1; j < e.ny-1; j++) {
-						for (int k = 1; k < e.nz-1; k++) {
-							float v = (float) (scalarfield[i][j][k]-scalar_offset)*scalingconstant;
-							setColorFloat(v, v, v);
-							setPixel(i, j, k);
-						}
-					}
-				}
-			} else if (colorscheme == ScalarView.ColorScheme.OTHER) {
-				if (scalarview == ScalarView.COMBINED_CHARGE) {
-					for (int i = 1; i < e.nx-1; i++) {
-						for (int j = 1; j < e.ny-1; j++) {
-							for (int k = 1; k < e.nz-1; k++) {
-								float rc = (float)(clamp(0.2*Math.log(e.rho_p[i][j][k]*scalingconstant), 0, 1));
-								float bc = (float)(clamp(0.2*Math.log(-e.rho_n[i][j][k]*scalingconstant), 0, 1));
-								float gc = Math.min(rc, bc);
-								double it = Math.max(rc, bc);
-								setalphaBG(1-0.5*gc);
-								setalphaFG(0.6*it);
-								setColorFloat(rc, gc, bc);
-								setPixel(i, j, k);
-							}
-						}
-					}
-				}  else if (scalarview == ScalarView.CHARGE) {
-					for (int i = 1; i < e.nx-1; i++) {
-						for (int j = 1; j < e.ny-1; j++) {
-							for (int k = 1; k < e.nz-1; k++) {
-								float rc = Math.min(Math.max((float) scalarfield[i][j][k]*scalingconstant, 0), 1);
-								float bc = Math.min(Math.max(-(float) scalarfield[i][j][k]*scalingconstant, 0), 1);
-								float gc = Math.min(rc, bc);
-
-								setalphaBG(1-0.5*gc);
-								setColorFloat(rc, gc, bc);
-								setPixel(i, j, k);
-							}
-						}
-					}
-				} else if (scalarview == ScalarView.LIGHT) {
-					for (int i = 1; i < e.nx-1; i++) {
-						for (int j = 1; j < e.ny-1; j++) {
-							for (int k = 1; k < e.nz-1; k++) {
-								if (scalarfield[i][j][k] < 0) {
-									setColorWavelength(-scalarfield[i][j][k]/1e50, 1); //The color scale
-									setPixel(i, j, k);
-								} else if (scalarfield[i][j][k] > 0) {
-									double hc = 1.986e-25;
-									double Emax = (e.materials[i][j][k].Ec - e.materials[i][j][k].Ev) + 0.5/e.beta; // Peak emission energy
-									double lambda_nm = 1e9*hc/Emax;
-									setColorWavelength(lambda_nm, scalarfield[i][j][k]*scalingconstant);
-									setPixel(i, j, k);
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		boolean showbrush = Brush.isBrushShapeImportant(brush);
-		boolean highlight = e.opts.gui_brush_highlight.isSelected();
-		for (int i = 0; i < e.nx; i++) {
-			for (int j = 0; j < e.ny; j++) {
-				for (int k = 0; k < e.nz; k++) {
-					MaterialType type = e.materials[i][j][k].type;
-					if (type.isInteractable() && i > 0 && j > 0 && k > 0 && i < e.nx-1 && j < e.ny-1 && k < e.nz-1) {
-						//int ci = 0;
-						//int cj = 0;
-						int shading = 2*((i+j+k)%2)+1;
-
-						setalphaBG(0.25);
-						setalphaFG(0.75);
-
-						int offset = 10*shading;
-						if (e.controls.selected_EMF[i][j][k])
-							offset = 50*shading-30;
-
-						/*if (e.materials[i+1][j][k].type != type || e.materials[i-1][j][k].type != type || e.materials[i][j+1][k].type != type || e.materials[i][j-1][k].type != type || e.materials[i][j][k+1].type != type || e.materials[i][j][k-1].type != type)
-						{
-							offset = -30;
-							if (e.materials[i][j][k].activated == 0) {
-								offset -= 100;
-							}
-						} else*/
-						if (e.materials[i][j][k].activated == 0) {
-							offset -= 200;
-						}
-
-
-						int delta_r = type.color_r+offset;
-						int delta_g = type.color_g+offset;
-						int delta_b = type.color_b+offset;
-						setColor(delta_r, delta_g, delta_b);
-
-						setPixel(i, j, k);
-					}
-
-					translucent[i][j][k] |= e.controls.selected[i][j][k];
-					
-					if (e.controls.selected[i][j][k] || (showbrush && highlight && e.controls.under_brush[i][j][k]))
-					{
-						setalphaBG(0.75);
-						setalphaFG(0.25);
-
-						int s = e.controls.selected[i][j][k]? 1:0;
-						int h = (showbrush && highlight && e.controls.under_brush[i][j][k])? 1:0;
-						int delta_r = 256*s + 256*h;
-						int delta_g = 100*s + 256*h;
-						int delta_b = 256*s + 256*h;
-
-						setColor(delta_r, delta_g, delta_b);
-
-						setPixel(i, j, k);
-					}
-
-					if (showbrush && !highlight && e.controls.under_brush[i][j][k]) {
-						if (i > 0 && j > 0 && k > 0 && i < e.nx-1 && j < e.ny-1 && k < e.nz-1 &&
-							!(e.controls.under_brush[i-1][j][k] && e.controls.under_brush[i+1][j][k] && e.controls.under_brush[i][j-1][k] && e.controls.under_brush[i][j+1][k] && e.controls.under_brush[i][j][k-1] && e.controls.under_brush[i][j][k+1]))
-						{
-							setalphaBG(0.25);
-							setalphaFG(0.75);
-
-							if ((image_r[i][j][k] + image_g[i][j][k] + image_b[i][j][k])/3.0 < 0.75)
-								setColor(256, 256, 256);
-							else
-								setColor(50, 50, 50);
-							setPixel(i, j, k);
-						}
-					}
-					
-					if (showbrush) {
-						translucent[i][j][k] |= e.controls.under_brush[i][j][k];
-					}
-
-					if (e.L[i][j][k] > 0)
-					{
-						setalphaBG(0.5);
-						setalphaFG(0.75);
-						setColorFloat(1, 1, 1);
-						setPixel(i, j, k);
-					}
-				}
-			}
-		}
-
-
-		setalphaBG(1);
-		setalphaFG(1);
-		setColorFloat(0.7f, 0.7f, 0.7f);
-
-		if (Brush.drawLine(brush) && (e.controls.mouse_pressed_prev_left || e.controls.mouse_pressed_prev_right)) {
-			drawPixelLine(e.controls.mx_start, e.controls.my_start, e.controls.mz_start, e.controls.mx, e.controls.my, e.controls.mz);
-		}
-
-		setalphaFG(0.5);
-		if ((brush == Brush.ZOOM && e.controls.mouse_pressed_prev_left
-				|| brush == Brush.RECTANGLE && (e.controls.mouse_pressed_prev_left || e.controls.mouse_pressed_prev_right))) {
-			
-
-			int mx0 = Math.min(e.controls.mx_start, e.controls.mx);
-			int my0 = Math.min(e.controls.my_start, e.controls.my);
-			int mz0 = Math.min(e.controls.mz_start, e.controls.mz);
-			int mx1 = Math.max(e.controls.mx_start, e.controls.mx);
-			int my1 = Math.max(e.controls.my_start, e.controls.my);
-			int mz1 = Math.max(e.controls.mz_start, e.controls.mz);
-
-			for (int i = mx0; i <= mx1; i++)
-			{
-				for (int j = my0; j <= my1; j++)
-				{
-					for (int k = mz0; k <= mz1; k++)
-					{
-						setPixelTranslucent(i, j, k);
-					}
-				}
-			}
-		}
-
-		if (brush == Brush.RECTANGLE) {
-			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx+3, e.controls.my, e.controls.mz);
-			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx-3, e.controls.my, e.controls.mz);
-			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx, e.controls.my+3, e.controls.mz);
-			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx, e.controls.my-3, e.controls.mz);
-			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx, e.controls.my, e.controls.mz+3);
-			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx, e.controls.my, e.controls.mz-3);
-		}
-
-
-		if (drawCrosshairGuides) {
-			setColorFloat(1f, 0.2f, 0.2f);
-			drawPixelLine(e.controls.mx-4, e.controls.my, e.controls.mz, 0, e.controls.my, e.controls.mz);
-			drawPixelLine(e.controls.mx+4, e.controls.my, e.controls.mz, e.nx-1, e.controls.my, e.controls.mz);
-			setColorFloat(0.2f, 1f, 0.2f);
-			drawPixelLine(e.controls.mx, e.controls.my-4, e.controls.mz, e.controls.mx, 0, e.controls.mz);
-			drawPixelLine(e.controls.mx, e.controls.my+4, e.controls.mz, e.controls.mx, e.ny-1, e.controls.mz);
-			setColorFloat(0.2f, 0.2f, 1f);
-			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz-4, e.controls.mx, e.controls.my, 0);
-			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz+4, e.controls.mx, e.controls.my, e.nz-1);
-			
-			setColorFloat(0.7f, 0.7f, 0.7f);
-			setPixelTranslucent(e.controls.mx, e.controls.my, e.controls.mz);
-		}
-		setalphaFG(1);
-
-
-		setColorFloat(0.7f, 0.7f, 0.7f);
-		if (e.opts.menu_interface.isSelected())
-		{
-			if (e.opts.menu_probes.isSelected())
-			{
-				for (Probe p0 : e.probes) {
-					p0.draw(this);
-				}
-
-				if (e.controls.moving_selection) {
-					int offset = e.controls.dragging_selection? 0 : 1;	
-					for (Probe p0 : e.controls.selection.probes) {		
-						p0.translate(e.controls.delta_mx-offset*e.controls.selection.i_max/2, e.controls.delta_my-offset*e.controls.selection.j_max/2, e.controls.delta_mz-offset*e.controls.selection.k_max/2);
-						p0.draw(this);
-						p0.translate(-e.controls.delta_mx+offset*e.controls.selection.i_max/2, -e.controls.delta_my+offset*e.controls.selection.j_max/2, -e.controls.delta_mz+offset*e.controls.selection.k_max/2);
-					}
-				}
-			}
-
-			for (Plot p: e.plots) {
-				if (p.frame.isVisible()) {
-					if (p.path != null)
-						p.path.draw(this);
-				}
-			}
-
-			if (e.controls.plotpath != null)
-				e.controls.plotpath.draw(this);
-		}
-
-		setalphaFG(0.8);
-		setColorFloat(1.0f, 1.0f, 1.0f);
-
-		if (e.controls.texting && (System.currentTimeMillis() % 1000) < 500) {
-			int i = 0;
-			for (int j = 0; j < 7; j++) {
-				int scx = e.controls.text_x+i;
-				int scy = e.controls.text_y+j;
-				int scz = e.controls.text_z;
-
-				int fi = e.renderer.embed_x(scx, scy, scz);
-				int fj = e.renderer.embed_y(scx, scy, scz);
-				int fk = e.renderer.embed_z(scx, scy, scz);
-
-				setPixel(fi, fj, fk);
-			}
-		}
-	}
-	
-	synchronized void drawOverlay(boolean render) {
-		delta_t = e.time - t_prev;
-		t_prev = e.time;
 
 		synchronized_show_carriers = e.opts.gui_carriers.isSelected();
 		synchronized_update_carriers = !e.opts.gui_paused.isSelected() || delta_t > 0;
@@ -1282,7 +839,22 @@ public class Renderer extends PeriodicTask {
 		synchronized_scalar_display_mode = e.controls.scalarmode.getOption();
 		synchronized_scalar_view = e.controls.scalarview.getOption();
 		synchronized_vector_view = e.controls.vectorview.getOption();
-		synchronized_render = render;
+		
+		if (canvas3d != null) {
+			image_r = canvas3d.image_r;
+			image_g = canvas3d.image_g;
+			image_b = canvas3d.image_b;
+			opaque_surfs = canvas3d.opaque_surfs;
+			translucent_surfs = canvas3d.translucent_surfs;
+			synchronized_draw3D = true;
+ 		} else {
+			image_r = image_r_2D;
+			image_g = image_g_2D;
+			image_b = image_b_2D;
+			opaque_surfs = null;
+			translucent_surfs = null;
+ 			synchronized_draw3D = false;
+ 		}
 		
 		try {
 			if (SemiSim.instance.graphics_threads.size() == SemiSim.n_threads) {
@@ -1600,6 +1172,14 @@ public class Renderer extends PeriodicTask {
 			try {
 				while (true) {
 					graphics_start_barrier.await();
+					drawPixels();
+					
+					if (synchronized_draw3D) {
+						graphics_mid_barrier.await();
+						computeVisibleSurfaces();
+					}
+
+					graphics_mid_barrier.await();
 					
 					if (imgData != null) {
 						stampPixelData();
@@ -1654,16 +1234,16 @@ public class Renderer extends PeriodicTask {
 
 						slice = e.renderer.getSlice();
 
-						if (synchronized_vector_display_mode == VectorMode.LINES && synchronized_render) {
+						if (synchronized_vector_display_mode == VectorMode.LINES && !synchronized_draw3D) {
 							drawLines();
-						} else if (synchronized_vector_display_mode == VectorMode.ARROWS && synchronized_render) {
+						} else if (synchronized_vector_display_mode == VectorMode.ARROWS && !synchronized_draw3D) {
 							drawArrows();
 						} else if (synchronized_vector_display_mode == VectorMode.DOTS) {
 							drawDots();
 						}
 					}
 					
-					if (synchronized_scalar_view != ScalarView.NONE && (synchronized_scalar_display_mode == ScalarMode.CONTOUR_COLORS || synchronized_scalar_display_mode == ScalarMode.CONTOUR) && synchronized_render) {
+					if (synchronized_scalar_view != ScalarView.NONE && (synchronized_scalar_display_mode == ScalarMode.CONTOUR_COLORS || synchronized_scalar_display_mode == ScalarMode.CONTOUR) && !synchronized_draw3D) {
 						graphics_mid_barrier.await();
 						drawContours();
 					}
@@ -1673,7 +1253,9 @@ public class Renderer extends PeriodicTask {
 							updateCarriers();
 						}
 						graphics_mid_barrier.await();
-						drawCCdots();
+						if (!synchronized_draw3D) {
+							drawCCdots();
+						}
 					}
 					graphics_end_barrier.await();
 				}
@@ -1682,6 +1264,506 @@ public class Renderer extends PeriodicTask {
 			}
 		}
 		
+		void drawPixels() throws InterruptedException, BrokenBarrierException {
+			int lower = lower(e.nx);
+			int upper = upper(e.nx);
+			
+			for (int i = 0; i < e.nx; i++) if (i >= lower && i < upper) {
+				for (int j = 0; j < e.ny; j++) {
+					for (int k = 0; k < e.nz; k++) {
+						image_r[i][j][k] = 0;
+						image_g[i][j][k] = 0;
+						image_b[i][j][k] = 0;
+						opaque[i][j][k] = false;
+						translucent[i][j][k] = false;
+						solid[i][j][k] = false;
+					}
+				}
+			}
+
+			setalphaBG(0);
+			setalphaFG(1);
+
+			Brush brush = (Brush) e.opts.gui_brush.getSelectedItem();
+			//boolean showborders = e.opts.menu_borders.isSelected();
+
+			if (e.opts.menu_elem_colors.isSelected()) {
+				for (int i = 0; i < e.nx; i++) if (i >= lower && i < upper) {
+					for (int j = 0; j < e.ny; j++) {
+						for (int k = 0; k < e.nz; k++) {
+							/*if (showborders && i > 0 && j > 0 && i < e.nx-1 && j < e.ny-1) {
+								if (e.materials[i+1][j].type != e.materials[i][j][k].type || e.materials[i][j+1].type != e.materials[i][j][k].type)
+									alpha -= 0.1;
+								if (e.materials[i-1][j].type != e.materials[i][j][k].type || e.materials[i][j-1].type != e.materials[i][j][k].type)
+									alpha += 0.1;
+							}*/
+							setPixel(i, j, k, e.materials[i][j][k].type.color_r, e.materials[i][j][k].type.color_g, e.materials[i][j][k].type.color_b, 1f, 0f);
+							opaque[i][j][k] = e.materials[i][j][k].type != MaterialType.VACUUM;
+							solid[i][j][k] |= e.materials[i][j][k].type != MaterialType.VACUUM;
+						}
+					}
+				}
+			} else {
+				for (int i = 0; i < e.nx; i++) if (i >= lower && i < upper) {
+					for (int j = 0; j < e.ny; j++) {
+						for (int k = 0; k < e.nz; k++) {
+							/*if (showborders && i > 0 && j > 0 && i < e.nx-1 && j < e.ny-1) {
+								if (e.materials[i+1][j].type != e.materials[i][j][k].type || e.materials[i][j+1].type != e.materials[i][j][k].type)
+									alpha -= 0.1;
+								if (e.materials[i-1][j].type != e.materials[i][j][k].type || e.materials[i][j-1].type != e.materials[i][j][k].type)
+									alpha += 0.1;
+							}*/
+							setPixel(i, j, k, e.materials[i][j][k].type.color_grayscale, e.materials[i][j][k].type.color_grayscale, e.materials[i][j][k].type.color_grayscale, 1f, 0f);
+							opaque[i][j][k] = e.materials[i][j][k].type != MaterialType.VACUUM;
+							solid[i][j][k] |= e.materials[i][j][k].type != MaterialType.VACUUM;
+						}
+					}
+				}
+			}
+
+			if (e.controls.moving_selection) {
+				int offset = e.controls.dragging_selection? 0 : 1;
+				if (e.opts.menu_elem_colors.isSelected()) {
+					for (int i = 0; i < e.nx; i++) if (i >= lower && i < upper) {
+						for (int j = 0; j < e.ny; j++) {
+							for (int k = 0; k < e.nz; k++) {
+								int si = i-e.controls.delta_mx + offset*e.controls.selection.i_max/2;
+								int sj = j-e.controls.delta_my + offset*e.controls.selection.j_max/2;
+								int sk = k-e.controls.delta_mz + offset*e.controls.selection.k_max/2;
+								if (si >= 0 && sj >= 0 && sk >= 0 && si < e.nx && sj < e.ny && sk < e.nz && e.controls.selection.mat[si][sj][sk].m.type != MaterialType.VACUUM) {
+									setPixel(i, j, k, e.controls.selection.mat[si][sj][sk].m.type.color_r, e.controls.selection.mat[si][sj][sk].m.type.color_g, e.controls.selection.mat[si][sj][sk].m.type.color_b, 1f, 0f);
+									translucent[i][j][k] = true;
+								}
+							}
+						}
+					}
+				} else {
+					for (int i = 0; i < e.nx; i++) if (i >= lower && i < upper) {
+						for (int j = 0; j < e.ny; j++) {
+							for (int k = 0; k < e.nz; k++) {
+								int si = i-e.controls.delta_mx + offset*e.controls.selection.i_max/2;
+								int sj = j-e.controls.delta_my + offset*e.controls.selection.j_max/2;
+								int sk = k-e.controls.delta_mz + offset*e.controls.selection.k_max/2;
+								if (si >= 0 && sj >= 0 && sk >= 0 && si < e.nx && sj < e.ny && sk < e.nz && e.controls.selection.mat[si][sj][sk].m.type != MaterialType.VACUUM) {
+									setPixel(i, j, k, e.controls.selection.mat[si][sj][sk].m.type.color_grayscale, e.controls.selection.mat[si][sj][sk].m.type.color_grayscale, e.controls.selection.mat[si][sj][sk].m.type.color_grayscale, 1f, 0f);
+									translucent[i][j][k] = true;
+								}
+							}
+						}
+					}
+				}
+			}
+
+			ScalarView scalarview = e.controls.scalarview.getOption();
+			ScalarMode scalarmode = e.controls.scalarmode.getOption();
+
+			scalingconstant = (float) (10*Math.pow(10.0, e.opts.gui_brightness.getValue()/10.0)/scalarview.getScalingConstant(e));
+			scalar_offset = 0;
+
+			if (scalarview != ScalarView.NONE && scalarmode != ScalarMode.NONE) {
+				switch (scalarview) {
+				case ELECTRON_POTENTIAL:
+				case HOLE_POTENTIAL:
+					scalar_offset = -(float) e.global_voltage_offset;
+					break;
+				case ELECTRON_VOLTAGE:
+				case HOLE_VOLTAGE:
+					scalar_offset = (float) e.global_voltage_offset;
+					break;
+				default:
+					break;
+				}
+
+				e.computeScalarField(scalarfield, 0, 0, 0, scalarview);
+
+				if (e.hasGround() && display_relative_voltage) {
+					Ground ground = e.getGround();
+
+					if (scalarview == ScalarView.ELECTRON_VOLTAGE || scalarview == ScalarView.HOLE_VOLTAGE || scalarview == ScalarView.AVERAGE_POTENTIAL) {
+						scalar_offset = (float) scalarfield[ground.x][ground.y][ground.z];
+					}
+
+					if (!Double.isFinite(scalar_offset))
+						scalar_offset = 0;
+				}
+
+				ScalarView.ColorScheme colorscheme = scalarview.colorscheme;
+
+				if (e.opts.menu_colormap.isSelected())
+				{
+					int i1 = (int) (e.nx*0.85);
+					int i2 = (int) (e.nx*0.92);
+
+					int j1 = (int) (e.ny*0.82);
+					int j2 = (int) (e.ny*0.92);
+
+					int k1 = (int) (e.nz*0.82);
+					int k2 = (int) (e.nz*0.92);
+
+
+					for (int i = i1; i <= i2; i++) {
+						for (int j = j1; j <= j2; j++) {
+							for (int k = k1; k <= k2; k++) {
+								double t = 0;
+								if (colorscheme == ScalarView.ColorScheme.RED_BLUE || colorscheme == ScalarView.ColorScheme.CYAN_YELLOW || scalarview == ScalarView.CHARGE) {
+									t = 2*((j2-j)/(double)(j2-j1)-0.5);
+									scalarfield[i][j][k] = t/scalingconstant + scalar_offset;
+								} else if (colorscheme == ScalarView.ColorScheme.WHITE || colorscheme == ScalarView.ColorScheme.GREEN) {
+									t = (j2-j)/(double)(j2-j1);
+									scalarfield[i][j][k] = t/scalingconstant + scalar_offset;
+								} else if (scalarview == ScalarView.LIGHT) {
+									t = (j2-j)/(double)(j2-j1);
+									scalarfield[i][j][k] = -(400+(650-400)*t)*1e50;
+								}
+							}
+						}
+					}
+				}
+			}
+
+			if (scalarmode == ScalarMode.CONTOUR_COLORS || scalarmode == ScalarMode.CONTOUR) {
+				for (int i = 1; i < e.nx-1; i++) if (i >= lower && i < upper) {
+					for (int j = 1; j < e.ny-1; j++) {
+						for (int k = 1; k < e.nz-1; k++) {
+							double gx = scalarfield[i+1][j][k]-scalarfield[i-1][j][k];
+							double gy = scalarfield[i][j+1][k]-scalarfield[i][j-1][k];
+							double gz = scalarfield[i][j][k+1]-scalarfield[i][j][k-1];
+							gradscalarfield[i][j][k] = Utils.length((Double.isFinite(gx))? gx : 0, (Double.isFinite(gy))? gy : 0, (Double.isFinite(gz))? gz : 0)/(2*e.ds);
+						}
+					}
+				}
+			}
+
+
+			if (scalarmode == ScalarMode.COLORS || scalarmode == ScalarMode.CONTOUR_COLORS) {
+				ScalarView.ColorScheme colorscheme = e.controls.scalarview.getOption().colorscheme;
+
+				if (colorscheme == ScalarView.ColorScheme.RED_BLUE) {
+					for (int i = 1; i < e.nx-1; i++) if (i >= lower && i < upper) {
+						for (int j = 1; j < e.ny-1; j++) {
+							for (int k = 1; k < e.nz-1; k++) {
+								float v = (float) (scalarfield[i][j][k]-scalar_offset)*scalingconstant;
+								setPixel(i, j, k, v, 0, -v, 1f, 1f);
+							}
+						}
+					}
+				} else if (colorscheme == ScalarView.ColorScheme.CYAN_YELLOW) {
+					for (int i = 1; i < e.nx-1; i++) if (i >= lower && i < upper) {
+						for (int j = 1; j < e.ny-1; j++) {
+							for (int k = 1; k < e.nz-1; k++) {
+								float v = (float) (scalarfield[i][j][k]-scalar_offset)*scalingconstant;
+								setPixel(i, j, k, v, Math.abs(v), -v, 1f, 1f);
+							}
+						}
+					}
+				} else if (colorscheme == ScalarView.ColorScheme.GREEN) {
+					for (int i = 1; i < e.nx-1; i++) if (i >= lower && i < upper) {
+						for (int j = 1; j < e.ny-1; j++) {
+							for (int k = 1; k < e.nz-1; k++) {
+								float v = (float) (scalarfield[i][j][k]-scalar_offset)*scalingconstant;
+								setPixel(i, j, k, 0, Math.abs(v), 0, 1f, 1f);
+							}
+						}
+					}
+				} else if (colorscheme == ScalarView.ColorScheme.WHITE) {
+					for (int i = 1; i < e.nx-1; i++) if (i >= lower && i < upper) {
+						for (int j = 1; j < e.ny-1; j++) {
+							for (int k = 1; k < e.nz-1; k++) {
+								float v = (float) (scalarfield[i][j][k]-scalar_offset)*scalingconstant;
+								setPixel(i, j, k, v, v, v, 1f, 1f);
+							}
+						}
+					}
+				} else if (colorscheme == ScalarView.ColorScheme.OTHER) {
+					if (scalarview == ScalarView.COMBINED_CHARGE) {
+						for (int i = 1; i < e.nx-1; i++) if (i >= lower && i < upper) {
+							for (int j = 1; j < e.ny-1; j++) {
+								for (int k = 1; k < e.nz-1; k++) {
+									float rc = (float)(clamp(0.2*Math.log(e.rho_p[i][j][k]*scalingconstant), 0, 1));
+									float bc = (float)(clamp(0.2*Math.log(-e.rho_n[i][j][k]*scalingconstant), 0, 1));
+									float gc = Math.min(rc, bc);
+									float it = Math.max(rc, bc);
+									setPixel(i, j, k, rc, gc, bc, 0.6f*it, 1f-0.5f*gc);
+								}
+							}
+						}
+					}  else if (scalarview == ScalarView.CHARGE) {
+						for (int i = 1; i < e.nx-1; i++) if (i >= lower && i < upper) {
+							for (int j = 1; j < e.ny-1; j++) {
+								for (int k = 1; k < e.nz-1; k++) {
+									float rc = Math.min(Math.max((float) scalarfield[i][j][k]*scalingconstant, 0), 1);
+									float bc = Math.min(Math.max(-(float) scalarfield[i][j][k]*scalingconstant, 0), 1);
+									float gc = Math.min(rc, bc);
+									setPixel(i, j, k, rc, gc, bc, 1f, 1f-0.5f*gc);
+								}
+							}
+						}
+					} else if (scalarview == ScalarView.LIGHT) {
+						for (int i = 1; i < e.nx-1; i++) if (i >= lower && i < upper) {
+							for (int j = 1; j < e.ny-1; j++) {
+								for (int k = 1; k < e.nz-1; k++) {
+									if (scalarfield[i][j][k] < 0) {
+										float r = lambdaToR(-scalarfield[i][j][k]/1e50, 1);
+										float g = lambdaToG(-scalarfield[i][j][k]/1e50, 1);
+										float b = lambdaToB(-scalarfield[i][j][k]/1e50, 1);
+										setPixel(i, j, k, r, g, b, 1f, 1f);
+									} else if (scalarfield[i][j][k] > 0) {
+										double hc = 1.986e-25;
+										double Emax = (e.materials[i][j][k].Ec - e.materials[i][j][k].Ev) + 0.5/e.beta; // Peak emission energy
+										double lambda_nm = 1e9*hc/Emax;
+										float r = lambdaToR(lambda_nm, scalarfield[i][j][k]*scalingconstant);
+										float g = lambdaToG(lambda_nm, scalarfield[i][j][k]*scalingconstant);
+										float b = lambdaToB(lambda_nm, scalarfield[i][j][k]*scalingconstant);
+										setPixel(i, j, k, r, g, b, 1f, 1f);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			boolean showbrush = Brush.isBrushShapeImportant(brush);
+			boolean highlight = e.opts.gui_brush_highlight.isSelected();
+			for (int i = 0; i < e.nx; i++) if (i >= lower && i < upper) {
+				for (int j = 0; j < e.ny; j++) {
+					for (int k = 0; k < e.nz; k++) {
+						MaterialType type = e.materials[i][j][k].type;
+						if (type.isInteractable() && i > 0 && j > 0 && k > 0 && i < e.nx-1 && j < e.ny-1 && k < e.nz-1) {
+							//int ci = 0;
+							//int cj = 0;
+							int shading = 2*((i+j+k)%2)+1;
+
+							int offset = 10*shading;
+							if (e.controls.selected_EMF[i][j][k])
+								offset = 50*shading-30;
+
+							/*if (e.materials[i+1][j][k].type != type || e.materials[i-1][j][k].type != type || e.materials[i][j+1][k].type != type || e.materials[i][j-1][k].type != type || e.materials[i][j][k+1].type != type || e.materials[i][j][k-1].type != type)
+							{
+								offset = -30;
+								if (e.materials[i][j][k].activated == 0) {
+									offset -= 100;
+								}
+							} else*/
+							if (e.materials[i][j][k].activated == 0) {
+								offset -= 200;
+							}
+
+
+							int delta_r = type.color_r+offset;
+							int delta_g = type.color_g+offset;
+							int delta_b = type.color_b+offset;
+
+							setPixel(i, j, k, delta_r, delta_g, delta_b, 0.75f, 0.25f);
+						}
+
+						translucent[i][j][k] |= e.controls.selected[i][j][k];
+						
+						if (e.controls.selected[i][j][k] || (showbrush && highlight && e.controls.under_brush[i][j][k]))
+						{
+							int s = e.controls.selected[i][j][k]? 1:0;
+							int h = (showbrush && highlight && e.controls.under_brush[i][j][k])? 1:0;
+							int delta_r = 256*s + 256*h;
+							int delta_g = 100*s + 256*h;
+							int delta_b = 256*s + 256*h;
+
+							setPixel(i, j, k, delta_r, delta_g, delta_b, 0.25f, 0.75f);
+						}
+
+						if (showbrush && !highlight && e.controls.under_brush[i][j][k]) {
+							if (i > 0 && j > 0 && k > 0 && i < e.nx-1 && j < e.ny-1 && k < e.nz-1 &&
+								!(e.controls.under_brush[i-1][j][k] && e.controls.under_brush[i+1][j][k] && e.controls.under_brush[i][j-1][k] && e.controls.under_brush[i][j+1][k] && e.controls.under_brush[i][j][k-1] && e.controls.under_brush[i][j][k+1]))
+							{
+								setalphaBG(0.25);
+								setalphaFG(0.75);
+
+								if ((image_r[i][j][k] + image_g[i][j][k] + image_b[i][j][k])/3.0 < 0.75)
+									setPixel(i, j, k, 256, 256, 256, 0.75f, 0.25f);
+								else
+									setPixel(i, j, k, 50, 50, 50, 0.75f, 0.25f);
+							}
+						}
+						
+						if (showbrush) {
+							translucent[i][j][k] |= e.controls.under_brush[i][j][k];
+						}
+
+						if (e.L[i][j][k] > 0)
+						{
+							setPixel(i, j, k, 1f, 1f, 1f, 0.75f, 0.5f);
+						}
+					}
+				}
+			}
+
+			graphics_mid_barrier.await();
+
+			if (n_thread == 0) {
+				setalphaBG(1);
+				setalphaFG(1);
+				setColorFloat(0.7f, 0.7f, 0.7f);
+
+				if (Brush.drawLine(brush) && (e.controls.mouse_pressed_prev_left || e.controls.mouse_pressed_prev_right)) {
+					drawPixelLine(e.controls.mx_start, e.controls.my_start, e.controls.mz_start, e.controls.mx, e.controls.my, e.controls.mz);
+				}
+
+				setalphaFG(0.5);
+				if ((brush == Brush.ZOOM && e.controls.mouse_pressed_prev_left
+						|| brush == Brush.RECTANGLE && (e.controls.mouse_pressed_prev_left || e.controls.mouse_pressed_prev_right))) {
+
+
+					int mx0 = Math.min(e.controls.mx_start, e.controls.mx);
+					int my0 = Math.min(e.controls.my_start, e.controls.my);
+					int mz0 = Math.min(e.controls.mz_start, e.controls.mz);
+					int mx1 = Math.max(e.controls.mx_start, e.controls.mx);
+					int my1 = Math.max(e.controls.my_start, e.controls.my);
+					int mz1 = Math.max(e.controls.mz_start, e.controls.mz);
+
+					for (int i = mx0; i <= mx1; i++)
+					{
+						for (int j = my0; j <= my1; j++)
+						{
+							for (int k = mz0; k <= mz1; k++)
+							{
+								setPixel(i, j, k);
+								translucent[i][j][k] |= true;
+							}
+						}
+					}
+				}
+
+				if (brush == Brush.RECTANGLE) {
+					drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx+3, e.controls.my, e.controls.mz);
+					drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx-3, e.controls.my, e.controls.mz);
+					drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx, e.controls.my+3, e.controls.mz);
+					drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx, e.controls.my-3, e.controls.mz);
+					drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx, e.controls.my, e.controls.mz+3);
+					drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz, e.controls.mx, e.controls.my, e.controls.mz-3);
+				}
+
+
+				if (drawCrosshairGuides) {
+					setColorFloat(1f, 0.2f, 0.2f);
+					drawPixelLine(e.controls.mx-4, e.controls.my, e.controls.mz, 0, e.controls.my, e.controls.mz);
+					drawPixelLine(e.controls.mx+4, e.controls.my, e.controls.mz, e.nx-1, e.controls.my, e.controls.mz);
+					setColorFloat(0.2f, 1f, 0.2f);
+					drawPixelLine(e.controls.mx, e.controls.my-4, e.controls.mz, e.controls.mx, 0, e.controls.mz);
+					drawPixelLine(e.controls.mx, e.controls.my+4, e.controls.mz, e.controls.mx, e.ny-1, e.controls.mz);
+					setColorFloat(0.2f, 0.2f, 1f);
+					drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz-4, e.controls.mx, e.controls.my, 0);
+					drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz+4, e.controls.mx, e.controls.my, e.nz-1);
+
+					setColorFloat(0.7f, 0.7f, 0.7f);
+					setPixel(e.controls.mx, e.controls.my, e.controls.mz);
+					translucent[e.controls.mx][e.controls.my][e.controls.mz] |= true;
+				}
+				setalphaFG(1);
+
+
+				setColorFloat(0.7f, 0.7f, 0.7f);
+				if (e.opts.menu_interface.isSelected())
+				{
+					if (e.opts.menu_probes.isSelected())
+					{
+						for (Probe p0 : e.probes) {
+							p0.draw(Renderer.this);
+						}
+
+						if (e.controls.moving_selection) {
+							int offset = e.controls.dragging_selection? 0 : 1;	
+							for (Probe p0 : e.controls.selection.probes) {		
+								p0.translate(e.controls.delta_mx-offset*e.controls.selection.i_max/2, e.controls.delta_my-offset*e.controls.selection.j_max/2, e.controls.delta_mz-offset*e.controls.selection.k_max/2);
+								p0.draw(Renderer.this);
+								p0.translate(-e.controls.delta_mx+offset*e.controls.selection.i_max/2, -e.controls.delta_my+offset*e.controls.selection.j_max/2, -e.controls.delta_mz+offset*e.controls.selection.k_max/2);
+							}
+						}
+					}
+
+					for (Plot p: e.plots) {
+						if (p.frame.isVisible()) {
+							if (p.path != null)
+								p.path.draw(Renderer.this);
+						}
+					}
+
+					if (e.controls.plotpath != null)
+						e.controls.plotpath.draw(Renderer.this);
+				}
+
+				setalphaFG(0.8);
+				setColorFloat(1.0f, 1.0f, 1.0f);
+
+				if (e.controls.texting && (System.currentTimeMillis() % 1000) < 500) {
+					int i = 0;
+					for (int j = 0; j < 7; j++) {
+						int scx = e.controls.text_x+i;
+						int scy = e.controls.text_y+j;
+						int scz = e.controls.text_z;
+
+						int fi = e.renderer.embed_x(scx, scy, scz);
+						int fj = e.renderer.embed_y(scx, scy, scz);
+						int fk = e.renderer.embed_z(scx, scy, scz);
+
+						setPixel(fi, fj, fk);
+					}
+				}
+			}
+		}
+		
+
+		public void computeVisibleSurfaces() {
+			int lower = lower(e.nx);
+			int upper = upper(e.nx);
+			for (int i = lower; i < upper; i++) {
+				for (int j = 0; j < e.ny; j++) {
+					for (int k = 0; k < e.nz; k++) {
+						opaque_surfs[i][j][k] = 0;
+						for (int direction = 1; direction <= 0b100000; direction = direction << 1) {
+							int di = ((direction&0b000011)+1)%3 - 1;
+							int dj = (((direction&0b001100) >> 2)+1)%3 - 1;
+							int dk = (((direction&0b110000) >> 4)+1)%3 - 1;
+							
+							if (e.materials[i][j][k].type == MaterialType.ABSORBER && !Renderer.this.renderer_left_eye.surfVisible(i, j, k, di, dj, dk))
+								continue;
+
+							if (i+di >= 0 && i + di < e.nx
+									&& j+dj >= 0 && j + dj < e.ny
+									&& k+dk >= 0 && k + dk < e.nz) {
+
+								if (opaque[i][j][k] && !opaque[i+di][j+dj][k+dk]) {
+									opaque_surfs[i][j][k] |= direction;
+								}
+							}
+						}
+					}
+				}
+			}
+
+			for (int i = lower; i < upper; i++) {
+				for (int j = 0; j < e.ny; j++) {
+					for (int k = 0; k < e.nz; k++) {
+						translucent_surfs[i][j][k] = 0;
+						for (int direction = 1; direction <= 0b100000; direction = direction << 1) {
+							int di = ((direction&0b000011)+1)%3 - 1;
+							int dj = (((direction&0b001100) >> 2)+1)%3 - 1;
+							int dk = (((direction&0b110000) >> 4)+1)%3 - 1;
+							
+							if (!Renderer.this.renderer_left_eye.surfVisible(i, j, k, di, dj, dk))
+								continue;
+
+							if (i+di >= 0 && i + di < e.nx
+									&& j+dj >= 0 && j + dj < e.ny
+									&& k+dk >= 0 && k + dk < e.nz) {
+								
+								if (translucent[i][j][k] && !translucent[i+di][j+dj][k+dk]) {
+									translucent_surfs[i][j][k] |= direction;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
 
 		public void stampPixelData() {
 			if (n_thread == 0) e.t9.start();
@@ -1893,7 +1975,7 @@ public class Renderer extends PeriodicTask {
 					}
 
 					double alphaFG = d.brightness;
-					if (synchronized_render) {
+					if (!synchronized_draw3D) {
 						double x = project_x(d.x, d.y, d.z);
 						double y = project_y(d.x, d.y, d.z);
 						double z = project_z(d.x, d.y, d.z);
@@ -2106,7 +2188,7 @@ public class Renderer extends PeriodicTask {
 						}
 
 						double alphaFG = d.brightness;
-						if (synchronized_render && dorender) {
+						if (!synchronized_draw3D && dorender) {
 
 							double x = project_x(d.x, d.y, d.z);
 							double y = project_y(d.x, d.y, d.z);

@@ -918,7 +918,6 @@ public class MainWindow extends JFrame implements ComponentListener {
 		//setLocationRelativeTo(null);
 		
 
-		e.renderer.create3dCanvas();
 		panel_3.add(e.renderer.imgpanel, BorderLayout.CENTER);
 
 		e.renderer.set3Dmode();
