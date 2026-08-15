@@ -319,11 +319,11 @@ public class Renderer extends PeriodicTask {
 	}
 	
 	public void setCanvasSize() {
-		RenderMode mode = e.controls.rendermode.getOption();
-		threeD_mode = RenderMode.is3d(mode);
-		slice_x = (mode == RenderMode.SLICE_X);
-		slice_y = (mode == RenderMode.SLICE_Y);
-		slice_z = (mode == RenderMode.SLICE_Z);
+		Perspective mode = e.controls.perspective.getOption();
+		threeD_mode = Perspective.is3D(mode);
+		slice_x = (mode == Perspective.SLICE_X);
+		slice_y = (mode == Perspective.SLICE_Y);
+		slice_z = (mode == Perspective.SLICE_Z);
 
 		rx = e.renderer.project_x(e.nx, e.ny, e.nz);
 		ry = e.renderer.project_y(e.nx, e.ny, e.nz);
@@ -388,13 +388,12 @@ public class Renderer extends PeriodicTask {
 			e.opts.gui_slice.setValue(1);
 			e.opts.gui_slice.setValue(tmp);
 
-			RenderMode mode = e.controls.rendermode.getOption();
 			if (threeD_mode) {
 				imgpanel.add(renderer_left_eye.canvas);
 				renderer_left_eye.animator.resume();
 				if (!renderer_left_eye.animator.isStarted()) renderer_left_eye.animator.start();
 
-				if (RenderMode.isStereoscopic(mode)) {
+				if (Stereo.isStereo(e.controls.stereo.getOption())) {
 					e.opts.gui_parallax.setVisible(true);
 					e.opts.gui_parallaxlabel.setVisible(true);
 					renderer_right_eye.animator.resume();
@@ -415,8 +414,8 @@ public class Renderer extends PeriodicTask {
 	}
 	
 	public void updateParallax() {
-		if (RenderMode.isStereoscopic(e.controls.rendermode.getOption())) {
-			if (e.controls.rendermode.getOption() == RenderMode.THREED_STEREO) {
+		if (Stereo.isStereo(e.controls.stereo.getOption())) {
+			if (e.controls.stereo.getOption() == Stereo.CROSS_EYE) {
 				renderer_left_eye.eye_offset = e.opts.gui_parallax.getValue()/2f;
 				renderer_right_eye.eye_offset = -e.opts.gui_parallax.getValue()/2f;
 			} else {
@@ -1208,17 +1207,23 @@ public class Renderer extends PeriodicTask {
 
 
 		if (drawCrosshairGuides) {
+			setColorFloat(1f, 0.2f, 0.2f);
 			drawPixelLine(e.controls.mx-4, e.controls.my, e.controls.mz, 0, e.controls.my, e.controls.mz);
 			drawPixelLine(e.controls.mx+4, e.controls.my, e.controls.mz, e.nx-1, e.controls.my, e.controls.mz);
+			setColorFloat(0.2f, 1f, 0.2f);
 			drawPixelLine(e.controls.mx, e.controls.my-4, e.controls.mz, e.controls.mx, 0, e.controls.mz);
 			drawPixelLine(e.controls.mx, e.controls.my+4, e.controls.mz, e.controls.mx, e.ny-1, e.controls.mz);
+			setColorFloat(0.2f, 0.2f, 1f);
 			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz-4, e.controls.mx, e.controls.my, 0);
 			drawPixelLine(e.controls.mx, e.controls.my, e.controls.mz+4, e.controls.mx, e.controls.my, e.nz-1);
+			
+			setColorFloat(0.7f, 0.7f, 0.7f);
 			setPixelTranslucent(e.controls.mx, e.controls.my, e.controls.mz);
 		}
 		setalphaFG(1);
 
 
+		setColorFloat(0.7f, 0.7f, 0.7f);
 		if (e.opts.menu_interface.isSelected())
 		{
 			if (e.opts.menu_probes.isSelected())
@@ -2554,20 +2559,56 @@ public class Renderer extends PeriodicTask {
 			return name;
 		}
 	}
-	
-	public enum RenderMode {
+
+	public enum Perspective {
 		SLICE_X("2D x cross-section"),
 		SLICE_Y("2D y cross-section"),
 		SLICE_Z("2D z cross-section"),
-		THREED("3D orthographic"),
-		THREED_FIELDS_ONLY("3D orthographic (fields only)"),
-		THREED_TRANSLUCENT("3D orthographic (transparent)"),
-		THREED_PERSPECTIVE("3D perspective"),
-		THREED_PERSPECTIVE_FIELDS_ONLY("3D perspective (fields only)"),
-		THREED_PERSPECTIVE_TRANSLUCENT("3D perspective (transparent)"),
-		THREED_STEREO("3D stereoscopic (cross-eye)"),
-		THREED_STEREO_INV("3D stereoscopic (parallel)");
+		ORTHO("3D orthographic"),
+		PERSPECTIVE("3D perspective");
 
+		String name;
+		Perspective(String name)
+		{
+			this.name = name;
+		}
+
+		@Override
+		public String toString() {
+			return name;
+		}
+		
+		public static boolean is3D(Perspective pers) {
+			return (pers == ORTHO || pers == PERSPECTIVE);
+		}
+	}
+	
+	public enum Stereo {
+		DISABLED("Stereo disabled"),
+		CROSS_EYE("Stereoscopic (cross-eye)"),
+		PARALLEL("Stereoscopic (parallel)");
+
+		String name;
+		Stereo(String name)
+		{
+			this.name = name;
+		}
+
+		@Override
+		public String toString() {
+			return name;
+		}
+		
+		public static boolean isStereo(Stereo stereo) {
+			return (stereo == CROSS_EYE || stereo == PARALLEL);
+		}
+	}
+
+	public enum RenderMode {
+		NORMAL("Normal view"),
+		FIELDS_ONLY("Fields only"),
+		TRANSLUCENT("Transparent materials");
+		
 		String name;
 		RenderMode(String name)
 		{
@@ -2577,25 +2618,6 @@ public class Renderer extends PeriodicTask {
 		@Override
 		public String toString() {
 			return name;
-		}
-
-		public static boolean is3d(RenderMode mode) {
-			return (mode == THREED || mode == THREED_FIELDS_ONLY || mode == THREED_TRANSLUCENT
-			|| mode == THREED_PERSPECTIVE || mode == THREED_PERSPECTIVE_FIELDS_ONLY || mode == THREED_PERSPECTIVE_TRANSLUCENT
-			|| mode == THREED_STEREO || mode == THREED_STEREO_INV);
-		}
-
-		public static boolean isOrthographic(RenderMode mode) {
-			return (mode == THREED || mode == THREED_FIELDS_ONLY || mode == THREED_TRANSLUCENT);
-		}
-
-		public static boolean isPerspective(RenderMode mode) {
-			return (mode == THREED_PERSPECTIVE || mode == THREED_PERSPECTIVE_FIELDS_ONLY || mode == THREED_PERSPECTIVE_TRANSLUCENT
-			|| mode == THREED_STEREO || mode == THREED_STEREO_INV);
-		}
-
-		public static boolean isStereoscopic(RenderMode mode) {
-			return (mode == THREED_STEREO || mode == THREED_STEREO_INV);
 		}
 	}
 	

@@ -70,14 +70,13 @@ import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 
-import electrodynamics.Controls.Brush;
-import electrodynamics.Controls.BrushAction;
+import electrodynamics.Renderer.Perspective;
 import electrodynamics.Renderer.RenderMode;
 import electrodynamics.Renderer.ScalarMode;
 import electrodynamics.Renderer.ScalarView;
+import electrodynamics.Renderer.Stereo;
 import electrodynamics.Renderer.VectorMode;
 import electrodynamics.Renderer.VectorView;
-import electrodynamics.SemiSim.OS;
 import electrodynamics.Simulation.BoundaryCondition;
 import electrodynamics.gui.CustJMenuItem;
 import electrodynamics.gui.CustJRadioButtonMenuItem;
@@ -90,7 +89,7 @@ import electrodynamics.plot.Path;
 import electrodynamics.plot.Plot;
 import electrodynamics.plot.ProbePlot;
 import electrodynamics.plot.SegmentedPath;
-import electrodynamics.probe.AreaProbe;  
+import electrodynamics.probe.AreaProbe;
 import electrodynamics.probe.ChargeProbe;
 import electrodynamics.probe.CurrentProbe;
 import electrodynamics.probe.FluxProbe;
@@ -280,7 +279,9 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	public MenuCheckList<VectorView, CustJRadioButtonMenuItem> vectorview = new MenuCheckList<VectorView, CustJRadioButtonMenuItem>(VectorView.values(), VectorView.E_FIELD);
 	public MenuCheckList<ScalarMode, CustJRadioButtonMenuItem> scalarmode = new MenuCheckList<ScalarMode, CustJRadioButtonMenuItem>(ScalarMode.values(), ScalarMode.COLORS);
 	public MenuCheckList<VectorMode, CustJRadioButtonMenuItem> vectormode = new MenuCheckList<VectorMode, CustJRadioButtonMenuItem>(VectorMode.values(), VectorMode.ARROWS);
-	public MenuCheckList<RenderMode, CustJRadioButtonMenuItem> rendermode = new MenuCheckList<RenderMode, CustJRadioButtonMenuItem>(RenderMode.values(), RenderMode.THREED);
+	public MenuCheckList<Perspective, CustJRadioButtonMenuItem> perspective = new MenuCheckList<Perspective, CustJRadioButtonMenuItem>(Perspective.values(), Perspective.ORTHO);
+	public MenuCheckList<Stereo, CustJRadioButtonMenuItem> stereo = new MenuCheckList<Stereo, CustJRadioButtonMenuItem>(Stereo.values(), Stereo.DISABLED);
+	public MenuCheckList<RenderMode, CustJRadioButtonMenuItem> rendermode = new MenuCheckList<RenderMode, CustJRadioButtonMenuItem>(RenderMode.values(), RenderMode.NORMAL);
 	//public JCheckBoxMenuItem carriers = new JCheckBoxMenuItem("Show charge carriers");
 
     ScalarMode prev_scalar_mode = ScalarMode.NONE;
@@ -2011,7 +2012,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 			e.updateMiscFields = true;
 		if (ev.getActionCommand() == Brush.class.getName())
 			e.opts.gui_brush.setSelectedItem(brushes.getOption());
-		if (ev.getActionCommand() == RenderMode.class.getName()) {
+		if (ev.getActionCommand() == Perspective.class.getName() || ev.getActionCommand() == Stereo.class.getName() || ev.getActionCommand() == RenderMode.class.getName()) {
 			updateimagesize = true;
 			update3dmode = true;
 		}

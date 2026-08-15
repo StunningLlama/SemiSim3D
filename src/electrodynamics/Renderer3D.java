@@ -27,6 +27,7 @@ import electrodynamics.Controls.Brush;
 import electrodynamics.Renderer.ChargeCarrierDot;
 import electrodynamics.Renderer.Dot;
 import electrodynamics.Renderer.DotType;
+import electrodynamics.Renderer.Perspective;
 import electrodynamics.Renderer.RenderMode;
 import electrodynamics.Renderer.Text;
 import electrodynamics.Renderer.VectorMode;
@@ -250,12 +251,11 @@ public class Renderer3D implements GLEventListener {
 	}
 
 	public void setupProjectionMat(GL2 gl) {
-		RenderMode mode = e.controls.rendermode.getOption();
-		isOrtho = RenderMode.isOrthographic(mode);
-
+		isOrtho = e.controls.perspective.getOption() == Perspective.ORTHO;
+		
 		if (isOrtho)
 			gl.glOrtho(-e.renderer.scale * aspect, e.renderer.scale * aspect, -e.renderer.scale, e.renderer.scale, 0, 128);
-		else if (RenderMode.isPerspective(mode))
+		else
 			gl.glFrustum(-0.01*e.renderer.scale * aspect, 0.01*e.renderer.scale * aspect, -0.01*e.renderer.scale, 0.01*e.renderer.scale, 0.01*64, 4*64);
 
 		gl.glRotatef(90f, 0.0f, 0.0f, 1.0f);
@@ -308,10 +308,10 @@ public class Renderer3D implements GLEventListener {
 
 		RenderMode mode = e.controls.rendermode.getOption();
 
-		if (mode != RenderMode.THREED_FIELDS_ONLY && mode != RenderMode.THREED_PERSPECTIVE_FIELDS_ONLY) {
+		if (mode != RenderMode.FIELDS_ONLY) {
 			float alpha = 1f;
 
-			if (mode == RenderMode.THREED_TRANSLUCENT || mode == RenderMode.THREED_PERSPECTIVE_TRANSLUCENT) {
+			if (mode == RenderMode.TRANSLUCENT) {
 				alpha = 0.3f;
 				gl.glDepthMask(false);
 				//gl.glBlendEquationSeparate(GL2.GL_ADD, GL2.GL_ADD);

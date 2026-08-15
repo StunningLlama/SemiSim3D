@@ -21,17 +21,13 @@ public class AreaProbe extends Probe {
 		calculateDefaultLabelCoords();
 	}
 
-	public int x1;
-	public int y1;
-	public int z1;
+	public int x1 = 0;
+	public int y1 = 0;
+	public int z1 = 0;
 
-	public int x2;
-	public int y2;
-	public int z2;
-
-	public double[][][] vf_x = null;
-	public double[][][] vf_y = null;
-	public double[][][] vf_z = null;
+	public int x2 = 0;
+	public int y2 = 0;
+	public int z2 = 0;
 
 	public VectorView vectorname = VectorView.NONE;
 	
@@ -53,9 +49,9 @@ public class AreaProbe extends Probe {
 
 		double[][][][] vf = {null, null, null};
 		e.computeVectorField(vf, vectorname);
-		vf_x = vf[0];
-		vf_y = vf[1];
-		vf_z = vf[2];
+		double[][][] vf_x = vf[0];
+		double[][][] vf_y = vf[1];
+		double[][][] vf_z = vf[2];
 		
 		if (vf_x == null || vf_y == null || vf_z == null) return;
 

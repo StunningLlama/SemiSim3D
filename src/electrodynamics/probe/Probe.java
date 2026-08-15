@@ -37,6 +37,7 @@ public abstract class Probe implements Cloneable, OctahedralAction {
 	public abstract double getYcenter();
 	public abstract double getZcenter();
 	public abstract String getText(Units units);
+	public void prepareForSave() {};
 	
 	@Override
 	public String toString() {

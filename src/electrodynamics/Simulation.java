@@ -616,9 +616,9 @@ public class Simulation extends PeriodicTask {
     			}
 
     			if (controls.updateimagesize) {
-    				new Thread(() -> {
+    				SwingUtilities.invokeLater(() -> {
     					renderer.setCanvasSize();
-    				}).start();
+    				});
     				controls.updateimagesize = false;
     			}
 

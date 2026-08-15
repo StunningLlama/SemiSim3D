@@ -41,9 +41,11 @@ import com.google.gson.Strictness;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 
+import electrodynamics.Renderer.Perspective;
 import electrodynamics.Renderer.RenderMode;
 import electrodynamics.Renderer.ScalarMode;
 import electrodynamics.Renderer.ScalarView;
+import electrodynamics.Renderer.Stereo;
 import electrodynamics.Renderer.VectorMode;
 import electrodynamics.Renderer.VectorView;
 import electrodynamics.Simulation.BoundaryCondition;
@@ -177,7 +179,9 @@ public class SaveManager {
 							case "vectorview": e.controls.vectorview.setOption(gson.fromJson(fstr, VectorView.class)); break;
 							case "scalarmode": e.controls.scalarmode.setOption(gson.fromJson(fstr, ScalarMode.class)); break;
 							case "vectormode": e.controls.vectormode.setOption(gson.fromJson(fstr, VectorMode.class)); break;
+							case "perspective": e.controls.perspective.setOption(gson.fromJson(fstr, Perspective.class)); break;
 							case "rendermode": e.controls.rendermode.setOption(gson.fromJson(fstr, RenderMode.class)); break;
+							case "stereo": e.controls.stereo.setOption(gson.fromJson(fstr, Stereo.class)); break;
 							case "gui_bc": e.opts.gui_bc.setSelectedItem(gson.fromJson(fstr, BoundaryCondition.class)); break;
 
 							default:
@@ -427,6 +431,10 @@ public class SaveManager {
 		SwingUtilities.invokeLater(() -> {
 			e.rwLock.writeLock().lock();
 			try {
+				for (Probe p : e.probes) {
+					p.prepareForSave();
+				}
+				
 				try {
 					PrintWriter fstr = new PrintWriter(new GZIPOutputStream(new FileOutputStream(outfile)));
 
@@ -448,7 +456,9 @@ public class SaveManager {
 					header.add("vectorview", gson.toJsonTree(e.controls.vectorview.getOption()));
 					header.add("scalarmode", gson.toJsonTree(e.controls.scalarmode.getOption()));
 					header.add("vectormode", gson.toJsonTree(e.controls.vectormode.getOption()));
+					header.add("perspective", gson.toJsonTree(e.controls.perspective.getOption()));
 					header.add("rendermode", gson.toJsonTree(e.controls.rendermode.getOption()));
+					header.add("stereo", gson.toJsonTree(e.controls.stereo.getOption()));
 					header.add("gui_bc", gson.toJsonTree(e.opts.gui_bc.getSelectedItem()));
 
 					header.addProperty("gui_zslice", e.opts.gui_slice.getValue());

@@ -59,9 +59,11 @@ import electrodynamics.Controls.Brush;
 import electrodynamics.Controls.BrushShape;
 import electrodynamics.Controls.CustProbeType;
 import electrodynamics.MaterialType;
+import electrodynamics.Renderer.Perspective;
 import electrodynamics.Renderer.RenderMode;
 import electrodynamics.Renderer.ScalarMode;
 import electrodynamics.Renderer.ScalarView;
+import electrodynamics.Renderer.Stereo;
 import electrodynamics.Renderer.VectorMode;
 import electrodynamics.Renderer.VectorView;
 import electrodynamics.SemiSim;
@@ -715,7 +717,9 @@ public class MainWindow extends JFrame implements ComponentListener {
 		e.controls.scalarmode.setOption(ScalarMode.COLORS);
 		e.controls.vectorview.setOption(VectorView.E_FIELD);
 		e.controls.vectormode.setOption(VectorMode.ARROWS);
-		e.controls.rendermode.setOption(RenderMode.THREED);
+		e.controls.perspective.setOption(Perspective.ORTHO);
+		e.controls.stereo.setOption(Stereo.DISABLED);
+		e.controls.rendermode.setOption(RenderMode.NORMAL);
 		
 		setRedundantOptions();
 	}
@@ -815,7 +819,11 @@ public class MainWindow extends JFrame implements ComponentListener {
 			menu_file.remove(separator_6);
 		}
 
+		e.controls.perspective.initialize(menu_graphics, e.controls, null, () -> new CustJRadioButtonMenuItem());
+		menu_graphics.add(new JSeparator());
 		e.controls.rendermode.initialize(menu_graphics, e.controls, null, () -> new CustJRadioButtonMenuItem());
+		menu_graphics.add(new JSeparator());
+		e.controls.stereo.initialize(menu_graphics, e.controls, null, () -> new CustJRadioButtonMenuItem());
 		
 		e.controls.brushes.initialize(menu_tools, e.controls, new Controls.Brush[] {Controls.Brush.DRAW, Controls.Brush.VOLTAGE, Controls.Brush.BANDS}, () -> new JRadioButtonMenuItem());
 

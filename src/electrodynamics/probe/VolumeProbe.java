@@ -38,6 +38,11 @@ public class VolumeProbe extends Probe {
 	}
 	
 	@Override
+	public void prepareForSave() {
+		scalarfield = new double[][][] {{{0}}};
+	}
+	
+	@Override
 	public void calculateDefaultLabelCoords() {
 		labelcoord.x = (x1+x2)/2;
 		labelcoord.y = (y1+y2)/2;
