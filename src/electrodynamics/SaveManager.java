@@ -168,7 +168,8 @@ public class SaveManager {
 							case "gui_zslice": e.opts.gui_slice.setValue(fstr.nextInt()); break;
 							case "pitch": e.renderer.pitch = (float)(fstr.nextDouble()); break;
 							case "yaw": e.renderer.yaw = (float)(fstr.nextDouble()); break;
-							case "zoom": e.renderer.scale = (float)(fstr.nextDouble()); break;
+							case "zoom": e.renderer.ortho_zoom = (float)(fstr.nextDouble()); break;
+							case "FOV": e.renderer.perspective_FOV = (float)(fstr.nextDouble()); break;
 							case "cam_x": e.renderer.cam_x = (float)(fstr.nextDouble()); break;
 							case "cam_y": e.renderer.cam_y = (float)(fstr.nextDouble()); break;
 							case "cam_z": e.renderer.cam_z = (float)(fstr.nextDouble()); break;
@@ -464,7 +465,8 @@ public class SaveManager {
 					header.addProperty("gui_zslice", e.opts.gui_slice.getValue());
 					header.addProperty("pitch", e.renderer.pitch);
 					header.addProperty("yaw", e.renderer.yaw);
-					header.addProperty("zoom", e.renderer.scale);
+					header.addProperty("zoom", e.renderer.ortho_zoom);
+					header.addProperty("FOV", e.renderer.perspective_FOV);
 					header.addProperty("cam_x", e.renderer.cam_x);
 					header.addProperty("cam_y", e.renderer.cam_y);
 					header.addProperty("cam_z", e.renderer.cam_z);

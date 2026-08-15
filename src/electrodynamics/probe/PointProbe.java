@@ -40,7 +40,7 @@ public class PointProbe extends Probe {
 
 	@Override
 	public void measure(Simulation e, boolean savedatapoint) {
-		e.computeScalarField(scalarfield, x, y, z, scalarname);
+		e.computeScalarField(scalarfield, x, y, z, scalarname, 0, 0);
 		value = scalarfield[0][0][0];
 		if (savedatapoint) data.addData(value, e.time);
 	}

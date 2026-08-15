@@ -74,6 +74,7 @@ import electrodynamics.Renderer.Perspective;
 import electrodynamics.Renderer.RenderMode;
 import electrodynamics.Renderer.ScalarMode;
 import electrodynamics.Renderer.ScalarView;
+import electrodynamics.Renderer.Slice;
 import electrodynamics.Renderer.Stereo;
 import electrodynamics.Renderer.VectorMode;
 import electrodynamics.Renderer.VectorView;
@@ -281,6 +282,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	public MenuCheckList<VectorMode, CustJRadioButtonMenuItem> vectormode = new MenuCheckList<VectorMode, CustJRadioButtonMenuItem>(VectorMode.values(), VectorMode.ARROWS);
 	public MenuCheckList<Perspective, CustJRadioButtonMenuItem> perspective = new MenuCheckList<Perspective, CustJRadioButtonMenuItem>(Perspective.values(), Perspective.ORTHO);
 	public MenuCheckList<Stereo, CustJRadioButtonMenuItem> stereo = new MenuCheckList<Stereo, CustJRadioButtonMenuItem>(Stereo.values(), Stereo.DISABLED);
+	public MenuCheckList<Slice, CustJRadioButtonMenuItem> slice = new MenuCheckList<Slice, CustJRadioButtonMenuItem>(Slice.values(), Slice.NONE);
 	public MenuCheckList<RenderMode, CustJRadioButtonMenuItem> rendermode = new MenuCheckList<RenderMode, CustJRadioButtonMenuItem>(RenderMode.values(), RenderMode.NORMAL);
 	//public JCheckBoxMenuItem carriers = new JCheckBoxMenuItem("Show charge carriers");
 
@@ -974,7 +976,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		{
 			double nx = Math.cos(e.renderer.yaw)*Math.cos(e.renderer.pitch);
 			double ny = Math.sin(e.renderer.yaw)*Math.cos(e.renderer.pitch);
-			double movefactor = 32/e.renderer.targetframerate;
+			double movefactor = e.renderer.max_size/e.renderer.targetframerate;
 			double lookfactor = 1/e.renderer.targetframerate;
 
 			if (Keyboard.isKeyPressed(KeyEvent.VK_W)) {
@@ -1473,7 +1475,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		if (!mouse_in)
 			currentCursor = DEFAULT_CURSOR;
 		
-		if (currentCursor == BLANK_CURSOR && !mouse_in_bounds)
+		if (currentCursor == BLANK_CURSOR && !mouse_in_bounds && !(brush == Brush.CAMERA))
 			currentCursor = DEFAULT_CURSOR;
 
 		final Cursor newCursor = currentCursor;
@@ -2012,7 +2014,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 			e.updateMiscFields = true;
 		if (ev.getActionCommand() == Brush.class.getName())
 			e.opts.gui_brush.setSelectedItem(brushes.getOption());
-		if (ev.getActionCommand() == Perspective.class.getName() || ev.getActionCommand() == Stereo.class.getName() || ev.getActionCommand() == RenderMode.class.getName()) {
+		if (ev.getActionCommand() == Perspective.class.getName() || ev.getActionCommand() == Stereo.class.getName() || ev.getActionCommand() == Slice.class.getName() || ev.getActionCommand() == RenderMode.class.getName()) {
 			updateimagesize = true;
 			update3dmode = true;
 		}
@@ -2150,6 +2152,24 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 				e.opts.gui_slicelabel.setText("Slice: y = " + Utils.getSI(e.opts.gui_slice.getValue()*e.ds, "m"));
 			} else if (e.renderer.slice_z) {
 				e.opts.gui_slicelabel.setText("Slice: z = " + Utils.getSI(e.opts.gui_slice.getValue()*e.ds, "m"));
+			}
+		}
+		if (ev.getSource() == e.opts.gui_slice_l) {
+			if (e.renderer.slice_x) {
+				e.opts.gui_slicelabel_l.setText("Lower cut: x = " + Utils.getSI(e.opts.gui_slice_l.getValue()*e.ds, "m"));
+			} else if (e.renderer.slice_y) {
+				e.opts.gui_slicelabel_l.setText("Lower cut: y = " + Utils.getSI(e.opts.gui_slice_l.getValue()*e.ds, "m"));
+			} else if (e.renderer.slice_z) {
+				e.opts.gui_slicelabel_l.setText("Lower cut: z = " + Utils.getSI(e.opts.gui_slice_l.getValue()*e.ds, "m"));
+			}
+		}
+		if (ev.getSource() == e.opts.gui_slice_h) {
+			if (e.renderer.slice_x) {
+				e.opts.gui_slicelabel_h.setText("Upper cut: x = " + Utils.getSI(e.opts.gui_slice_h.getValue()*e.ds, "m"));
+			} else if (e.renderer.slice_y) {
+				e.opts.gui_slicelabel_h.setText("Upper cut: y = " + Utils.getSI(e.opts.gui_slice_h.getValue()*e.ds, "m"));
+			} else if (e.renderer.slice_z) {
+				e.opts.gui_slicelabel_h.setText("Upper cut: z = " + Utils.getSI(e.opts.gui_slice_h.getValue()*e.ds, "m"));
 			}
 		}
 		if (ev.getSource() == e.opts.gui_parallax) {
@@ -2626,7 +2646,10 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		
 
 		if ((shift_down || brushes.getOption() == Brush.INTERACT || brushes.getOption() == Brush.PAN) && e.renderer.threeD_mode) {
-			e.renderer.scale *= Math.exp((int)(10*ev.getPreciseWheelRotation())/100.0);
+			if (perspective.getOption() == Perspective.ORTHO)
+				e.renderer.ortho_zoom *= Math.exp((int)(10*ev.getPreciseWheelRotation())/100.0);
+			else if (perspective.getOption() == Perspective.PERSPECTIVE)
+				e.renderer.perspective_FOV *= Math.exp((int)(10*ev.getPreciseWheelRotation())/100.0);
 		} else if (Brush.isBrushShapeImportant(brushes.getOption())) {
 			e.opts.gui_brushsize.setValue(e.opts.gui_brushsize.getValue() - (int)(5*ev.getPreciseWheelRotation()));
 		} else if (brushes.getOption() == Brush.PAN) {

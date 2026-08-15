@@ -178,6 +178,14 @@ public class MainWindow extends JFrame implements ComponentListener {
 	public JLabel gui_light_text;
 	public JScrollBar gui_light;
 	public JComboBox<CustProbeType> gui_probetype;
+	public HashMap<Brush, IconButton> toolbuttons = new HashMap<Brush, IconButton>();
+	public JLabel gui_slicelabel_l;
+	public JScrollBar gui_slice_l;
+	public JScrollBar gui_slice_h;
+
+	JPanel panel_3;
+	JPanel panel_4;
+	public JLabel gui_slicelabel_h;
 
 	/**
 	 * Create the frame.
@@ -420,7 +428,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		
 		gui_paused = new JCheckBox("Paused");
 		gui_paused.setSelected(true);
-		gui_paused.setBounds(10, 37, 101, 23);
+		gui_paused.setBounds(10, 37, 82, 23);
 		panel.add(gui_paused);
 		
 		gui_brushsize = new JScrollBar();
@@ -589,7 +597,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		panel.add(gui_slicelabel);
 		
 		gui_rotate = new JCheckBox("Rotate view");
-		gui_rotate.setBounds(10, 385, 171, 23);
+		gui_rotate.setBounds(90, 36, 112, 23);
 		panel.add(gui_rotate);
 		
 		gui_parallax = new JScrollBar();
@@ -641,6 +649,27 @@ public class MainWindow extends JFrame implements ComponentListener {
 		gui_probetype.setMaximumRowCount(16);
 		gui_probetype.setBounds(201, 106, 171, 22);
 		panel.add(gui_probetype);
+		
+		gui_slicelabel_l = new JLabel("Lower cut");
+		gui_slicelabel_l.setBounds(20, 380, 150, 14);
+		panel.add(gui_slicelabel_l);
+		
+		gui_slice_l = new JScrollBar();
+		gui_slice_l.setOrientation(JScrollBar.HORIZONTAL);
+		gui_slice_l.setMaximum(42);
+		gui_slice_l.setBounds(10, 403, 171, 17);
+		panel.add(gui_slice_l);
+		
+		gui_slicelabel_h = new JLabel("Upper cut");
+		gui_slicelabel_h.setBounds(213, 380, 150, 14);
+		panel.add(gui_slicelabel_h);
+		
+		gui_slice_h = new JScrollBar();
+		gui_slice_h.setOrientation(JScrollBar.HORIZONTAL);
+		gui_slice_h.setMaximum(42);
+		gui_slice_h.setValue(32);
+		gui_slice_h.setBounds(203, 403, 171, 17);
+		panel.add(gui_slice_h);
 		panel_3 = new JPanel();
 		//panel_3.setBorder(new EmptyBorder(0, 0, 0, 0));
 		contentPane.add(panel_3, BorderLayout.CENTER);
@@ -652,9 +681,6 @@ public class MainWindow extends JFrame implements ComponentListener {
 		panel_4.setLayout(new BoxLayout(panel_4, BoxLayout.X_AXIS));
 		panel_4.setBorder(new EmptyBorder(2, 0, 2, 0));
 	}
-
-	JPanel panel_3;
-	JPanel panel_4;
 	
 	public void listSettings() {
 		boolean_names.put("gui_paused", gui_paused);
@@ -770,6 +796,8 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_workshop.addActionListener(e.controls);
 		menu_load_workshop.addActionListener(e.controls);
 		gui_slice.addAdjustmentListener(e.controls);
+		gui_slice_l.addAdjustmentListener(e.controls);
+		gui_slice_h.addAdjustmentListener(e.controls);
 		gui_parallax.addAdjustmentListener(e.controls);
 		menu_browse.addActionListener(e.controls);
 		
@@ -822,6 +850,8 @@ public class MainWindow extends JFrame implements ComponentListener {
 		e.controls.perspective.initialize(menu_graphics, e.controls, null, () -> new CustJRadioButtonMenuItem());
 		menu_graphics.add(new JSeparator());
 		e.controls.rendermode.initialize(menu_graphics, e.controls, null, () -> new CustJRadioButtonMenuItem());
+		menu_graphics.add(new JSeparator());
+		e.controls.slice.initialize(menu_graphics, e.controls, null, () -> new CustJRadioButtonMenuItem());
 		menu_graphics.add(new JSeparator());
 		e.controls.stereo.initialize(menu_graphics, e.controls, null, () -> new CustJRadioButtonMenuItem());
 		
@@ -990,8 +1020,6 @@ public class MainWindow extends JFrame implements ComponentListener {
 			}
 		} catch (IOException e1) {}
 	}
-	
-	public HashMap<Brush, IconButton> toolbuttons = new HashMap<Brush, IconButton>();
 	
 	public void removeKeyListeners(Component c) {
 		KeyListener[] list = c.getKeyListeners();

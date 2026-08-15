@@ -1,5 +1,6 @@
 package electrodynamics.util;
 
+// Group representation of the octahedral group (and translations)
 public interface OctahedralAction {
 	public void flip_x();
 	public void flip_y();

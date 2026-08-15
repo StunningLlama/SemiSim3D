@@ -71,7 +71,7 @@ public class VolumeProbe extends Probe {
 			scalarfield = new double[n_max-n_min+1][m_max-m_min+1][l_max-l_min+1];
 		}
 		
-		e.computeScalarField(scalarfield, n_min, m_min, l_min, scalarname);
+		e.computeScalarField(scalarfield, n_min, m_min, l_min, scalarname, 0, 0);
 
 		for (int n = n_min; n <= n_max; n++) {
 			for (int m = m_min; m <= m_max; m++) {

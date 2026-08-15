@@ -11,6 +11,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.RenderingHints;
+import java.awt.event.AdjustmentEvent;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBuffer;
 import java.awt.image.DataBufferInt;
@@ -88,6 +89,7 @@ public class Renderer extends PeriodicTask {
 	public int probetexttimer = 0;
 	private boolean synchronized_show_carriers;
 	private boolean synchronized_update_carriers;
+	private boolean synchronized_update_dots;
 	private boolean synchronized_draw3D;
 	private VectorMode synchronized_vector_display_mode;
 	private ScalarMode synchronized_scalar_display_mode;
@@ -106,6 +108,14 @@ public class Renderer extends PeriodicTask {
 	
 	public int rx;
 	public int ry;
+	public int rz;
+	
+	public int nx_min;
+	public int ny_min;
+	public int nz_min;
+	public int nx_max;
+	public int ny_max;
+	public int nz_max;
 	
 	/* 3D */
 	public JPanel imgpanel;
@@ -113,16 +123,18 @@ public class Renderer extends PeriodicTask {
 	public Renderer3D renderer_right_eye;
 	boolean[][][] opaque;
 	boolean[][][] translucent;
-	boolean[][][] solid;
+	//boolean[][][] solid;
 	boolean slice_x = false;
 	boolean slice_y = false;
 	boolean slice_z = true;
-	float pitch = -(float)Math.PI/6;
-	float yaw = (float)(Math.PI*5/4);
-    float scale = 24f;
-    float cam_x = 96*(float)Math.sqrt(3/2.0)/2;
-    float cam_y = 96*(float)Math.sqrt(3/2.0)/2;
-    float cam_z = 96/2;
+	float pitch;
+	float yaw;
+    float ortho_zoom;
+    float perspective_FOV;
+    float max_size;
+    float cam_x;
+    float cam_y;
+    float cam_z;
 	boolean threeD_mode = true;
 	
 
@@ -162,18 +174,29 @@ public class Renderer extends PeriodicTask {
 		image_b_2D = new float[e.nx][e.ny][e.nz];
 		opaque = new boolean[e.nx][e.ny][e.nz];
 		translucent = new boolean[e.nx][e.ny][e.nz];
-		solid = new boolean[e.nx][e.ny][e.nz];
 
 		rho_p_dist.init(e.nx, e.ny, e.nz);
 		rho_n_dist.init(e.nx, e.ny, e.nz);
 		rho_G_dist.init(e.nx, e.ny, e.nz);
 		
-		setCanvasSize();
+		max_size = (float)Utils.max(e.nx, e.ny, e.nz);
 		
+		setCanvasSize();
 		resetChargeDots();
+		resetCameraPos();
 
 		renderer_left_eye.setResolution();
 		renderer_right_eye.setResolution();
+	}
+	
+	public void resetCameraPos() {
+	    ortho_zoom = 1f;
+	    perspective_FOV = 0.5f;
+		pitch = -(float)Math.PI/6;
+		yaw = (float)(Math.PI*5/4);
+	    cam_x = 3*max_size*(float)Math.sqrt(3/2.0)/2;
+	    cam_y = 3*max_size*(float)Math.sqrt(3/2.0)/2;
+	    cam_z = 3*max_size/2;
 	}
 	
 	int project_x(int x, int y, int z) {
@@ -321,45 +344,60 @@ public class Renderer extends PeriodicTask {
 	}
 	
 	public int getSlice() {
-		int slice = e.opts.gui_slice.getValue();
-		if (slice < 0) slice = 0;
-		int max = project_z(e.nx, e.ny, e.nz);
-		if (slice >= max)
-			slice = max-1;
-		return slice;
+		return clamp(e.opts.gui_slice.getValue(), 0, rz-1);
 	}
 	
+	public int getSliceLow() {
+		return clamp(e.opts.gui_slice_l.getValue(), 0, rz-1);
+	}
+	
+	public int getSliceHigh() {
+		return clamp(e.opts.gui_slice_h.getValue(), 0, rz-1);
+	}
+
 	public void setCanvasSize() {
-		Perspective mode = e.controls.perspective.getOption();
-		threeD_mode = Perspective.is3D(mode);
-		slice_x = (mode == Perspective.SLICE_X);
-		slice_y = (mode == Perspective.SLICE_Y);
-		slice_z = (mode == Perspective.SLICE_Z);
+		e.rwLock.writeLock().lock();
+		try {
+			Perspective mode = e.controls.perspective.getOption();
+			Slice slice = e.controls.slice.getOption();
+			threeD_mode = mode.is3D();
+			slice_x = (slice == Slice.SLICE_X);
+			slice_y = (slice == Slice.SLICE_Y);
+			slice_z = (slice == Slice.SLICE_Z);
 
-		rx = e.renderer.project_x(e.nx, e.ny, e.nz);
-		ry = e.renderer.project_y(e.nx, e.ny, e.nz);
+			rx = e.renderer.project_x(e.nx, e.ny, e.nz);
+			ry = e.renderer.project_y(e.nx, e.ny, e.nz);
+			rz = e.renderer.project_z(e.nx, e.ny, e.nz);
 
-		scalefactor_real = Math.min(imgpanel.getWidth()/(double)rx, imgpanel.getHeight()/(double)ry);
-		scalefactor = (int)scalefactor_real;
-		if (scalefactor < 1) scalefactor = 1;
-		int imgwidth_new = (int)Math.ceil(scalefactor*rx);
-		int imgheight_new = (int)Math.ceil(scalefactor*ry);
-		e.opts.gui_slice.setMaximum(project_z(e.nx, e.ny, e.nz) + e.opts.gui_slice.getVisibleAmount() - 1);
-		
-		if (!threeD_mode && (imgwidth_new != imgwidth || imgheight_new != imgheight)) {
-			imgwidth = imgwidth_new;
-			imgheight = imgheight_new;
-			img_back = (BufferedImage) e.opts.createImage(imgwidth, imgheight);
-			img_front = (BufferedImage) e.opts.createImage(imgwidth, imgheight);
-			imgData = ((DataBufferInt)img_back.getRaster().getDataBuffer()).getData();
-			depth_buf = new int[imgData.length];
-		}
-		
-		e.controls.resetZoom();
-		
-		if (e.controls.update3dmode) {
-			set3Dmode();
-			e.controls.update3dmode = false;
+			if (rx == 0) rx = 1;
+			if (ry == 0) ry = 1;
+			if (rz == 0) rz = 1;
+
+			scalefactor_real = Math.min(imgpanel.getWidth()/(double)rx, imgpanel.getHeight()/(double)ry);
+			scalefactor = (int)scalefactor_real;
+			if (scalefactor < 1) scalefactor = 1;
+			int imgwidth_new = (int)Math.ceil(scalefactor*rx);
+			int imgheight_new = (int)Math.ceil(scalefactor*ry);
+
+			if (!threeD_mode && (imgwidth_new != imgwidth || imgheight_new != imgheight)) {
+				imgwidth = imgwidth_new;
+				imgheight = imgheight_new;
+				img_back = (BufferedImage) e.opts.createImage(imgwidth, imgheight);
+				img_front = (BufferedImage) e.opts.createImage(imgwidth, imgheight);
+				imgData = ((DataBufferInt)img_back.getRaster().getDataBuffer()).getData();
+				depth_buf = new int[imgData.length];
+			}
+
+			e.controls.resetZoom();
+
+			if (e.controls.update3dmode) {
+				set3Dmode();
+				e.controls.update3dmode = false;
+			}
+			
+			e.opts.validate();
+		} finally {
+			e.rwLock.writeLock().unlock();
 		}
 	}
 	
@@ -391,20 +429,31 @@ public class Renderer extends PeriodicTask {
 			imgpanel.remove(renderer_left_eye.canvas);
 			imgpanel.remove(renderer_right_eye.canvas);
 
-			e.opts.gui_slice.setVisible(!threeD_mode);
-			e.opts.gui_slicelabel.setVisible(!threeD_mode);
+			e.opts.gui_slice.setVisible(!threeD_mode && e.controls.slice.getOption().isSlice());
+			e.opts.gui_slicelabel.setVisible(!threeD_mode && e.controls.slice.getOption().isSlice());
+			e.opts.gui_slice_l.setVisible(threeD_mode && e.controls.slice.getOption().isSlice());
+			e.opts.gui_slicelabel_l.setVisible(threeD_mode && e.controls.slice.getOption().isSlice());
+			e.opts.gui_slice_h.setVisible(threeD_mode && e.controls.slice.getOption().isSlice());
+			e.opts.gui_slicelabel_h.setVisible(threeD_mode && e.controls.slice.getOption().isSlice());
 			
-			int tmp = getSlice();
-			e.opts.gui_slice.setValue(0);
-			e.opts.gui_slice.setValue(1);
-			e.opts.gui_slice.setValue(tmp);
+			if (e.controls.slice.getOption().isSlice()) {
+				e.opts.gui_slice.setMaximum(rz + e.opts.gui_slice.getVisibleAmount() - 1);
+				e.opts.gui_slice_l.setMaximum(rz + e.opts.gui_slice_l.getVisibleAmount() - 1);
+				e.opts.gui_slice_h.setMaximum(rz + e.opts.gui_slice_h.getVisibleAmount() - 1);
+				e.opts.gui_slice.setValue(getSlice());
+				e.opts.gui_slice_l.setValue(getSliceLow());
+				e.opts.gui_slice_h.setValue(getSliceHigh());
+				e.controls.adjustmentValueChanged(new AdjustmentEvent(e.opts.gui_slice, 0, 0, 0));
+				e.controls.adjustmentValueChanged(new AdjustmentEvent(e.opts.gui_slice_l, 0, 0, 0));
+				e.controls.adjustmentValueChanged(new AdjustmentEvent(e.opts.gui_slice_h, 0, 0, 0));
+			}
 
 			if (threeD_mode) {
 				imgpanel.add(renderer_left_eye.canvas);
 				renderer_left_eye.animator.resume();
 				if (!renderer_left_eye.animator.isStarted()) renderer_left_eye.animator.start();
 
-				if (Stereo.isStereo(e.controls.stereo.getOption())) {
+				if (e.controls.stereo.getOption().isStereo()) {
 					e.opts.gui_parallax.setVisible(true);
 					e.opts.gui_parallaxlabel.setVisible(true);
 					renderer_right_eye.animator.resume();
@@ -425,7 +474,7 @@ public class Renderer extends PeriodicTask {
 	}
 	
 	public void updateParallax() {
-		if (Stereo.isStereo(e.controls.stereo.getOption())) {
+		if (e.controls.stereo.getOption().isStereo()) {
 			if (e.controls.stereo.getOption() == Stereo.CROSS_EYE) {
 				renderer_left_eye.eye_offset = e.opts.gui_parallax.getValue()/2f;
 				renderer_right_eye.eye_offset = -e.opts.gui_parallax.getValue()/2f;
@@ -825,16 +874,31 @@ public class Renderer extends PeriodicTask {
 	    return dst;
 	}
 
-
-
 	synchronized void draw(Renderer3D canvas3d) {
 		if (canvas3d == null) {
 			delta_t = e.time - t_prev;
 			t_prev = e.time;
 		}
 
+		if (e.controls.slice.getOption().isSlice()) {
+			nx_min = this.embed_x(0, 0, getSliceLow());
+			ny_min = this.embed_y(0, 0, getSliceLow());
+			nz_min = this.embed_z(0, 0, getSliceLow());
+			nx_max = this.embed_x(rx, ry, getSliceHigh());
+			ny_max = this.embed_y(rx, ry, getSliceHigh());
+			nz_max = this.embed_z(rx, ry, getSliceHigh());
+		} else {
+			nx_min = 0;
+			ny_min = 0;
+			nz_min = 0;
+			nx_max = e.nx-1;
+			ny_max = e.ny-1;
+			nz_max = e.nz-1;
+		}
+
 		synchronized_show_carriers = e.opts.gui_carriers.isSelected();
-		synchronized_update_carriers = !e.opts.gui_paused.isSelected() || delta_t > 0;
+		synchronized_update_carriers = (!e.opts.gui_paused.isSelected() || delta_t > 0) && (canvas3d == null || canvas3d.isMainCanvas);
+		synchronized_update_dots = !e.opts.gui_paused.isSelected() && (canvas3d == null || canvas3d.isMainCanvas);
 		synchronized_vector_display_mode = e.controls.vectormode.getOption();
 		synchronized_scalar_display_mode = e.controls.scalarmode.getOption();
 		synchronized_scalar_view = e.controls.scalarview.getOption();
@@ -888,21 +952,31 @@ public class Renderer extends PeriodicTask {
 			if (g != null) startNewStringLayer();
 		}
 		
-		/*ScalarView scalarview = e.controls.scalarview.getOption();
+		ScalarView scalarview = e.controls.scalarview.getOption();
 		ScalarMode scalarmode = e.controls.scalarmode.getOption();
 		if (scalarview != ScalarView.NONE && scalarmode != ScalarMode.NONE) {
 			ScalarView.ColorScheme colorscheme = scalarview.colorscheme;
 
-			if (e.opts.menu_colormap.isSelected())
+			if (e.opts.menu_colormap.isSelected() && !e.controls.perspective.getOption().is3D())
 			{
 				int i1 = (int) (e.nx*0.85);
 				int i2 = (int) (e.nx*0.92);
 
-				int j1 = (int) (e.ny*0.81);
-				int j2 = (int) (e.ny*0.93);
+				int j1 = (int) (e.ny*0.19);
+				int j2 = (int) (e.ny*0.05);
+				
+				int k = getSlice();
 
 				double tmin = 0;
 				double tmax = 1;
+				
+				int fi1 = e.renderer.embed_x((i1+i2)/2, j1, k);
+				int fj1 = e.renderer.embed_y((i1+i2)/2, j1, k);
+				int fk1 = e.renderer.embed_z((i1+i2)/2, j1, k);
+
+				int fi2 = e.renderer.embed_x((i1+i2)/2, j2, k);
+				int fj2 = e.renderer.embed_y((i1+i2)/2, j2, k);
+				int fk2 = e.renderer.embed_z((i1+i2)/2, j2, k);
 				
 				if (!(colorscheme == ScalarView.ColorScheme.GREEN || colorscheme == ScalarView.ColorScheme.WHITE))
 				{
@@ -910,25 +984,24 @@ public class Renderer extends PeriodicTask {
 					tmax = 2*(tmax-0.5);
 				}
 				if (scalarview == ScalarView.LIGHT) {
-					Text text = drawStringSimCoords("≥ " + e.units.toString(400e-9, Quantity.LENGTH), (i1+i2)/2, j2, g);
+					Text text = draw3dString("≥ " + e.units.toString(400e-9, Quantity.LENGTH), fi2, fj2, fk2);
 					text.isMonospaced = true;
 					text.isHorizontalCentered = true;
-					text = drawStringSimCoords("≤ " + e.units.toString(650e-9, Quantity.LENGTH), (i1+i2)/2, j1, g);
+					text = draw3dString("≤ " + e.units.toString(650e-9, Quantity.LENGTH), fi1, fj1, fk1);
 					text.isMonospaced = true;
 					text.isHorizontalCentered = true;
 					text.isBottomJustified = true;
 				} else {
-					Text text = drawStringSimCoords(e.units.toString(tmin/scalingconstant+scalar_offset, scalarview.unit), (i1+i2)/2, j2, g);
+					Text text = draw3dString(e.units.toString(tmin/scalingconstant+scalar_offset, scalarview.unit), fi2, fj2, fk2);
 					text.isMonospaced = true;
 					text.isHorizontalCentered = true;
-					text = drawStringSimCoords(e.units.toString(tmax/scalingconstant+scalar_offset, scalarview.unit), (i1+i2)/2, j1, g);
+					text = draw3dString(e.units.toString(tmax/scalingconstant+scalar_offset, scalarview.unit), fi1, fj1, fk1);
 					text.isMonospaced = true;
 					text.isHorizontalCentered = true;
 					text.isBottomJustified = true;
 				}
-				//TODO
 			}
-		}*/
+		}
 
 		{
 			int mx = e.controls.mx;
@@ -1079,6 +1152,12 @@ public class Renderer extends PeriodicTask {
 			text.isBottomJustified = true;
 			text.isRightJustified = true;
 		}
+		
+		if (!e.controls.slice.getOption().isSlice() && !e.controls.perspective.getOption().is3D()) {
+			Text text = drawString("Pick a slice.", imgpanel.getWidth()/2, imgpanel.getHeight()/2);
+			text.isHorizontalCentered = true;
+			text.isVerticalCentered = true;
+		}
 
 		if (g != null && e.opts.menu_axes.isSelected()) {
 			int pad = 15;
@@ -1215,6 +1294,7 @@ public class Renderer extends PeriodicTask {
 						npx = 0;
 						npy = 0;
 
+						boolean skip = false;
 						if (slice_x) {
 							vf_x = vf[1];
 							vf_y = vf[2];
@@ -1230,16 +1310,20 @@ public class Renderer extends PeriodicTask {
 							vf_y = vf[1];
 							npx = e.nx;
 							npy = e.ny;
+						} else {
+							skip = true;
 						}
 
 						slice = e.renderer.getSlice();
 
-						if (synchronized_vector_display_mode == VectorMode.LINES && !synchronized_draw3D) {
-							drawLines();
-						} else if (synchronized_vector_display_mode == VectorMode.ARROWS && !synchronized_draw3D) {
-							drawArrows();
-						} else if (synchronized_vector_display_mode == VectorMode.DOTS) {
-							drawDots();
+						if (!skip) {
+							if (synchronized_vector_display_mode == VectorMode.LINES && !synchronized_draw3D) {
+								drawLines();
+							} else if (synchronized_vector_display_mode == VectorMode.ARROWS && !synchronized_draw3D) {
+								drawArrows();
+							} else if (synchronized_vector_display_mode == VectorMode.DOTS) {
+								drawDots();
+							}
 						}
 					}
 					
@@ -1276,7 +1360,6 @@ public class Renderer extends PeriodicTask {
 						image_b[i][j][k] = 0;
 						opaque[i][j][k] = false;
 						translucent[i][j][k] = false;
-						solid[i][j][k] = false;
 					}
 				}
 			}
@@ -1298,8 +1381,7 @@ public class Renderer extends PeriodicTask {
 									alpha += 0.1;
 							}*/
 							setPixel(i, j, k, e.materials[i][j][k].type.color_r, e.materials[i][j][k].type.color_g, e.materials[i][j][k].type.color_b, 1f, 0f);
-							opaque[i][j][k] = e.materials[i][j][k].type != MaterialType.VACUUM;
-							solid[i][j][k] |= e.materials[i][j][k].type != MaterialType.VACUUM;
+							opaque[i][j][k] = (e.materials[i][j][k].type != MaterialType.VACUUM) && i >= nx_min && i <= nx_max && j >= ny_min && j <= ny_max && k >= nz_min && k <= nz_max;
 						}
 					}
 				}
@@ -1314,8 +1396,7 @@ public class Renderer extends PeriodicTask {
 									alpha += 0.1;
 							}*/
 							setPixel(i, j, k, e.materials[i][j][k].type.color_grayscale, e.materials[i][j][k].type.color_grayscale, e.materials[i][j][k].type.color_grayscale, 1f, 0f);
-							opaque[i][j][k] = e.materials[i][j][k].type != MaterialType.VACUUM;
-							solid[i][j][k] |= e.materials[i][j][k].type != MaterialType.VACUUM;
+							opaque[i][j][k] = (e.materials[i][j][k].type != MaterialType.VACUUM) && i >= nx_min && i <= nx_max && j >= ny_min && j <= ny_max && k >= nz_min && k <= nz_max;
 						}
 					}
 				}
@@ -1374,7 +1455,7 @@ public class Renderer extends PeriodicTask {
 					break;
 				}
 
-				e.computeScalarField(scalarfield, 0, 0, 0, scalarview);
+				e.computeScalarField(scalarfield, 0, 0, 0, scalarview, n_thread, n_threads);
 
 				if (e.hasGround() && display_relative_voltage) {
 					Ground ground = e.getGround();
@@ -1389,37 +1470,39 @@ public class Renderer extends PeriodicTask {
 
 				ScalarView.ColorScheme colorscheme = scalarview.colorscheme;
 
-				if (e.opts.menu_colormap.isSelected())
+				if (e.opts.menu_colormap.isSelected() && !e.controls.perspective.getOption().is3D())
 				{
-					int i1 = (int) (e.nx*0.85);
-					int i2 = (int) (e.nx*0.92);
+					int i1 = (int) (rx*0.85);
+					int i2 = (int) (rx*0.92);
 
-					int j1 = (int) (e.ny*0.82);
-					int j2 = (int) (e.ny*0.92);
+					int j1 = (int) (ry*0.08);
+					int j2 = (int) (ry*0.18);
 
-					int k1 = (int) (e.nz*0.82);
-					int k2 = (int) (e.nz*0.92);
-
+					int k = getSlice();
 
 					for (int i = i1; i <= i2; i++) {
 						for (int j = j1; j <= j2; j++) {
-							for (int k = k1; k <= k2; k++) {
-								double t = 0;
-								if (colorscheme == ScalarView.ColorScheme.RED_BLUE || colorscheme == ScalarView.ColorScheme.CYAN_YELLOW || scalarview == ScalarView.CHARGE) {
-									t = 2*((j2-j)/(double)(j2-j1)-0.5);
-									scalarfield[i][j][k] = t/scalingconstant + scalar_offset;
-								} else if (colorscheme == ScalarView.ColorScheme.WHITE || colorscheme == ScalarView.ColorScheme.GREEN) {
-									t = (j2-j)/(double)(j2-j1);
-									scalarfield[i][j][k] = t/scalingconstant + scalar_offset;
-								} else if (scalarview == ScalarView.LIGHT) {
-									t = (j2-j)/(double)(j2-j1);
-									scalarfield[i][j][k] = -(400+(650-400)*t)*1e50;
-								}
+							int fi = e.renderer.embed_x(i, j, k);
+							int fj = e.renderer.embed_y(i, j, k);
+							int fk = e.renderer.embed_z(i, j, k);
+							
+							double t = 0;
+							if (colorscheme == ScalarView.ColorScheme.RED_BLUE || colorscheme == ScalarView.ColorScheme.CYAN_YELLOW || scalarview == ScalarView.CHARGE) {
+								t = -2*((j2-j)/(double)(j2-j1)-0.5);
+								scalarfield[fi][fj][fk] = t/scalingconstant + scalar_offset;
+							} else if (colorscheme == ScalarView.ColorScheme.WHITE || colorscheme == ScalarView.ColorScheme.GREEN) {
+								t = 1-(j2-j)/(double)(j2-j1);
+								scalarfield[fi][fj][fk] = t/scalingconstant + scalar_offset;
+							} else if (scalarview == ScalarView.LIGHT) {
+								t = 1-(j2-j)/(double)(j2-j1);
+								scalarfield[fi][fj][fk] = -(400+(650-400)*t)*1e50;
 							}
 						}
 					}
 				}
 			}
+			
+			graphics_mid_barrier.await();
 
 			if (scalarmode == ScalarMode.CONTOUR_COLORS || scalarmode == ScalarMode.CONTOUR) {
 				for (int i = 1; i < e.nx-1; i++) if (i >= lower && i < upper) {
@@ -1927,7 +2010,6 @@ public class Renderer extends PeriodicTask {
 		}
 		
 		private void drawDots() {
-			boolean paused = e.opts.gui_paused.isSelected();
 			boolean conductors_only = synchronized_vector_view.isConductorOnly();
 
 			int lower = lower(dots.size());
@@ -1957,7 +2039,7 @@ public class Renderer extends PeriodicTask {
 					double dz = 0;
 					int steps = 10;
 
-					if (!paused) {
+					if (synchronized_update_dots) {
 						for (int k = 0; k < steps; k++) {
 							dx = Utils.bilinearinterp(vfr_x,d.x+grid_offset, d.y+dual_offset, d.z+dual_offset)*vectorscalingconstant/steps;
 							dy = Utils.bilinearinterp(vfr_y,d.x+dual_offset, d.y+grid_offset, d.z+dual_offset)*vectorscalingconstant/steps;
@@ -2241,17 +2323,17 @@ public class Renderer extends PeriodicTask {
 				int ycoord = 0;
 				int zcoord = 0;
 				if (slice_x) {
-					xcoord = text.y;
-					ycoord = e.nz - 1 - text.z;
-					zcoord = text.x - slice;
+					xcoord = (int)text.y;
+					ycoord = e.nz - 1 - (int)text.z;
+					zcoord = (int)text.x - slice;
 				} else if (slice_y) {
-					xcoord = text.x;
-					ycoord = e.nz - 1 - text.z;
-					zcoord = text.y - slice;
+					xcoord = (int)text.x;
+					ycoord = e.nz - 1 - (int)text.z;
+					zcoord = (int)text.y - slice;
 				} else if (slice_z) {
-					xcoord = text.x;
-					ycoord = e.ny - 1 - text.y;
-					zcoord = text.z - slice;
+					xcoord = (int)text.x;
+					ycoord = e.ny - 1 - (int)text.y;
+					zcoord = (int)text.z - slice;
 				}
 				
 				text.x = (int) ((xcoord-e.controls.zoom_i1+0.5)*sf_x+e.canvas.offset_x);
@@ -2272,8 +2354,8 @@ public class Renderer extends PeriodicTask {
 			if (Math.abs(text.z) > 4) continue;
 			if (text.hasBackground && (dodraw || text.bgcolor != null)) {
 				g.setFont(text.getFont());
-				int x = text.x-3;
-				int y = text.y+3;
+				int x = (int)text.x-3;
+				int y = (int)text.y+3;
 
 				g.setColor(Color.GRAY);
 				g.fillRect(x-2, y-2, text.width+4, text.height+4);
@@ -2285,8 +2367,8 @@ public class Renderer extends PeriodicTask {
 			if (text.hasBackground && (dodraw || text.bgcolor != null)) {
 				g.setFont(text.getFont());
 
-				int x = text.x-3;
-				int y = text.y+3;
+				int x = (int)text.x-3;
+				int y = (int)text.y+3;
 
 				if (text.bgcolor != null)
 					g.setColor(text.bgcolor);
@@ -2305,9 +2387,9 @@ public class Renderer extends PeriodicTask {
 				g.setFont(text.getFont());
 
 				g.setColor(Color.DARK_GRAY);
-				g.drawString(text.text, text.x+1, text.y+text.height-2);
+				g.drawString(text.text, (int)text.x+1, (int)text.y+(int)text.height-2);
 				g.setColor(Color.WHITE);
-				g.drawString(text.text, text.x, text.y+text.height-3);
+				g.drawString(text.text, (int)text.x, (int)text.y+(int)text.height-3);
 			}
 		}
 	}
@@ -2350,9 +2432,9 @@ public class Renderer extends PeriodicTask {
 		}
 		
 		String text;
-		int x;
-		int y;
-		int z;
+		float x;
+		float y;
+		float z;
 		int minwidth;
 		int width = 0;
 		int height = 0;
@@ -2376,6 +2458,14 @@ public class Renderer extends PeriodicTask {
 		}
 		
 		public Text(String text, int x, int y, int z) {
+			this.text = text;
+			this.x = x;
+			this.y = y;
+			this.z = z;
+			minwidth = 0;
+		}
+
+		public Text(String text, float x, float y, float z) {
 			this.text = text;
 			this.x = x;
 			this.y = y;
@@ -2643,9 +2733,7 @@ public class Renderer extends PeriodicTask {
 	}
 
 	public enum Perspective {
-		SLICE_X("2D x cross-section"),
-		SLICE_Y("2D y cross-section"),
-		SLICE_Z("2D z cross-section"),
+		SLICE_X("2D slice"),
 		ORTHO("3D orthographic"),
 		PERSPECTIVE("3D perspective");
 
@@ -2660,8 +2748,30 @@ public class Renderer extends PeriodicTask {
 			return name;
 		}
 		
-		public static boolean is3D(Perspective pers) {
-			return (pers == ORTHO || pers == PERSPECTIVE);
+		public boolean is3D() {
+			return (this == ORTHO || this == PERSPECTIVE);
+		}
+	}
+	
+	public enum Slice {
+		NONE("No slice"),
+		SLICE_X("x cross-section"),
+		SLICE_Y("y cross-section"),
+		SLICE_Z("z cross-section");
+
+		String name;
+		Slice(String name)
+		{
+			this.name = name;
+		}
+
+		@Override
+		public String toString() {
+			return name;
+		}
+		
+		public boolean isSlice() {
+			return (this != NONE);
 		}
 	}
 	
@@ -2681,8 +2791,8 @@ public class Renderer extends PeriodicTask {
 			return name;
 		}
 		
-		public static boolean isStereo(Stereo stereo) {
-			return (stereo == CROSS_EYE || stereo == PARALLEL);
+		public boolean isStereo() {
+			return (this == CROSS_EYE || this == PARALLEL);
 		}
 	}
 

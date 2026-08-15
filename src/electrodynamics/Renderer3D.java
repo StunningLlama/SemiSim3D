@@ -4,7 +4,11 @@
 
 package electrodynamics;
 import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontFormatException;
+import java.awt.Toolkit;
 import java.awt.geom.Rectangle2D;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
@@ -49,6 +53,7 @@ public class Renderer3D implements GLEventListener {
 
 	float aspect = 1;
 	float eye_offset = 0;
+	float z_near = 0.01f;
 	int width;
 	int height;
 	boolean isMainCanvas = false;
@@ -56,9 +61,16 @@ public class Renderer3D implements GLEventListener {
 	boolean pick = true;
 	Random rand = new Random();
 
-	TextRenderer smallFont;
-	TextRenderer bigFont;
+	Font Br57;
+	TextRenderer UIfont_small;
+	TextRenderer UIfont_big;
+	TextRenderer labelfont_small;
+	TextRenderer labelfont_big;
 	FPSAnimator animator;
+	float extra_res_scale = 3;
+	float textsize = 0.0025f;
+	float shadow = 0.0025f;
+	boolean use_pixel_font = false;
 
 	ArrayList<Text> fg_texts = new ArrayList<>();
 	ArrayList<Text> bg_texts = new ArrayList<>();
@@ -75,13 +87,25 @@ public class Renderer3D implements GLEventListener {
 		this.e = e;
 		GLProfile profile = GLProfile.get(GLProfile.GL2);
 		GLCapabilities capabilities = new GLCapabilities(profile);
-
+		
+		capabilities.setSampleBuffers(true);
+		capabilities.setNumSamples(4);
+		capabilities.setDepthBits(24);
+		
 		// Create canvas
 		canvas = new GLCanvas(capabilities);
+		//canvas.
 		canvas.addGLEventListener(this);
 		canvas.setSize(768, 768);
 
 		animator = new FPSAnimator(canvas, (int)e.renderer.targetframerate);
+		
+		try {
+			Br57 = Font.createFont(Font.TRUETYPE_FONT, SemiSim.getRootFile("images/Br57.ttf"));
+		} catch (FontFormatException | IOException e1) {
+			Br57 = new Font("Monospaced", Font.PLAIN, 12);
+			e1.printStackTrace();
+		}
 	}
 	
 	public void setResolution() {
@@ -105,8 +129,24 @@ public class Renderer3D implements GLEventListener {
 		viewport = Buffers.newDirectIntBuffer(4);
 		gl.glGetIntegerv(GL2.GL_VIEWPORT, viewport);
 		int font_scale = Device.isOnRetinaDisplay(canvas) ? 2:1;
-		smallFont = new TextRenderer(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 12/font_scale), true, true);
-		bigFont = new TextRenderer(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 16/font_scale), true, true);
+
+		if (use_pixel_font) {
+			int ppi = Toolkit.getDefaultToolkit().getScreenResolution();
+			labelfont_small = new TextRenderer(Br57.deriveFont(extra_res_scale * 7f * (ppi / 72f)), false, true);
+			labelfont_small.setSmoothing(false);
+			labelfont_big = new TextRenderer(Br57.deriveFont(extra_res_scale * 14f * (ppi / 72f)), false, true);
+			labelfont_big.setSmoothing(false);
+		} else {
+			labelfont_small = new TextRenderer(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, (int)(extra_res_scale*12/font_scale)), true, true);
+			labelfont_small.setSmoothing(false);
+			labelfont_big = new TextRenderer(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, (int)(extra_res_scale*16/font_scale)), true, true);
+			labelfont_big.setSmoothing(false);
+		}
+		
+		UIfont_small = new TextRenderer(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 12/font_scale), true, true);
+		UIfont_small.setSmoothing(false);
+		UIfont_big = new TextRenderer(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 16/font_scale), true, true);
+		UIfont_big.setSmoothing(false);
 		
 		setupPick(gl);
 	}
@@ -274,9 +314,9 @@ public class Renderer3D implements GLEventListener {
 		isOrtho = e.controls.perspective.getOption() == Perspective.ORTHO;
 		
 		if (isOrtho)
-			gl.glOrtho(-e.renderer.scale * aspect, e.renderer.scale * aspect, -e.renderer.scale, e.renderer.scale, 0, 128);
+			gl.glOrtho(-e.renderer.max_size*e.renderer.ortho_zoom * aspect, e.renderer.max_size*e.renderer.ortho_zoom * aspect, -e.renderer.max_size*e.renderer.ortho_zoom, e.renderer.max_size*e.renderer.ortho_zoom, 0, 16*e.renderer.max_size);
 		else
-			gl.glFrustum(-0.01*e.renderer.scale * aspect, 0.01*e.renderer.scale * aspect, -0.01*e.renderer.scale, 0.01*e.renderer.scale, 0.01*64, 4*64);
+			gl.glFrustum(-z_near*e.renderer.perspective_FOV * aspect, z_near*e.renderer.perspective_FOV * aspect, -z_near*e.renderer.perspective_FOV, z_near*e.renderer.perspective_FOV, z_near, 16*e.renderer.max_size);
 
 		gl.glRotatef(90f, 0.0f, 0.0f, 1.0f);
 		gl.glRotatef(90f, 0.0f, 1.0f, 0.0f);
@@ -292,12 +332,13 @@ public class Renderer3D implements GLEventListener {
 
 		gl.glTranslatef(0, eye_offset, 0);
 		gl.glRotatef(-eye_offset/d, 0.0f, 0.0f, 1.0f);
+		
 		gl.glRotatef(e.renderer.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
 		gl.glRotatef(-e.renderer.yaw*(float)(180/Math.PI), 0.0f, 0.0f, 1.0f);
 		gl.glTranslatef(-e.renderer.cam_x, -e.renderer.cam_y, -e.renderer.cam_z);
 	}
 
-	public void setupText(GL2 gl, float x, float y, float z) {
+	public void setupText(GL2 gl, float x, float y, float z, float skew, float width, float height) {
 		gl.glMatrixMode(GL2.GL_MODELVIEW);
 		gl.glLoadIdentity();
 
@@ -305,17 +346,18 @@ public class Renderer3D implements GLEventListener {
 		gl.glRotatef(-eye_offset/d, 0.0f, 0.0f, 1.0f);
 		gl.glRotatef(e.renderer.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
 		gl.glRotatef(-e.renderer.yaw*(float)(180/Math.PI), 0.0f, 0.0f, 1.0f);
-		
 		gl.glTranslatef(-e.renderer.cam_x, -e.renderer.cam_y, -e.renderer.cam_z);
 
 		gl.glTranslatef(x, y, z);
 		
-		//Inverse of previous operations
+		//Inverse of rotation
 		gl.glRotatef(e.renderer.yaw*(float)(180/Math.PI), 0.0f, 0.0f, 1.0f);
 		gl.glRotatef(-e.renderer.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
 		gl.glRotatef(eye_offset/d, 0.0f, 0.0f, 1.0f);
-		gl.glTranslatef(0, -eye_offset, 0);
-		
+
+		gl.glScalef(e.renderer.max_size, e.renderer.max_size, e.renderer.max_size);
+		gl.glTranslatef(skew, -skew, -skew);
+		gl.glTranslatef(0, width/2.0f, -height/2.5f);
 		gl.glRotatef((float)(90), 1.0f, 0.0f, 0.0f);
 		gl.glRotatef((float)(-90), 0.0f, 1.0f, 0.0f);
 		gl.glTranslatef(-x, -y, -z);
@@ -343,16 +385,16 @@ public class Renderer3D implements GLEventListener {
 
 			for (int i = 0; i < e.nx; i++) for (int j = 0; j < e.ny; j++) for (int k = 0; k < e.nz; k++) {
 				for (int direction = 1; direction <= 0b100000; direction = direction << 1) {
-					if ((e.renderer.opaque_surfs[i][j][k] & direction) != 0) {
+					if ((opaque_surfs[i][j][k] & direction) != 0) {
 						int di = ((direction&0b000011)+1)%3 - 1;
 						int dj = (((direction&0b001100) >> 2)+1)%3 - 1;
 						int dk = (((direction&0b110000) >> 4)+1)%3 - 1;
 						//float r = e.materials[i][j][k].type.color_r/255f;
 						//float g = e.materials[i][j][k].type.color_g/255f;
 						//float b = e.materials[i][j][k].type.color_b/255f;
-						float r = e.renderer.image_r[i][j][k];
-						float g = e.renderer.image_g[i][j][k];
-						float b = e.renderer.image_b[i][j][k];
+						float r = image_r[i][j][k];
+						float g = image_g[i][j][k];
+						float b = image_b[i][j][k];
 						float light = (float)(0.8+0.2*di+0.1*dj+0.05*dk);
 						gl.glColor4f(r*light, g*light, b*light, alpha);
 						if (di == -1) {
@@ -405,59 +447,59 @@ public class Renderer3D implements GLEventListener {
 
 			for (int i = 0; i < e.nx; i++) for (int j = 0; j < e.ny; j++) for (int k = 0; k < e.nz; k++) {
 				for (int direction = 1; direction <= 0b100000; direction = direction << 1) {
-					if ((e.renderer.translucent_surfs[i][j][k] & direction) != 0) {
+					if ((translucent_surfs[i][j][k] & direction) != 0) {
 						int di = ((direction&0b000011)+1)%3 - 1;
 						int dj = (((direction&0b001100) >> 2)+1)%3 - 1;
 						int dk = (((direction&0b110000) >> 4)+1)%3 - 1;
-						float r = e.renderer.image_r[i][j][k];
-						float g = e.renderer.image_g[i][j][k];
-						float b = e.renderer.image_b[i][j][k];
+						float r = image_r[i][j][k];
+						float g = image_g[i][j][k];
+						float b = image_b[i][j][k];
 						float light = (float)(0.8+0.2*di+0.1*dj+0.05*dk);
 
 						gl.glColor4f(r*light, g*light, b*light, 0.4f);
-						float eps = 0.01f;
+						float eps = 0.001f;
 						if (di == -1) {
-							gl.glVertex3f(i-eps, j-eps, k-eps);
-							gl.glVertex3f(i-eps, j+1+eps, k-eps);
-							gl.glVertex3f(i-eps, j+1+eps, k+1+eps);
-							gl.glVertex3f(i-eps, j-eps, k-eps);
-							gl.glVertex3f(i-eps, j-eps, k+1+eps);
-							gl.glVertex3f(i-eps, j+1+eps, k+1+eps);
+							gl.glVertex3f(i-eps, j, k);
+							gl.glVertex3f(i-eps, j+1, k);
+							gl.glVertex3f(i-eps, j+1, k+1);
+							gl.glVertex3f(i-eps, j, k);
+							gl.glVertex3f(i-eps, j, k+1);
+							gl.glVertex3f(i-eps, j+1, k+1);
 						} else if (di == 1) {
-							gl.glVertex3f(i+1+eps, j-eps, k-eps);
-							gl.glVertex3f(i+1+eps, j+1+eps, k-eps);
-							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
-							gl.glVertex3f(i+1+eps, j-eps, k-eps);
-							gl.glVertex3f(i+1+eps, j-eps, k+1+eps);
-							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
+							gl.glVertex3f(i+1+eps, j, k);
+							gl.glVertex3f(i+1+eps, j+1, k);
+							gl.glVertex3f(i+1+eps, j+1, k+1);
+							gl.glVertex3f(i+1+eps, j, k);
+							gl.glVertex3f(i+1+eps, j, k+1);
+							gl.glVertex3f(i+1+eps, j+1, k+1);
 						} else if (dj == -1) {
-							gl.glVertex3f(i-eps, j-eps, k-eps);
-							gl.glVertex3f(i+1+eps, j-eps, k-eps);
-							gl.glVertex3f(i+1+eps, j-eps, k+1+eps);
-							gl.glVertex3f(i-eps, j-eps, k-eps);
-							gl.glVertex3f(i-eps, j-eps, k+1+eps);
-							gl.glVertex3f(i+1+eps, j-eps, k+1+eps);
+							gl.glVertex3f(i, j-eps, k);
+							gl.glVertex3f(i+1, j-eps, k);
+							gl.glVertex3f(i+1, j-eps, k+1);
+							gl.glVertex3f(i, j-eps, k);
+							gl.glVertex3f(i, j-eps, k+1);
+							gl.glVertex3f(i+1, j-eps, k+1);
 						} else if (dj == 1) {
-							gl.glVertex3f(i-eps, j+1+eps, k-eps);
-							gl.glVertex3f(i+1+eps, j+1+eps, k-eps);
-							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
-							gl.glVertex3f(i-eps, j+1+eps, k-eps);
-							gl.glVertex3f(i-eps, j+1+eps, k+1+eps);
-							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
+							gl.glVertex3f(i, j+1+eps, k);
+							gl.glVertex3f(i+1, j+1+eps, k);
+							gl.glVertex3f(i+1, j+1+eps, k+1);
+							gl.glVertex3f(i, j+1+eps, k);
+							gl.glVertex3f(i, j+1+eps, k+1);
+							gl.glVertex3f(i+1, j+1+eps, k+1);
 						} else if (dk == -1) {
-							gl.glVertex3f(i-eps, j-eps, k-eps);
-							gl.glVertex3f(i-eps, j+1+eps, k-eps);
-							gl.glVertex3f(i+1+eps, j+1+eps, k-eps);
-							gl.glVertex3f(i-eps, j-eps, k-eps);
-							gl.glVertex3f(i+1+eps, j-eps, k-eps);
-							gl.glVertex3f(i+1+eps, j+1+eps, k-eps);
+							gl.glVertex3f(i, j, k-eps);
+							gl.glVertex3f(i, j+1, k-eps);
+							gl.glVertex3f(i+1, j+1, k-eps);
+							gl.glVertex3f(i, j, k-eps);
+							gl.glVertex3f(i+1, j, k-eps);
+							gl.glVertex3f(i+1, j+1, k-eps);
 						} else if (dk == 1) {
-							gl.glVertex3f(i-eps, j-eps, k+1+eps);
-							gl.glVertex3f(i-eps, j+1+eps, k+1+eps);
-							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
-							gl.glVertex3f(i-eps, j-eps, k+1+eps);
-							gl.glVertex3f(i+1+eps, j-eps, k+1+eps);
-							gl.glVertex3f(i+1+eps, j+1+eps, k+1+eps);
+							gl.glVertex3f(i, j, k+1+eps);
+							gl.glVertex3f(i, j+1, k+1+eps);
+							gl.glVertex3f(i+1, j+1, k+1+eps);
+							gl.glVertex3f(i, j, k+1+eps);
+							gl.glVertex3f(i+1, j, k+1+eps);
+							gl.glVertex3f(i+1, j+1, k+1+eps);
 						}
 					}
 				}
@@ -613,7 +655,7 @@ public class Renderer3D implements GLEventListener {
 
 							ctr.add(o);
 							double depth = ctr.dot(g);
-							float gray = 0.5f*(float)Math.exp(-depth/16.0);
+							float gray = 0.5f*(float)Math.exp(-0.5*depth/e.renderer.max_size);
 							float alpha = (float)(0.1*Math.sqrt(fieldmagnitude));
 
 							gl.glColor4f(gray, gray, gray, alpha);
@@ -678,12 +720,14 @@ public class Renderer3D implements GLEventListener {
 		gl.glBegin(GL2.GL_LINES);
 
 		if (e.opts.menu_axes.isSelected()) {
-			gl.glColor4f(1, 0, 0, 1);
-			ArrowDrawer.drawArrow(gl, 0, 0, 0, 1, 0, 0, g, 4, 0.1f*4f);
-			gl.glColor4f(0, 1, 0, 1);
-			ArrowDrawer.drawArrow(gl, 0, 0, 0, 0, 1, 0, g, 4, 0.1f*4f);
-			gl.glColor4f(0, 0, 1, 1);
-			ArrowDrawer.drawArrow(gl, 0, 0, 0, 0, 0, 1, g, 4, 0.1f*4f);
+			float axislength = 4*e.renderer.max_size/32f;
+			
+			gl.glColor4f(0.9f, 0.1f, 0.2f, 1);
+			ArrowDrawer.drawArrow(gl, 0, 0, 0, 1, 0, 0, g, axislength, 0.1f*axislength);
+			gl.glColor4f(0.2f, 0.8f, 0.1f, 1);
+			ArrowDrawer.drawArrow(gl, 0, 0, 0, 0, 1, 0, g, axislength, 0.1f*axislength);
+			gl.glColor4f(0.4f, 0.5f, 0.9f, 1);
+			ArrowDrawer.drawArrow(gl, 0, 0, 0, 0, 0, 1, g, axislength, 0.1f*axislength);
 		}
 
 		gl.glEnd();
@@ -705,9 +749,11 @@ public class Renderer3D implements GLEventListener {
 		}
 
 		if (e.opts.menu_axes.isSelected()) {
-			bg_texts.add(new Text("x", 3, 0, 0));
-			bg_texts.add(new Text("y", 0, 3, 0));
-			bg_texts.add(new Text("z", 0, 0, 3));
+			float axislength = 4.75f*e.renderer.max_size/32f;
+
+			bg_texts.add(new Text("X", axislength-0.5f, -0.5f, -0.5f));
+			bg_texts.add(new Text("Y", -0.5f, axislength-0.5f, -0.5f));
+			bg_texts.add(new Text("Z", -0.5f, 0-0.5f, axislength-0.5f));
 		}
 
 		for (Text t : bg_texts)
@@ -716,11 +762,20 @@ public class Renderer3D implements GLEventListener {
 		for (Text text : bg_texts) {
 			if (text.isBig) {
 				if (text.is3D) {
-					setupText(gl, text.x+0.5f, text.y+0.5f, text.z+0.5f);
-					bigFont.begin3DRendering();
-					bigFont.setColor(Color.WHITE);
-					bigFont.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, 0.08f);
-					bigFont.end3DRendering();
+					Rectangle2D bounds = labelfont_big.getBounds(text.text);
+					if (shadow > 0) {
+						setupText(gl, text.x+0.5f, text.y+0.5f, text.z+0.5f, shadow, (float)bounds.getWidth()*textsize/extra_res_scale, (float)bounds.getHeight()*textsize/extra_res_scale);
+						labelfont_big.begin3DRendering();
+						labelfont_big.setColor(Color.WHITE);
+						labelfont_big.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, textsize/extra_res_scale);
+						labelfont_big.end3DRendering();
+					}
+
+					setupText(gl, text.x+0.5f, text.y+0.5f, text.z+0.5f, 0, (float)bounds.getWidth()*textsize/extra_res_scale, (float)bounds.getHeight()*textsize/extra_res_scale);
+					labelfont_big.begin3DRendering();
+					labelfont_big.setColor(Color.WHITE);
+					labelfont_big.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, textsize/extra_res_scale);
+					labelfont_big.end3DRendering();
 				}
 			}
 		}
@@ -728,11 +783,21 @@ public class Renderer3D implements GLEventListener {
 		for (Text text : bg_texts) {
 			if (!text.isBig) {
 				if (text.is3D) {
-					setupText(gl, text.x+0.5f, text.y+0.5f, text.z+0.5f);
-					smallFont.begin3DRendering();
-					smallFont.setColor(Color.WHITE);
-					smallFont.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, 0.08f);
-					smallFont.end3DRendering();
+					Rectangle2D bounds = labelfont_small.getBounds(text.text);
+					
+					if (shadow > 0) {
+						setupText(gl, text.x+0.5f, text.y+0.5f, text.z+0.5f, shadow, (float)bounds.getWidth()*textsize/extra_res_scale, (float)bounds.getHeight()*textsize/extra_res_scale);
+						labelfont_small.begin3DRendering();
+						labelfont_small.setColor(Color.BLACK);
+						labelfont_small.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, textsize/extra_res_scale);
+						labelfont_small.end3DRendering();
+					}
+					
+					setupText(gl, text.x+0.5f, text.y+0.5f, text.z+0.5f, 0, (float)bounds.getWidth()*textsize/extra_res_scale, (float)bounds.getHeight()*textsize/extra_res_scale);
+					labelfont_small.begin3DRendering();
+					labelfont_small.setColor(Color.WHITE);
+					labelfont_small.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, textsize/extra_res_scale);
+					labelfont_small.end3DRendering();
 				}
 			}
 		}
@@ -742,11 +807,21 @@ public class Renderer3D implements GLEventListener {
 		for (Text text : fg_texts) {
 			if (text.isBig) {
 				if (text.is3D) {
-					setupText(gl, text.x+0.5f, text.y+0.5f, text.z+0.5f);
-					bigFont.begin3DRendering();
-					bigFont.setColor(Color.WHITE);
-					bigFont.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, 0.08f);
-					bigFont.end3DRendering();
+					Rectangle2D bounds = labelfont_big.getBounds(text.text);
+					
+					if (shadow > 0) {
+						setupText(gl, text.x+0.5f, text.y+0.5f, text.z+0.5f, shadow, (float)bounds.getWidth()*textsize/extra_res_scale, (float)bounds.getHeight()*textsize/extra_res_scale);
+						labelfont_big.begin3DRendering();
+						labelfont_big.setColor(Color.BLACK);
+						labelfont_big.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, textsize/extra_res_scale);
+						labelfont_big.end3DRendering();
+					}
+
+					setupText(gl, text.x+0.5f, text.y+0.5f, text.z+0.5f, 0, (float)bounds.getWidth()*textsize/extra_res_scale, (float)bounds.getHeight()*textsize/extra_res_scale);
+					labelfont_big.begin3DRendering();
+					labelfont_big.setColor(Color.WHITE);
+					labelfont_big.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, textsize/extra_res_scale);
+					labelfont_big.end3DRendering();
 				}
 			}
 		}
@@ -754,11 +829,21 @@ public class Renderer3D implements GLEventListener {
 		for (Text text : fg_texts) {
 			if (!text.isBig) {
 				if (text.is3D) {
-					setupText(gl, text.x+0.5f, text.y+0.5f, text.z+0.5f);
-					smallFont.begin3DRendering();
-					smallFont.setColor(Color.WHITE);
-					smallFont.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, 0.08f);
-					smallFont.end3DRendering();
+					Rectangle2D bounds = labelfont_small.getBounds(text.text);
+					
+					if (shadow > 0) {
+						setupText(gl, text.x+0.5f, text.y+0.5f, text.z+0.5f, shadow, (float)bounds.getWidth()*textsize/extra_res_scale, (float)bounds.getHeight()*textsize/extra_res_scale);
+						labelfont_small.begin3DRendering();
+						labelfont_small.setColor(Color.BLACK);
+						labelfont_small.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, textsize/extra_res_scale);
+						labelfont_small.end3DRendering();
+					}
+
+					setupText(gl, text.x+0.5f, text.y+0.5f, text.z+0.5f, 0, (float)bounds.getWidth()*textsize/extra_res_scale, (float)bounds.getHeight()*textsize/extra_res_scale);
+					labelfont_small.begin3DRendering();
+					labelfont_small.setColor(Color.WHITE);
+					labelfont_small.draw3D(text.text, text.x+0.5f, text.y+0.5f, text.z+0.5f, textsize/extra_res_scale);
+					labelfont_small.end3DRendering();
 				}
 			}
 		}
@@ -775,9 +860,9 @@ public class Renderer3D implements GLEventListener {
 		for (Text text : ui_texts) {
 			Rectangle2D bounds;
 			if (text.isBig) 
-				bounds = bigFont.getBounds(text.text);
+				bounds = UIfont_big.getBounds(text.text);
 			else
-				bounds = smallFont.getBounds(text.text);
+				bounds = UIfont_small.getBounds(text.text);
 
 			text.width = (int)bounds.getWidth();
 			text.height = (int)bounds.getHeight();
@@ -798,13 +883,13 @@ public class Renderer3D implements GLEventListener {
 					if (text.hasBackground) {
 						Rectangle2D bounds;
 						if (text.isBig) 
-							bounds = bigFont.getBounds(text.text);
+							bounds = UIfont_big.getBounds(text.text);
 						else
-							bounds = smallFont.getBounds(text.text);
+							bounds = UIfont_small.getBounds(text.text);
 						int width = (int)Math.max(text.minwidth, bounds.getWidth()+8);
 						int height = (int)bounds.getHeight()+4;
-						int x = text.x-3;
-						int y = text.y-height+6;
+						int x = (int)text.x-3;
+						int y = (int)text.y-height+6;
 
 						if (pass == 1) {
 							gl.glColor3f(0.5f, 0.5f, 0.5f);
@@ -819,27 +904,27 @@ public class Renderer3D implements GLEventListener {
 			gl.glEnd();
 		}
 
-		bigFont.beginRendering(canvas.getWidth(), canvas.getHeight());
+		UIfont_big.beginRendering(canvas.getWidth(), canvas.getHeight());
 
 		for (Text text : ui_texts) {
 			if (text.isBig && !text.is3D) {
-				bigFont.setColor(Color.WHITE);
-				bigFont.draw(text.text, text.x, canvas.getHeight()-(text.y));
+				UIfont_big.setColor(Color.WHITE);
+				UIfont_big.draw(text.text, (int)text.x, canvas.getHeight()-(int)(text.y));
 			}
 		}
 
-		bigFont.endRendering();
+		UIfont_big.endRendering();
 
-		smallFont.beginRendering(canvas.getWidth(), canvas.getHeight());
+		UIfont_small.beginRendering(canvas.getWidth(), canvas.getHeight());
 
 		for (Text text : ui_texts) {
 			if (!text.isBig && !text.is3D) {
-				smallFont.setColor(Color.WHITE);
-				smallFont.draw(text.text, text.x, canvas.getHeight()-(text.y));
+				UIfont_small.setColor(Color.WHITE);
+				UIfont_small.draw(text.text, (int)text.x, canvas.getHeight()-(int)(text.y));
 			}
 		}
 
-		smallFont.endRendering();
+		UIfont_small.endRendering();
 	}
 
 	public void drawDot(GL2 gl, float i, float j, float k, float i2, float j2, float k2, float r, float g, float b, float alpha) {
@@ -951,7 +1036,7 @@ public class Renderer3D implements GLEventListener {
 		gl.glBegin(GL2.GL_TRIANGLES);
 		for (int i = 0; i < e.nx; i++) for (int j = 0; j < e.ny; j++) for (int k = 0; k < e.nz; k++) {
 			for (int direction = 1; direction <= 0b100000; direction = direction << 1) {
-				if ((e.renderer.opaque_surfs[i][j][k] & direction) != 0) {
+				if ((opaque_surfs[i][j][k] & direction) != 0) {
 					int di = ((direction&0b000011)+1)%3 - 1;
 					int dj = (((direction&0b001100) >> 2)+1)%3 - 1;
 					int dk = (((direction&0b110000) >> 4)+1)%3 - 1;

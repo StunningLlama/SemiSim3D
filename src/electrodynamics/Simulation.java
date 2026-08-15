@@ -58,8 +58,10 @@ public class Simulation extends PeriodicTask {
 	//screenshots
 	
 	//Update manual
-	//Fix color scale
 	//Add heat and entropy
+	//Implement arrow length 
+	//Graphics settings
+	//Save camera position
 	
 	/* Parts */
 	
@@ -2223,16 +2225,24 @@ public class Simulation extends PeriodicTask {
 		}
 	}
 	
-	public void computeScalarField(double[][][] scalarfield, int i1, int j1, int k1, ScalarView scalarview) {
+	public void computeScalarField(double[][][] scalarfield, int i1, int j1, int k1, ScalarView scalarview, int n_thread, int n_threads) {
 		int sx = scalarfield.length;
 		int sy = scalarfield[0].length;
 		int sz = scalarfield[0][0].length;
+
+		int lower = 0;
+		int upper = sx;
+		
+		if (n_threads > 0) {
+			lower = Math.min((n_thread*sx)/n_threads, sx);
+			upper = Math.min(((n_thread+1)*sx)/n_threads, sx);
+		}
 
 		switch (scalarview) {
 		case NONE:
 			break;
 		case B_FIELD:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						if (i + i1 > 0 && j + j1 > 0 && k + k1 > 0 && i + i1 < nx-1 && j + j1 < ny-1 && k + k1 < nz-1)
@@ -2242,7 +2252,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case E_FIELD:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						if (i + i1 > 0 && j + j1 > 0 && k + k1 > 0 && i + i1 < nx-1 && j + j1 < ny-1 && k + k1 < nz-1)
@@ -2252,7 +2262,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case D_FIELD:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						if (i + i1 > 0 && j + j1 > 0 && k + k1 > 0 && i + i1 < nx-1 && j + j1 < ny-1 && k + k1 < nz-1)
@@ -2262,7 +2272,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case H_FIELD:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						if (i + i1 > 0 && j + j1 > 0 && k + k1 > 0 && i + i1 < nx-1 && j + j1 < ny-1 && k + k1 < nz-1)
@@ -2272,7 +2282,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case CURRENT:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						if (i + i1 > 0 && j + j1 > 0 && k + k1 > 0 && i + i1 < nx-1 && j + j1 < ny-1 && k + k1 < nz-1)
@@ -2282,7 +2292,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case POTENTIAL:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						scalarfield[i][j][k] = phi[i+i1][j+j1][k+k1];
@@ -2291,7 +2301,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case CHARGE:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						scalarfield[i][j][k] = rho_free[i+i1][j+j1][k+k1];
@@ -2300,7 +2310,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case BACKGROUND_CHARGE:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						scalarfield[i][j][k] = rho_back[i+i1][j+j1][k+k1];
@@ -2309,7 +2319,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case ELECTRON_CHARGE:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						scalarfield[i][j][k] = rho_n[i+i1][j+j1][k+k1];
@@ -2318,7 +2328,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case HOLE_CHARGE:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						scalarfield[i][j][k] = rho_p[i+i1][j+j1][k+k1];
@@ -2327,7 +2337,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case COMBINED_CHARGE:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						scalarfield[i][j][k] = Double.NaN;
@@ -2336,7 +2346,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case HEAT:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						scalarfield[i][j][k] = heat[i+i1][j+j1][k+k1];
@@ -2345,7 +2355,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case ELECTRON_POTENTIAL:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						scalarfield[i][j][k] = mu_n[i+i1][j+j1][k+k1]/eVtoJ;
@@ -2354,7 +2364,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case HOLE_POTENTIAL:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						scalarfield[i][j][k] = -mu_p[i+i1][j+j1][k+k1]/eVtoJ;
@@ -2363,7 +2373,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case DEBUG:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						scalarfield[i][j][k] = debug[i+i1][j+j1][k+k1];
@@ -2372,7 +2382,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case GENERATION:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						scalarfield[i][j][k] = G[i+i1][j+j1][k+k1];
@@ -2381,7 +2391,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case RECOMBINATION:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						scalarfield[i][j][k] = R[i+i1][j+j1][k+k1];
@@ -2390,7 +2400,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case AVERAGE_POTENTIAL:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						scalarfield[i][j][k] = V_avg[i+i1][j+j1][k+k1]; // -offset
@@ -2399,7 +2409,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case ELECTRON_DENSITY:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						scalarfield[i][j][k] = rho_n[i+i1][j+j1][k+k1]/q_n;
@@ -2408,7 +2418,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case ELECTRON_VEL:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						if (i + i1 > 0 && j + j1 > 0 && k + k1 > 0 && i + i1 < nx-1 && j + j1 < ny-1 && k + k1 < nz-1)
@@ -2418,7 +2428,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case ELECTRON_VOLTAGE:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						scalarfield[i][j][k] = -mu_n[i+i1][j+j1][k+k1]/eVtoJ;
@@ -2427,7 +2437,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case ENERGY:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						if (i + i1 > 0 && j + j1 > 0 && k + k1 > 0 && i + i1 < nx-1 && j + j1 < ny-1 && k + k1 < nz-1) {
@@ -2444,7 +2454,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case ENTROPY:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int k = 0; k < sz; k++) {
 					for (int j = 0; j < sy; j++) {
 						scalarfield[i][j][k] = entropy[i+i1][j+j1][k+k1];
@@ -2453,7 +2463,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case HOLE_DENSITY:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						scalarfield[i][j][k] = rho_p[i+i1][j+j1][k+k1]/q_p;
@@ -2462,7 +2472,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case HOLE_VEL:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						if (i + i1 > 0 && j + j1 > 0 && k + k1 > 0 && i + i1 < nx-1 && j + j1 < ny-1 && k + k1 < nz-1)
@@ -2472,7 +2482,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case HOLE_VOLTAGE:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						scalarfield[i][j][k] = mu_p[i+i1][j+j1][k+k1]/eVtoJ;
@@ -2481,7 +2491,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case LIGHT:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						double n = rho_n[i+i1][j+j1][k+k1]/q_n;
@@ -2494,7 +2504,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case RECOMB_AUGER:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						double n = rho_n[i+i1][j+j1][k+k1]/q_n;
@@ -2505,7 +2515,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case RECOMB_RAD:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						double n = rho_n[i+i1][j+j1][k+k1]/q_n;
@@ -2516,7 +2526,7 @@ public class Simulation extends PeriodicTask {
 			}
 			break;
 		case RECOMB_SRH:
-			for (int i = 0; i < sx; i++) {
+			for (int i = 0; i < sx; i++) if (i >= lower && i < upper) {
 				for (int j = 0; j < sy; j++) {
 					for (int k = 0; k < sz; k++) {
 						double n = rho_n[i+i1][j+j1][k+k1]/q_n;
