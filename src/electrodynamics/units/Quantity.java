@@ -22,6 +22,8 @@ public enum Quantity {
 	VELOCITY("Velocity", "v",					-1, 1, 0, 0, 0),
 	DIFFUSIVITY("Diffusivity", "D",				-1, 2, 0, 0, 0),
 	ENTROPY_RATE("Entropy rate", "s",			-3, 2, 1, 0, -1),
+	AREA("Area", "A",							0, 2, 0, 0, 0),
+	VOLUME("Volume", "V",						0, 3, 0, 0, 0),
 	
 	ELECTRIC_POTENTIAL("Electric potential", "V",		-2, 2, 1, -1, 0),
 	ELECTRIC_CURRENT("Electric current", "I",			-1, 0, 0, 1, 0),
@@ -66,37 +68,30 @@ public enum Quantity {
 		this.no_prefixes = no_prefixes;
 	}
 	
-	public Quantity multiplyVolume() {
-		switch (this) {
-		case CHARGE_DENSITY: return CHARGE;
-		case NUMBER_DENSITY: return DIMENSIONLESS;
-		case RATE_DENSITY: return RATE;
-		case ENERGY_DENSITY: return ENERGY;
-		case POWER_DENSITY: return POWER;
-		case ENTROPY_DENSITY_RATE: return ENTROPY_RATE;
-		default: return null;
+	public Quantity multiply(Quantity other) {
+		for (Quantity q : Quantity.values()) {
+			if (q.time == this.time + other.time
+					&& q.len == this.len + other.len
+					&& q.mass == this.mass + other.mass
+					&& q.charge == this.charge + other.charge
+					&& q.temp == this.temp + other.temp)
+				return q;
 		}
+		
+		return null;
 	}
 	
-	public Quantity multiplyArea() {
-		switch (this) {
-		case CURRENT_DENSITY: return ELECTRIC_CURRENT;
-		case INTENSITY: return POWER;
-		case MAGNETIC_FLUX_DENSITY: return MAGNETIC_FLUX;
-		case ELECTRIC_FLUX_DENSITY: return CHARGE;
-		default: return null;
+	public Quantity divide(Quantity other) {
+		for (Quantity q : Quantity.values()) {
+			if (q.time == this.time - other.time
+					&& q.len == this.len - other.len
+					&& q.mass == this.mass - other.mass
+					&& q.charge == this.charge - other.charge
+					&& q.temp == this.temp - other.temp)
+				return q;
 		}
-	}
-	
-
-	public Quantity divideArea() {
-		switch (this) {
-		case ELECTRIC_CURRENT: return CURRENT_DENSITY;
-		case POWER: return INTENSITY;
-		case MAGNETIC_FLUX: return MAGNETIC_FLUX_DENSITY;
-		case CHARGE: return ELECTRIC_FLUX_DENSITY;
-		default: return null;
-		}
+		
+		return null;
 	}
 	
 	public String name;

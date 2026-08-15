@@ -899,6 +899,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 
 		e.controls.addKeyBinds(e.canvas);
 		e.controls.addKeyBinds(panel);
+		e.controls.addKeyBinds(e.renderer.imgpanel);
 		
 		InputMap im = (InputMap)UIManager.get("Button.focusInputMap");
 		im.put(KeyStroke.getKeyStroke("pressed SPACE"), "none");
@@ -923,6 +924,8 @@ public class MainWindow extends JFrame implements ComponentListener {
 		e.renderer.renderer_right_eye.canvas.addMouseMotionListener(e.controls);
 		e.renderer.renderer_right_eye.canvas.addMouseWheelListener(e.controls);
 		e.renderer.renderer_right_eye.canvas.addKeyListener(e.controls);
+		
+		e.renderer.imgpanel.addKeyListener(e.controls);
 		
 		addToolButton(Brush.INTERACT, 25);
 		addToolButton(Brush.DRAW, 25);

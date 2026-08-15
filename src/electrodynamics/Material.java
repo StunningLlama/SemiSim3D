@@ -16,10 +16,10 @@ public class Material {
 	public int conducting;
 	public int semiconducting;
 
-	public double emf;
-	public double emf_x;				// EMF strength
-	public double emf_y;				// EMF strength
-	public double emf_z;				// EMF strength
+	public double emf;				// EMF strength
+	public double emf_x;			// EMF direction x, EMF direction assumed to be normalized.
+	public double emf_y;			// EMF direction y
+	public double emf_z;			// EMF direction z
 	
 	public double eps_r;			// Permittivity
 	public double mu_r;				// Permeability

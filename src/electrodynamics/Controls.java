@@ -95,12 +95,14 @@ import electrodynamics.probe.ChargeProbe;
 import electrodynamics.probe.CurrentProbe;
 import electrodynamics.probe.FluxProbe;
 import electrodynamics.probe.Ground;
+import electrodynamics.probe.LineProbe;
 import electrodynamics.probe.PointProbe;
 import electrodynamics.probe.Probe;
 import electrodynamics.probe.Ruler;
 import electrodynamics.probe.VoltageProbe;
 import electrodynamics.probe.VolumeProbe;
 import electrodynamics.units.Quantity;
+import electrodynamics.util.Font7x5;
 import electrodynamics.util.OctahedralAction.OctahedralGenerator;
 import electrodynamics.util.Utils;
 import electrodynamics.util.Vector3;
@@ -228,6 +230,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	public double new_EMF = 0;
 	public double angle = 0;
 	public double emf_len;
+	public double cur_area;
 	public boolean setvoltage = true;
 	public BoundaryCondition prev_boundary = BoundaryCondition.DISSIPATIVE;
 
@@ -244,6 +247,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 
 	public int text_x = 0;
 	public int text_y = 0;
+	public int text_z = 0;
 	public boolean texting = false;
 
 	public double flashlight_strength;
@@ -373,7 +377,6 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		mouse_pressed_prev_middle = pressed_middle;
 
 		if (!e.renderer.threeD_mode) {
-
 			double sf_x = (zoom_i2-zoom_i1+1)/(double)e.canvas.zoom_bound_x;
 			double sf_y = (zoom_j2-zoom_j1+1)/(double)e.canvas.zoom_bound_y;
 		
@@ -386,28 +389,12 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 			mz_start_flat = e.renderer.getSlice();
 			mouse_in_bounds = (mx_flat >= 0 && mx_flat < e.renderer.rx && my_flat >= 0 && my_flat < e.renderer.ry);
 
-			if (e.renderer.slice_x) {
-				mx = mz_flat;
-				my = mx_flat;
-				mz = my_flat;
-				mx_start = mz_start_flat;
-				my_start = mx_start_flat;
-				mz_start = my_start_flat;
-			} else if (e.renderer.slice_y) {
-				mx = mx_flat;
-				my = mz_flat;
-				mz = my_flat;
-				mx_start = mx_start_flat;
-				my_start = mz_start_flat;
-				mz_start = my_start_flat;
-			} else if (e.renderer.slice_z) {
-				mx = mx_flat;
-				my = my_flat;
-				mz = mz_flat;
-				mx_start = mx_start_flat;
-				my_start = my_start_flat;
-				mz_start = mz_start_flat;
-			}
+			mx = e.renderer.embed_x(mx_flat, my_flat, mz_flat);
+			my = e.renderer.embed_y(mx_flat, my_flat, mz_flat);
+			mz = e.renderer.embed_z(mx_flat, my_flat, mz_flat);
+			mx_start = e.renderer.embed_x(mx_start_flat, my_start_flat, mz_start_flat);
+			my_start = e.renderer.embed_y(mx_start_flat, my_start_flat, mz_start_flat);
+			mz_start = e.renderer.embed_z(mx_start_flat, my_start_flat, mz_start_flat);
 		} else {
 			mx = mx_3d;
 			my = my_3d;
@@ -690,18 +677,19 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 			e.opts.gui_parameter2.setVisible(true);
 			e.opts.gui_parameter2_text.setVisible(true);
 
-			int directionval = e.opts.gui_parameter2.getValue()/6;
-			if (directionval == 0) {
-				e.opts.gui_parameter2_text.setText("Direction: Up");
-			}
-			if (directionval == 1) {
-				e.opts.gui_parameter2_text.setText("Direction: Right");
-			}
-			if (directionval == 2) {
-				e.opts.gui_parameter2_text.setText("Direction: Down");
-			}
-			if (directionval == 3) {
-				e.opts.gui_parameter2_text.setText("Direction: Left");
+			int angleSetting = e.opts.gui_parameter2.getValue()/4;
+			if (angleSetting == 0) {
+				e.opts.gui_parameter2_text.setText("EMF direction: +x");
+			} else if (angleSetting == 1) {
+				e.opts.gui_parameter2_text.setText("EMF direction: +y");
+			} else if (angleSetting == 2) {
+				e.opts.gui_parameter2_text.setText("EMF direction: +z");
+			} else if (angleSetting == 3) {
+				e.opts.gui_parameter2_text.setText("EMF direction: -x");
+			} else if (angleSetting == 4) {
+				e.opts.gui_parameter2_text.setText("EMF direction: -y");
+			} else if (angleSetting == 5) {
+				e.opts.gui_parameter2_text.setText("EMF direction: -z");
 			}
 		} else {
 			e.opts.gui_parameter2.setVisible(false);
@@ -721,7 +709,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 				if (!iscurrentselected) 
 					e.opts.gui_parameter3_text.setText("Voltage: " + e.units.toString(emf_len*new_EMF, Quantity.ELECTRIC_POTENTIAL));
 				else
-					e.opts.gui_parameter3_text.setText("Current: " + e.units.toString(e.depth*emf_len*new_EMF*e.currentsource_sigma, Quantity.ELECTRIC_CURRENT));
+					e.opts.gui_parameter3_text.setText("Current: " + e.units.toString(cur_area*new_EMF*e.currentsource_sigma, Quantity.ELECTRIC_CURRENT));
 			} else {
 				if (!iscurrentselected)
 					e.opts.gui_parameter3_text.setText("EMF: " + e.units.toString(new_EMF, Quantity.ELECTRIC_FIELD));
@@ -809,26 +797,10 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 			
 			GeneralMaterialType mat = (GeneralMaterialType) e.opts.gui_material.getSelectedItem();
 
-			int angleSetting = e.opts.gui_parameter2.getValue()/4;
-			if (angleSetting == 0) {
-				e.opts.gui_parameter2_text.setText("EMF direction: +x");
-			} else if (angleSetting == 1) {
-				e.opts.gui_parameter2_text.setText("EMF direction: +y");
-			} else if (angleSetting == 2) {
-				e.opts.gui_parameter2_text.setText("EMF direction: +z");
-			} else if (angleSetting == 3) {
-				e.opts.gui_parameter2_text.setText("EMF direction: -x");
-			}
-			else if (angleSetting == 4) {
-				e.opts.gui_parameter2_text.setText("EMF direction: -y");
-			}
-			else if (angleSetting == 5) {
-				e.opts.gui_parameter2_text.setText("EMF direction: -z");
-			}
-
 			if (pressed_right || releasing_right || brush == Brush.ERASE)
 				mat = GeneralMaterialType.EMPTY;
-			
+
+			int angleSetting = e.opts.gui_parameter2.getValue()/4;
 			GeneralMaterialType final_mat = mat;
 			BrushAction action = (i, j, k, in_bounds) -> {
 				if (in_bounds) {
@@ -887,6 +859,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 								}
 							}
 						}
+						flagChanges(true);
 					}
 				}
 				else if (brush == Brush.LIGHT) {
@@ -959,12 +932,10 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 					int setting = 0;
 					if (!iscurrentselected) {
 						setting = (int)(Math.round(50*e.materials[mx][my][mz].emf/e.max_EMF));
-						//getEMFBounds(e.materials[mx][my][mz].emf_direction);
-						//TODO
+						emf_len = calcVoltageLength(e.materials[mx][my][mz].emf_x, e.materials[mx][my][mz].emf_y, e.materials[mx][my][mz].emf_z);
 					} else {
 						setting = (int)(Math.round(50*e.materials[mx][my][mz].emf/(e.max_current/e.currentsource_sigma)));
-						//getEMFBounds(e.materials[mx][my][mz].emf_direction + Math.PI/2.0);
-						//TODO
+						cur_area = calcCurrentArea((int)Math.round(e.materials[mx][my][mz].emf_x), (int)Math.round(e.materials[mx][my][mz].emf_y), (int)Math.round(e.materials[mx][my][mz].emf_z));
 					}
 
 					e.opts.gui_parameter3.setValue(setting);
@@ -1245,6 +1216,9 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 				case POINT:
 					p = new PointProbe(mx_start, my_start, mz_start);
 					break;
+				case LINE:
+					p = new LineProbe(mx_start, my_start, mz_start);
+					break;
 				case AREA:
 					p = new AreaProbe(mx_start, my_start, mz_start);
 					break;
@@ -1288,6 +1262,34 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 						} else {
 							e.removeProbe(p);
 						}
+					} else if (p instanceof LineProbe) {
+						JList<VectorView> tmplist = new JList<>(VectorView.values());
+
+						tmplist.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+						tmplist.setVisibleRowCount(5);
+						tmplist.setSelectedValue(Preset.DEFAULT, true);
+						JScrollPane scrollPane = new JScrollPane(tmplist);
+						int result = JOptionPane.showConfirmDialog(null, scrollPane, "Select quantity", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+
+						if (result == JOptionPane.OK_OPTION) {
+							VectorView selected = tmplist.getSelectedValue();
+
+							if (selected != null) {
+								Quantity quantity = selected.unit;
+								quantity = quantity.multiply(Quantity.LENGTH);
+								if (quantity != null)
+								{
+									((LineProbe)p).vectorname = selected;
+									((LineProbe)p).shorthand = quantity.shorthand;
+									((LineProbe)p).quantity = quantity;
+									((LineProbe)p).custom = true;
+								} else {
+									e.removeProbe(p);
+								}
+							}
+						} else {
+							e.removeProbe(p);
+						}
 					} else if (p instanceof AreaProbe) {
 						JList<VectorView> tmplist = new JList<>(VectorView.values());
 
@@ -1302,7 +1304,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 
 							if (selected != null) {
 								Quantity quantity = selected.unit;
-								quantity = quantity.multiplyArea();
+								quantity = quantity.multiply(Quantity.AREA);
 								if (quantity != null)
 								{
 									((AreaProbe)p).vectorname = selected;
@@ -1332,6 +1334,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 
 							if (selected != null) {
 								Quantity quantity = selected.unit;
+								quantity = quantity.multiply(Quantity.VOLUME);
 
 								if (quantity != null)
 								{
@@ -1394,8 +1397,9 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 			currentCursor = TEXT_CURSOR;
 			if (pressed_left) {
 				startTextInput();
-				text_x = mx;
-				text_y = my-3;
+				text_x = mx_flat;
+				text_y = my_flat-3;
+				text_z = mz_flat;
 			}
 			break;
 		case GROUND:
@@ -1629,9 +1633,11 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		return c_opt;
 	}
 
-	public void getEMFBounds(double direction) {
-		/*double dx = Math.cos(direction);
-		double dy = Math.sin(direction);
+	public double calcVoltageLength(double dirx, double diry, double dirz) {
+		double dir_mag = Utils.length(dirx, diry, dirz);
+		double dx = dirx/dir_mag;
+		double dy = diry/dir_mag;
+		double dz = dirz/dir_mag;
 		
 		double r_min = Double.MAX_VALUE;
 		double r_max = -Double.MAX_VALUE;
@@ -1640,16 +1646,66 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		{
 			for (int j = 0; j < e.ny; j++)
 			{
-				if (selected_EMF[i][j]) {
-					double r = dx*i + dy*j;
-					if (r > r_max) r_max = r;
-					if (r < r_min) r_min = r;
+				for (int k = 0; k < e.nz; k++)
+				{
+					if (selected_EMF[i][j][k]) {
+						double r = dx*i + dy*j + dz*k;
+						if (r > r_max) r_max = r;
+						if (r < r_min) r_min = r;
+					}
+				}
+			}
+		}
+
+		return (r_max-r_min+1)*e.ds;
+	}
+	
+	public double calcCurrentArea(int dx, int dy, int dz) {
+		
+		if (Math.abs(dx) + Math.abs(dy) + Math.abs(dz) > 1)
+			throw new RuntimeException("Invalid input to calcCurrentArea.");
+		
+		int total = 0;
+		
+		if (Math.abs(dz) > 0) {
+			for (int i = 0; i < e.nx; i++)
+			{
+				for (int j = 0; j < e.ny; j++)
+				{
+					boolean occupied = false;
+					for (int k = 0; k < e.nz; k++)
+						occupied |= selected_EMF[i][j][k];
+					if (occupied)
+						total += 1;
+				}
+			}
+		} else if (Math.abs(dy) > 0) {
+			for (int i = 0; i < e.nx; i++)
+			{
+				for (int k = 0; k < e.nz; k++)
+				{
+					boolean occupied = false;
+					for (int j = 0; j < e.ny; j++)
+						occupied |= selected_EMF[i][j][k];
+					if (occupied)
+						total += 1;
+				}
+			}
+		} else if (Math.abs(dx) > 0) {
+			for (int j = 0; j < e.ny; j++)
+			{
+				for (int k = 0; k < e.nz; k++)
+				{
+					boolean occupied = false;
+					for (int i = 0; i < e.nx; i++)
+						occupied |= selected_EMF[i][j][k];
+					if (occupied)
+						total += 1;
 				}
 			}
 		}
 		
-		emf_len = (r_max-r_min+1)*e.ds;*/
-		//TODO
+		return total*e.ds*e.ds;
 	}
 	
 	public void resetZoom() {
@@ -1664,6 +1720,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		if (!texting) {
 			removeKeyBinds(e.canvas);
 			removeKeyBinds(e.opts.panel);
+			removeKeyBinds(e.renderer.imgpanel);
 			e.opts.menuBar.setEnabled(false);
 			texting = true;
 		}
@@ -1673,6 +1730,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		if (texting) {
 			addKeyBinds(e.canvas);
 			addKeyBinds(e.opts.panel);
+			addKeyBinds(e.renderer.imgpanel);
 			e.opts.menuBar.setEnabled(true);
 			texting = false;
 		}
@@ -2599,13 +2657,20 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 
 	@Override
 	public void keyTyped(KeyEvent ev) {
-		/*if (texting) {
+		if (texting) {
 			if (Font7x5.getCharacter(ev.getKeyChar()) != null) {
 				for (int i = 0; i < 5; i++) {
 					for (int j = 0; j < 7; j++) {
-						if (text_x+i+1 >= 0 && text_x+i+1 < e.nx && text_y+j >= 0 && text_y+j < e.ny
-						&& Font7x5.getPixel(ev.getKeyChar(), 4-i, j, k) == 1 && e.materials[text_x+i+1][text_y+j].type == MaterialType.VACUUM) {
-							e.initializeMaterial(e.materials[text_x+i+1][text_y+j], MaterialType.DECO);
+						int scx = text_x+i+1;
+						int scy = text_y+j;
+						int scz = text_z;
+						
+						int fi = e.renderer.embed_x(scx, scy, scz);
+						int fj = e.renderer.embed_y(scx, scy, scz);
+						int fk = e.renderer.embed_z(scx, scy, scz);
+						if (fi >= 0 && fi < e.nx && fj >= 0 && fj < e.ny && fk >= 0 && fk < e.nz
+						&& Font7x5.getPixel(ev.getKeyChar(), 4-i, 6-j) == 1 && e.materials[fi][fj][fk].type == MaterialType.VACUUM) {
+							e.initializeMaterial(e.materials[fi][fj][fk], MaterialType.DECO);
 						}
 					}
 				}
@@ -2613,12 +2678,12 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 				flagChanges(false);
 				e.updateAllMaterials(false);
 			}
-		}*/
+		}
 	}
 
 	@Override
 	public void keyPressed(KeyEvent ev) {
-		/*if (texting) {
+		if (texting) {
 			if (ev.getKeyCode() == KeyEvent.VK_ESCAPE || ev.getKeyCode() == KeyEvent.VK_ENTER) {
 				endTextInput();
 				return;
@@ -2626,18 +2691,26 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 
 			if (ev.getKeyCode() == KeyEvent.VK_BACK_SPACE || ev.getKeyCode() == KeyEvent.VK_DELETE) {
 				text_x -= 6;
+
 				for (int i = 0; i < 5; i++) {
 					for (int j = 0; j < 7; j++) {
-						if (text_x+i+1 >= 0 && text_x+i+1 < e.nx && text_y+j >= 0 && text_y+j < e.ny
-						&& e.materials[text_x+i+1][text_y+j].type == MaterialType.DECO) {
-							e.eraseMaterial(text_x+i+1,text_y+j);
+						int scx = text_x+i+1;
+						int scy = text_y+j;
+						int scz = text_z;
+						
+						int fi = e.renderer.embed_x(scx, scy, scz);
+						int fj = e.renderer.embed_y(scx, scy, scz);
+						int fk = e.renderer.embed_z(scx, scy, scz);
+						if (fi >= 0 && fi < e.nx && fj >= 0 && fj < e.ny && fk >= 0 && fk < e.nz
+						&& e.materials[fi][fj][fk].type == MaterialType.DECO) {
+							e.eraseMaterial(fi, fj, fk);
 						}
 					}
 				}
 				flagChanges(false);
 				e.updateAllMaterials(false);
 			}
-		}*/
+		}
 	}
 
 	@Override
@@ -2752,6 +2825,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 
 	public enum CustProbeType {
 		POINT("Type: Point"),
+		LINE("Type: Line"),
 		AREA("Type: Area"),
 		VOLUME("Type: Volume");
 

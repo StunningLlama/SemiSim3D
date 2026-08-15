@@ -55,10 +55,8 @@ import electrodynamics.util.Timer;
 import electrodynamics.util.Utils;
 
 public class Simulation extends PeriodicTask {
-	//probe types
 	//screenshots
 	
-	//Add back text tool
 	//Update manual
 	//Fix color scale
 	//Add heat and entropy

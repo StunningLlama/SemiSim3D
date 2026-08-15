@@ -35,6 +35,7 @@ public abstract class Probe implements Cloneable, OctahedralAction {
 	public abstract void draw(Renderer r);
 	public abstract double getXcenter();
 	public abstract double getYcenter();
+	public abstract double getZcenter();
 	public abstract String getText(Units units);
 	
 	@Override
@@ -52,6 +53,7 @@ public abstract class Probe implements Cloneable, OctahedralAction {
 		return null;
 	}
 	
+	//TODO
 	public void eliminateNulls() {
 		if (data == null)
 			data = new ProbeData();

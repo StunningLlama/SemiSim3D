@@ -243,6 +243,11 @@ public class AreaProbe extends Probe {
 	}
 
 	@Override
+	public double getZcenter() {
+		return 0.5*(z1+z2);
+	}
+
+	@Override
 	public String getText(Units units) {
 		return shorthand + name + " = " + units.toString_fixedsigfigs(value, quantity);
 	}

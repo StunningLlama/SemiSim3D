@@ -167,6 +167,9 @@ public class SaveManager {
 							case "pitch": e.renderer.pitch = (float)(fstr.nextDouble()); break;
 							case "yaw": e.renderer.yaw = (float)(fstr.nextDouble()); break;
 							case "zoom": e.renderer.scale = (float)(fstr.nextDouble()); break;
+							case "cam_x": e.renderer.cam_x = (float)(fstr.nextDouble()); break;
+							case "cam_y": e.renderer.cam_y = (float)(fstr.nextDouble()); break;
+							case "cam_z": e.renderer.cam_z = (float)(fstr.nextDouble()); break;
 							case "parallax": e.opts.gui_parallax.setValue(fstr.nextInt()); break;
 							case "rotate": e.opts.gui_rotate.setSelected(fstr.nextBoolean()); break;
 
@@ -427,7 +430,7 @@ public class SaveManager {
 				try {
 					PrintWriter fstr = new PrintWriter(new GZIPOutputStream(new FileOutputStream(outfile)));
 
-					Gson gson = new GsonBuilder().serializeSpecialFloatingPointValues().create();
+					Gson gson = new GsonBuilder().serializeSpecialFloatingPointValues().registerTypeHierarchyAdapter(Probe.class, new ProbeAdapter()).create();
 
 					JsonObject header = new JsonObject();
 					header.addProperty("ds", e.ds);
@@ -452,6 +455,9 @@ public class SaveManager {
 					header.addProperty("pitch", e.renderer.pitch);
 					header.addProperty("yaw", e.renderer.yaw);
 					header.addProperty("zoom", e.renderer.scale);
+					header.addProperty("cam_x", e.renderer.cam_x);
+					header.addProperty("cam_y", e.renderer.cam_y);
+					header.addProperty("cam_z", e.renderer.cam_z);
 					header.addProperty("parallax", e.opts.gui_parallax.getValue());
 					header.addProperty("rotate", e.opts.gui_rotate.isSelected());
 

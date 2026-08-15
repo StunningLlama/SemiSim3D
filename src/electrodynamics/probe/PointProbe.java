@@ -149,6 +149,11 @@ public class PointProbe extends Probe {
 	}
 
 	@Override
+	public double getZcenter() {
+		return z;
+	}
+
+	@Override
 	public String getText(Units units) {
 		return shorthand + name + " = " + units.toString_fixedsigfigs(value, quantity);
 

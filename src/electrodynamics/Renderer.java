@@ -237,6 +237,78 @@ public class Renderer extends PeriodicTask {
 		}
 	}
 	
+	int embed_x(int x, int y, int z) {
+		if (slice_x) {
+			return z;
+		} else if (slice_y) {
+			return x;
+		} else if (slice_z) {
+			return x;
+		} else {
+			return 0;
+		}
+	}
+	
+	int embed_y(int x, int y, int z) {
+		if (slice_x) {
+			return x;
+		} else if (slice_y) {
+			return z;
+		} else if (slice_z) {
+			return y;
+		} else {
+			return 0;
+		}
+	}
+	
+	int embed_z(int x, int y, int z) {
+		if (slice_x) {
+			return y;
+		} else if (slice_y) {
+			return y;
+		} else if (slice_z) {
+			return z;
+		} else {
+			return 0;
+		}
+	}
+	
+	double embed_x(double x, double y, double z) {
+		if (slice_x) {
+			return z;
+		} else if (slice_y) {
+			return x;
+		} else if (slice_z) {
+			return x;
+		} else {
+			return 0;
+		}
+	}
+	
+	double embed_y(double x, double y, double z) {
+		if (slice_x) {
+			return x;
+		} else if (slice_y) {
+			return z;
+		} else if (slice_z) {
+			return y;
+		} else {
+			return 0;
+		}
+	}
+	
+	double embed_z(double x, double y, double z) {
+		if (slice_x) {
+			return y;
+		} else if (slice_y) {
+			return y;
+		} else if (slice_z) {
+			return z;
+		} else {
+			return 0;
+		}
+	}
+	
 	public int getSlice() {
 		int slice = e.opts.gui_slice.getValue();
 		if (slice < 0) slice = 0;
@@ -1179,9 +1251,20 @@ public class Renderer extends PeriodicTask {
 		setalphaFG(0.8);
 		setColorFloat(1.0f, 1.0f, 1.0f);
 
-		//if (e.controls.texting) {
-		//	drawPixelLine(e.controls.text_x, e.controls.text_y, e.controls.text_x, e.controls.text_y+7);
-		//}
+		if (e.controls.texting && (System.currentTimeMillis() % 1000) < 500) {
+			int i = 0;
+			for (int j = 0; j < 7; j++) {
+				int scx = e.controls.text_x+i;
+				int scy = e.controls.text_y+j;
+				int scz = e.controls.text_z;
+
+				int fi = e.renderer.embed_x(scx, scy, scz);
+				int fj = e.renderer.embed_y(scx, scy, scz);
+				int fk = e.renderer.embed_z(scx, scy, scz);
+
+				setPixel(fi, fj, fk);
+			}
+		}
 	}
 	
 	synchronized void drawOverlay(boolean render) {

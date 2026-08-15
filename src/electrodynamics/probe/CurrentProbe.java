@@ -8,7 +8,7 @@ import electrodynamics.Simulation;
 import electrodynamics.Renderer.VectorView;
 import electrodynamics.units.Quantity;
 
-public class CurrentProbe extends LineProbe {
+public class CurrentProbe extends AreaProbe {
 	public CurrentProbe(int mx, int my, int mz) {
 		super(mx, my, mz);
 		shorthand = "I";

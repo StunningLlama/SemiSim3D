@@ -52,54 +52,46 @@ public class LineProbe extends Probe {
 		e.computeVectorField(vf, vectorname);
 		vf_x = vf[0];
 		vf_y = vf[1];
+		vf_z = vf[2];
 		
-		if (vf_x == null || vf_y == null) return;
+		if (vf_x == null || vf_y == null || vf_z == null) return;
 		
-		/*int x1_t = x1;
-		int y1_t = y1;
-		int x2_t = x2;
-		int y2_t = y2;
-		int dy = y2_t - y1_t;
-		int dx = x2_t - x1_t;
-		float t = (float) 0.5;
-		float J = 0;
+		int n = 0;
+		int m = 0;
+		int l_min = 0;
+		int l_max = 0;
 
-		if (Math.abs(dx) > Math.abs(dy)) {
-			float m = (float) dy / (float) dx;
-			t += y1_t;
-			dx = (dx < 0) ? -1 : 1;
-			m *= dx;
-			while (x1_t != x2_t) {
-				int x1_prev = x1_t;
-				float t_prev = t;
-
-				x1_t += dx;
-				t += m;
-
-				J += accumCurrent(x1_prev, (int)t_prev, x1_t, (int)t, vf_x, vf_y, e.ds);
-
-			}
+		if (x1 != x2) {
+			n = y1;
+			m = z1;
+			l_min = Math.min(x1, x2);
+			l_max = Math.max(x1, x2);
+		} else if (y1 != y2) {
+			n = x1;
+			m = z1;
+			l_min = Math.min(y1, y2);
+			l_max = Math.max(y1, y2);
+		} else if (z1 != z2) {
+			n = x1;
+			m = y1;
+			l_min = Math.min(z1, z2);
+			l_max = Math.max(z1, z2);
 		} else {
-			float m = (float) dx / (float) dy;
-			t += x1_t;
-			dy = (dy < 0) ? -1 : 1;
-			m *= dy;
-			while (y1_t != y2_t) {
-				int y1_prev = y1_t;
-				float t_prev = t;
-
-				y1_t += dy;
-				t += m;
-
-				J += accumCurrent((int)t_prev, y1_prev, (int)t, y1_t, vf_x, vf_y, e.ds);
-			}
+			return;
 		}
 
-		value = J*e.depth;*/
-		//TODO
+		double J = 0;
+		for (int l = l_min; l < l_max; l++) {
+			if (x1 != x2) {
+				J += vf_x[l][n][m]*e.ds;
+			} else if (y1 != y2) {
+				J += vf_y[n][l][m]*e.ds;
+			} else if (z1 != z2) {
+				J += vf_y[n][m][l]*e.ds;
+			}
+		}
 		
-		
-		value = 0;
+		value = J;
 		if (savedatapoint) data.addData(value, e.time);
 	}
 	
@@ -223,9 +215,24 @@ public class LineProbe extends Probe {
 
 	@Override
 	public void drag(int mx, int my, int mz) {
-		x2 = mx;
-		y2 = my;
-		z2 = mz;
+		if (z2 != z1) {
+			x2 = x1;
+			y2 = y1;
+			z2 = mz;
+		} else if (x2 != x1) {
+			y2 = y1;
+			z2 = z1;
+			x2 = mx;
+		} else if (y2 != y1) {
+			x2 = x1;
+			z2 = z1;
+			y2 = my;
+		} else {
+			x2 = mx;
+			y2 = my;
+			z2 = mz;
+		}
+		
 		calculateDefaultLabelCoords();
 	}
 
@@ -240,8 +247,6 @@ public class LineProbe extends Probe {
 		r.setalphaFG(0.3);
 		r.setColorFloat(0.5f, 1.0f, 1.0f);
 		r.drawPixelLine(x1, y1, z1, x2, y2, z2);
-
-		//TODO
 	}
 	
 	@Override
@@ -252,6 +257,11 @@ public class LineProbe extends Probe {
 	@Override
 	public double getYcenter() {
 		return 0.5*(y1+y2);
+	}
+
+	@Override
+	public double getZcenter() {
+		return 0.5*(z1+z2);
 	}
 
 	@Override
