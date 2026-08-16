@@ -127,14 +127,12 @@ public class Renderer extends PeriodicTask {
 	boolean slice_x = false;
 	boolean slice_y = false;
 	boolean slice_z = true;
-	float pitch;
-	float yaw;
-    float ortho_zoom;
-    float perspective_FOV;
     float max_size;
-    float cam_x;
-    float cam_y;
-    float cam_z;
+    
+    Camera ortho_cam = new Camera(Perspective.ORTHO);
+    Camera pers_cam = new Camera(Perspective.PERSPECTIVE);
+    Camera cam = ortho_cam;
+    
 	boolean threeD_mode = true;
 	
 
@@ -183,20 +181,13 @@ public class Renderer extends PeriodicTask {
 		
 		setCanvasSize();
 		resetChargeDots();
-		resetCameraPos();
+		ortho_cam.resetCameraPos(max_size);
+		pers_cam.resetCameraPos(max_size);
+		ortho_cam.setPivotPoint(e.nx/2.0, e.ny/2.0, e.nz/2.0);
+		pers_cam.setPivotPoint(e.nx/2.0, e.ny/2.0, e.nz/2.0);
 
 		renderer_left_eye.setResolution();
 		renderer_right_eye.setResolution();
-	}
-	
-	public void resetCameraPos() {
-	    ortho_zoom = 1f;
-	    perspective_FOV = 0.5f;
-		pitch = -(float)Math.PI/6;
-		yaw = (float)(Math.PI*5/4);
-	    cam_x = 3*max_size*(float)Math.sqrt(3/2.0)/2;
-	    cam_y = 3*max_size*(float)Math.sqrt(3/2.0)/2;
-	    cam_z = 3*max_size/2;
 	}
 	
 	int project_x(int x, int y, int z) {
@@ -468,6 +459,9 @@ public class Renderer extends PeriodicTask {
 			} else {
 				imgpanel.add(e.canvas);
 			}
+			
+			if (e.controls.perspective.getOption() == Perspective.ORTHO) cam = ortho_cam;
+			if (e.controls.perspective.getOption() == Perspective.PERSPECTIVE) cam = pers_cam;
 		} finally {
 			e.rwLock.writeLock().unlock();
 		}
@@ -875,7 +869,9 @@ public class Renderer extends PeriodicTask {
 	}
 
 	synchronized void draw(Renderer3D canvas3d) {
-		if (canvas3d == null) {
+		boolean do_timestep = (canvas3d == null || canvas3d.isMainCanvas);
+		
+		if (do_timestep) {
 			delta_t = e.time - t_prev;
 			t_prev = e.time;
 		}
@@ -897,8 +893,8 @@ public class Renderer extends PeriodicTask {
 		}
 
 		synchronized_show_carriers = e.opts.gui_carriers.isSelected();
-		synchronized_update_carriers = (!e.opts.gui_paused.isSelected() || delta_t > 0) && (canvas3d == null || canvas3d.isMainCanvas);
-		synchronized_update_dots = !e.opts.gui_paused.isSelected() && (canvas3d == null || canvas3d.isMainCanvas);
+		synchronized_update_carriers = (!e.opts.gui_paused.isSelected() || delta_t > 0) && do_timestep;
+		synchronized_update_dots = !e.opts.gui_paused.isSelected() && do_timestep;
 		synchronized_vector_display_mode = e.controls.vectormode.getOption();
 		synchronized_scalar_display_mode = e.controls.scalarmode.getOption();
 		synchronized_scalar_view = e.controls.scalarview.getOption();
@@ -1316,17 +1312,15 @@ public class Renderer extends PeriodicTask {
 
 						slice = e.renderer.getSlice();
 
-						if (!skip) {
-							if (synchronized_vector_display_mode == VectorMode.LINES && !synchronized_draw3D) {
-								drawLines();
-							} else if (synchronized_vector_display_mode == VectorMode.ARROWS && !synchronized_draw3D) {
-								drawArrows();
-							} else if (synchronized_vector_display_mode == VectorMode.DOTS) {
-								drawDots();
-							}
+						if (synchronized_vector_display_mode == VectorMode.LINES && !synchronized_draw3D) {
+							if (!skip) drawLines();
+						} else if (synchronized_vector_display_mode == VectorMode.ARROWS && !synchronized_draw3D) {
+							if (!skip) drawArrows();
+						} else if (synchronized_vector_display_mode == VectorMode.DOTS) {
+							drawDots();
 						}
 					}
-					
+
 					if (synchronized_scalar_view != ScalarView.NONE && (synchronized_scalar_display_mode == ScalarMode.CONTOUR_COLORS || synchronized_scalar_display_mode == ScalarMode.CONTOUR) && !synchronized_draw3D) {
 						graphics_mid_barrier.await();
 						drawContours();
@@ -1337,9 +1331,7 @@ public class Renderer extends PeriodicTask {
 							updateCarriers();
 						}
 						graphics_mid_barrier.await();
-						if (!synchronized_draw3D) {
-							drawCCdots();
-						}
+						drawCCdots();
 					}
 					graphics_end_barrier.await();
 				}

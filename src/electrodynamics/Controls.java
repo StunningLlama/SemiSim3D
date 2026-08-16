@@ -790,7 +790,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 				float thetascale = 2/(float)e.renderer.imgpanel.getHeight();
 				float phiscale = 2/(float)e.renderer.imgpanel.getWidth();
 				
-				rotateView((mx_screen - mx_prev_screen)*phiscale, (my_screen - my_prev_screen)*thetascale);
+				e.renderer.cam.rotateView((mx_screen - mx_prev_screen)*phiscale, (my_screen - my_prev_screen)*thetascale);
 			}
 
 			boolean mouse_moved = !(mx_screen-mx_start_screen == 0 && my_screen-my_start_screen == 0);
@@ -968,52 +968,14 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 					float thetascale = 2/(float)e.renderer.imgpanel.getHeight();
 					float phiscale = 2/(float)e.renderer.imgpanel.getWidth();
 
-					rotateView((mx_screen - mx_prev_screen)*phiscale, (my_screen - my_prev_screen)*thetascale);
+					e.renderer.cam.rotateView((mx_screen - mx_prev_screen)*phiscale, (my_screen - my_prev_screen)*thetascale);
 				}
 			}
 			break;
 		case CAMERA:
 		{
-			double nx = Math.cos(e.renderer.yaw)*Math.cos(e.renderer.pitch);
-			double ny = Math.sin(e.renderer.yaw)*Math.cos(e.renderer.pitch);
-			double movefactor = e.renderer.max_size/e.renderer.targetframerate;
-			double lookfactor = 1/e.renderer.targetframerate;
-
-			if (Keyboard.isKeyPressed(KeyEvent.VK_W)) {
-				e.renderer.cam_x += nx*movefactor;
-				e.renderer.cam_y += ny*movefactor;
-			}
-			if (Keyboard.isKeyPressed(KeyEvent.VK_S)) {
-				e.renderer.cam_x -= nx*movefactor;
-				e.renderer.cam_y -= ny*movefactor;
-			}
-			if (Keyboard.isKeyPressed(KeyEvent.VK_A)) {
-				e.renderer.cam_x -= ny*movefactor;
-				e.renderer.cam_y += nx*movefactor;
-			}
-			if (Keyboard.isKeyPressed(KeyEvent.VK_D)) {
-				e.renderer.cam_x += ny*movefactor;
-				e.renderer.cam_y -= nx*movefactor;
-			}
-			if (Keyboard.isKeyPressed(KeyEvent.VK_Q)) {
-				e.renderer.cam_z -= 1*movefactor;
-			}
-			if (Keyboard.isKeyPressed(KeyEvent.VK_E)) {
-				e.renderer.cam_z += 1*movefactor;
-			}
-
-			if (Keyboard.isKeyPressed(KeyEvent.VK_LEFT)) {
-				rotateCamera(lookfactor, 0);
-			}
-			if (Keyboard.isKeyPressed(KeyEvent.VK_RIGHT)) {
-				rotateCamera(-lookfactor, 0);
-			}
-			if (Keyboard.isKeyPressed(KeyEvent.VK_UP)) {
-				rotateCamera(0, lookfactor);
-			}
-			if (Keyboard.isKeyPressed(KeyEvent.VK_DOWN)) {
-				rotateCamera(0, -lookfactor);
-			}
+			e.renderer.cam.processKey(e.renderer.max_size, e.renderer.targetframerate);
+			
 			float thetascale = 2/(float)e.renderer.imgpanel.getHeight();
 			float phiscale = 2/(float)e.renderer.imgpanel.getWidth();
 
@@ -1022,9 +984,9 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 			}
 			if (looking) {
 				currentCursor = this.BLANK_CURSOR;
-				rotateCamera(-(mx_screen - mx_prev_screen)*phiscale, -(my_screen - my_prev_screen)*thetascale);
+				e.renderer.cam.rotateCamera(-(mx_screen - mx_prev_screen)*phiscale, -(my_screen - my_prev_screen)*thetascale);
 			} else if (!looking && pressed_left) {
-				rotateCamera(-(mx_screen - mx_prev_screen)*phiscale, -(my_screen - my_prev_screen)*thetascale);
+				e.renderer.cam.rotateCamera(-(mx_screen - mx_prev_screen)*phiscale, -(my_screen - my_prev_screen)*thetascale);
 			}
 			break;
 		}
@@ -1047,7 +1009,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 					float thetascale = 2/(float)e.renderer.imgpanel.getHeight();
 					float phiscale = 2/(float)e.renderer.imgpanel.getWidth();
 
-					rotateView((mx_screen - mx_prev_screen)*phiscale, (my_screen - my_prev_screen)*thetascale);
+					e.renderer.cam.rotateView((mx_screen - mx_prev_screen)*phiscale, (my_screen - my_prev_screen)*thetascale);
 				}
 			} else {
 				if (pressing_left) {
@@ -1538,46 +1500,6 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 
 		mx_prev_screen = mx_screen;
 		my_prev_screen = my_screen;
-	}
-	
-	public void rotateCamera(double dphi, double dtheta) {
-		e.renderer.pitch += (float)dtheta;
-		e.renderer.yaw += (float)dphi;
-
-		if (e.renderer.pitch > Math.PI/2) e.renderer.pitch = (float)Math.PI/2;
-		if (e.renderer.pitch < -Math.PI/2) e.renderer.pitch = -(float)Math.PI/2;
-
-	}
-	
-	public void rotateView(double dphi, double dtheta) {
-		e.renderer.pitch -= (float)dtheta;
-		e.renderer.yaw -= (float)dphi;
-
-		float max_pitch = (float)(Math.PI/2*0.999);
-		if (e.renderer.pitch > max_pitch) e.renderer.pitch = max_pitch;
-		if (e.renderer.pitch < -max_pitch) e.renderer.pitch = -max_pitch;
-
-		double x = e.renderer.cam_x - e.nx/2.0;
-		double y = e.renderer.cam_y - e.ny/2.0;		
-		double z = e.renderer.cam_z - e.nz/2.0;
-		
-		double r = Math.sqrt(x*x+y*y+z*z);
-		double theta = Math.asin(z/r);
-		double phi = Math.atan2(y, x);
-
-		theta += (float)dtheta;
-		phi -= (float)dphi;
-
-		if (theta > max_pitch) theta = max_pitch;
-		if (theta < -max_pitch) theta = -max_pitch;
-
-		double xp = r*Math.cos(phi)*Math.cos(theta);
-		double yp = r*Math.sin(phi)*Math.cos(theta);
-		double zp = r*Math.sin(theta);
-		
-		e.renderer.cam_x = (float)(e.nx/2.0 + xp);
-		e.renderer.cam_y = (float)(e.ny/2.0 + yp);
-		e.renderer.cam_z = (float)(e.nz/2.0 + zp);
 	}
 
 	private void createPath() {
@@ -2524,9 +2446,8 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	}
 	
 	public void moveDir(int fwd, int left, int up) {
-
-		double x = Math.cos(e.renderer.yaw)*Math.cos(e.renderer.pitch);
-		double y = Math.sin(e.renderer.yaw)*Math.cos(e.renderer.pitch);
+		double x = Math.cos(e.renderer.cam.yaw)*Math.cos(e.renderer.cam.pitch);
+		double y = Math.sin(e.renderer.cam.yaw)*Math.cos(e.renderer.cam.pitch);
 		int fwd_x = 0;
 		int fwd_y = 0;
 		int left_x = 0;
@@ -2643,13 +2564,8 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 
 	@Override
 	public void mouseWheelMoved(MouseWheelEvent ev) {
-		
-
-		if ((shift_down || brushes.getOption() == Brush.INTERACT || brushes.getOption() == Brush.PAN) && e.renderer.threeD_mode) {
-			if (perspective.getOption() == Perspective.ORTHO)
-				e.renderer.ortho_zoom *= Math.exp((int)(10*ev.getPreciseWheelRotation())/100.0);
-			else if (perspective.getOption() == Perspective.PERSPECTIVE)
-				e.renderer.perspective_FOV *= Math.exp((int)(10*ev.getPreciseWheelRotation())/100.0);
+		if ((shift_down || brushes.getOption() == Brush.INTERACT || brushes.getOption() == Brush.PAN || brushes.getOption() == Brush.CAMERA) && e.renderer.threeD_mode) {
+			e.renderer.cam.zoom *= Math.exp((int)(10*ev.getPreciseWheelRotation())/100.0);
 		} else if (Brush.isBrushShapeImportant(brushes.getOption())) {
 			e.opts.gui_brushsize.setValue(e.opts.gui_brushsize.getValue() - (int)(5*ev.getPreciseWheelRotation()));
 		} else if (brushes.getOption() == Brush.PAN) {

@@ -61,7 +61,6 @@ public class Simulation extends PeriodicTask {
 	//Add heat and entropy
 	//Implement arrow length 
 	//Graphics settings
-	//Save camera position
 	
 	/* Parts */
 	

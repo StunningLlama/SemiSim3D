@@ -203,7 +203,7 @@ public class Renderer3D implements GLEventListener {
 			e.renderer.draw(this);
 
 			if (isMainCanvas && e.opts.gui_rotate.isSelected()) {
-				e.controls.rotateView(1f/e.renderer.targetframerate, 0);
+				e.renderer.cam.rotateView(1f/e.renderer.targetframerate, 0);
 			}
 
 			GL2 gl = drawable.getGL().getGL2();
@@ -314,9 +314,9 @@ public class Renderer3D implements GLEventListener {
 		isOrtho = e.controls.perspective.getOption() == Perspective.ORTHO;
 		
 		if (isOrtho)
-			gl.glOrtho(-e.renderer.max_size*e.renderer.ortho_zoom * aspect, e.renderer.max_size*e.renderer.ortho_zoom * aspect, -e.renderer.max_size*e.renderer.ortho_zoom, e.renderer.max_size*e.renderer.ortho_zoom, 0, 16*e.renderer.max_size);
+			gl.glOrtho(-e.renderer.max_size*e.renderer.cam.zoom * aspect, e.renderer.max_size*e.renderer.cam.zoom * aspect, -e.renderer.max_size*e.renderer.cam.zoom, e.renderer.max_size*e.renderer.cam.zoom, 0, 16*e.renderer.max_size);
 		else
-			gl.glFrustum(-z_near*e.renderer.perspective_FOV * aspect, z_near*e.renderer.perspective_FOV * aspect, -z_near*e.renderer.perspective_FOV, z_near*e.renderer.perspective_FOV, z_near, 16*e.renderer.max_size);
+			gl.glFrustum(-z_near*e.renderer.cam.zoom * aspect, z_near*e.renderer.cam.zoom * aspect, -z_near*e.renderer.cam.zoom, z_near*e.renderer.cam.zoom, z_near, 16*e.renderer.max_size);
 
 		gl.glRotatef(90f, 0.0f, 0.0f, 1.0f);
 		gl.glRotatef(90f, 0.0f, 1.0f, 0.0f);
@@ -326,16 +326,16 @@ public class Renderer3D implements GLEventListener {
 	
 	public void setupModelMat(GL2 gl) {
 
-		g.x = Math.cos(e.renderer.yaw)*Math.cos(e.renderer.pitch);
-		g.y = Math.sin(e.renderer.yaw)*Math.cos(e.renderer.pitch);
-		g.z = Math.sin(e.renderer.pitch);
+		g.x = Math.cos(e.renderer.cam.yaw)*Math.cos(e.renderer.cam.pitch);
+		g.y = Math.sin(e.renderer.cam.yaw)*Math.cos(e.renderer.cam.pitch);
+		g.z = Math.sin(e.renderer.cam.pitch);
 
 		gl.glTranslatef(0, eye_offset, 0);
 		gl.glRotatef(-eye_offset/d, 0.0f, 0.0f, 1.0f);
 		
-		gl.glRotatef(e.renderer.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
-		gl.glRotatef(-e.renderer.yaw*(float)(180/Math.PI), 0.0f, 0.0f, 1.0f);
-		gl.glTranslatef(-e.renderer.cam_x, -e.renderer.cam_y, -e.renderer.cam_z);
+		gl.glRotatef(e.renderer.cam.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
+		gl.glRotatef(-e.renderer.cam.yaw*(float)(180/Math.PI), 0.0f, 0.0f, 1.0f);
+		gl.glTranslatef(-e.renderer.cam.cam_x, -e.renderer.cam.cam_y, -e.renderer.cam.cam_z);
 	}
 
 	public void setupText(GL2 gl, float x, float y, float z, float skew, float width, float height) {
@@ -344,15 +344,15 @@ public class Renderer3D implements GLEventListener {
 
 		gl.glTranslatef(0, eye_offset, 0);
 		gl.glRotatef(-eye_offset/d, 0.0f, 0.0f, 1.0f);
-		gl.glRotatef(e.renderer.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
-		gl.glRotatef(-e.renderer.yaw*(float)(180/Math.PI), 0.0f, 0.0f, 1.0f);
-		gl.glTranslatef(-e.renderer.cam_x, -e.renderer.cam_y, -e.renderer.cam_z);
+		gl.glRotatef(e.renderer.cam.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
+		gl.glRotatef(-e.renderer.cam.yaw*(float)(180/Math.PI), 0.0f, 0.0f, 1.0f);
+		gl.glTranslatef(-e.renderer.cam.cam_x, -e.renderer.cam.cam_y, -e.renderer.cam.cam_z);
 
 		gl.glTranslatef(x, y, z);
 		
 		//Inverse of rotation
-		gl.glRotatef(e.renderer.yaw*(float)(180/Math.PI), 0.0f, 0.0f, 1.0f);
-		gl.glRotatef(-e.renderer.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
+		gl.glRotatef(e.renderer.cam.yaw*(float)(180/Math.PI), 0.0f, 0.0f, 1.0f);
+		gl.glRotatef(-e.renderer.cam.pitch*(float)(180/Math.PI), 0.0f, 1.0f, 0.0f);
 		gl.glRotatef(eye_offset/d, 0.0f, 0.0f, 1.0f);
 
 		gl.glScalef(e.renderer.max_size, e.renderer.max_size, e.renderer.max_size);
@@ -987,7 +987,7 @@ public class Renderer3D implements GLEventListener {
 		if (isOrtho)
 			return nx*g.x + ny*g.y + nz*g.z <= 0;
 		else
-			return nx*(x - e.renderer.cam_x) + ny*(y - e.renderer.cam_y) + nz*(z - e.renderer.cam_z) <= 0;
+			return nx*(x - e.renderer.cam.cam_x) + ny*(y - e.renderer.cam.cam_y) + nz*(z - e.renderer.cam.cam_z) <= 0;
 	}
 
 	public int packCoords(int i, int j, int k, int di, int dj, int dk) {

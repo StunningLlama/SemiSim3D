@@ -45,6 +45,7 @@ import electrodynamics.Renderer.Perspective;
 import electrodynamics.Renderer.RenderMode;
 import electrodynamics.Renderer.ScalarMode;
 import electrodynamics.Renderer.ScalarView;
+import electrodynamics.Renderer.Slice;
 import electrodynamics.Renderer.Stereo;
 import electrodynamics.Renderer.VectorMode;
 import electrodynamics.Renderer.VectorView;
@@ -165,14 +166,11 @@ public class SaveManager {
 							case "phase": e.AC_phase = fstr.nextDouble(); break;
 							case "description": e.description = fstr.nextString(); break;
 
-							case "gui_zslice": e.opts.gui_slice.setValue(fstr.nextInt()); break;
-							case "pitch": e.renderer.pitch = (float)(fstr.nextDouble()); break;
-							case "yaw": e.renderer.yaw = (float)(fstr.nextDouble()); break;
-							case "zoom": e.renderer.ortho_zoom = (float)(fstr.nextDouble()); break;
-							case "FOV": e.renderer.perspective_FOV = (float)(fstr.nextDouble()); break;
-							case "cam_x": e.renderer.cam_x = (float)(fstr.nextDouble()); break;
-							case "cam_y": e.renderer.cam_y = (float)(fstr.nextDouble()); break;
-							case "cam_z": e.renderer.cam_z = (float)(fstr.nextDouble()); break;
+							case "gui_slice": e.opts.gui_slice.setValue(fstr.nextInt()); break;
+							case "gui_slice_l": e.opts.gui_slice_l.setValue(fstr.nextInt()); break;
+							case "gui_slice_h": e.opts.gui_slice_h.setValue(fstr.nextInt()); break;
+							case "ortho_cam": e.renderer.ortho_cam = gson.fromJson(fstr, Camera.class); break;
+							case "pers_cam": e.renderer.pers_cam = gson.fromJson(fstr, Camera.class); break;
 							case "parallax": e.opts.gui_parallax.setValue(fstr.nextInt()); break;
 							case "rotate": e.opts.gui_rotate.setSelected(fstr.nextBoolean()); break;
 
@@ -182,6 +180,7 @@ public class SaveManager {
 							case "vectormode": e.controls.vectormode.setOption(gson.fromJson(fstr, VectorMode.class)); break;
 							case "perspective": e.controls.perspective.setOption(gson.fromJson(fstr, Perspective.class)); break;
 							case "rendermode": e.controls.rendermode.setOption(gson.fromJson(fstr, RenderMode.class)); break;
+							case "slice": e.controls.slice.setOption(gson.fromJson(fstr, Slice.class)); break;
 							case "stereo": e.controls.stereo.setOption(gson.fromJson(fstr, Stereo.class)); break;
 							case "gui_bc": e.opts.gui_bc.setSelectedItem(gson.fromJson(fstr, BoundaryCondition.class)); break;
 
@@ -192,6 +191,7 @@ public class SaveManager {
 							}
 						}
 						fstr.endObject();
+						e.renderer.cam = e.renderer.ortho_cam;
 						e.opts.setRedundantOptions();
 						e.lock_resolution = true;
 						e.reset(true, null);
@@ -459,17 +459,15 @@ public class SaveManager {
 					header.add("vectormode", gson.toJsonTree(e.controls.vectormode.getOption()));
 					header.add("perspective", gson.toJsonTree(e.controls.perspective.getOption()));
 					header.add("rendermode", gson.toJsonTree(e.controls.rendermode.getOption()));
+					header.add("slice", gson.toJsonTree(e.controls.slice.getOption()));
 					header.add("stereo", gson.toJsonTree(e.controls.stereo.getOption()));
 					header.add("gui_bc", gson.toJsonTree(e.opts.gui_bc.getSelectedItem()));
 
-					header.addProperty("gui_zslice", e.opts.gui_slice.getValue());
-					header.addProperty("pitch", e.renderer.pitch);
-					header.addProperty("yaw", e.renderer.yaw);
-					header.addProperty("zoom", e.renderer.ortho_zoom);
-					header.addProperty("FOV", e.renderer.perspective_FOV);
-					header.addProperty("cam_x", e.renderer.cam_x);
-					header.addProperty("cam_y", e.renderer.cam_y);
-					header.addProperty("cam_z", e.renderer.cam_z);
+					header.addProperty("gui_slice", e.opts.gui_slice.getValue());
+					header.addProperty("gui_slice_l", e.opts.gui_slice_l.getValue());
+					header.addProperty("gui_slice_h", e.opts.gui_slice_h.getValue());
+					header.add("ortho_cam", gson.toJsonTree(e.renderer.ortho_cam));
+					header.add("pers_cam", gson.toJsonTree(e.renderer.pers_cam));
 					header.addProperty("parallax", e.opts.gui_parallax.getValue());
 					header.addProperty("rotate", e.opts.gui_rotate.isSelected());
 
