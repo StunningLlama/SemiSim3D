@@ -187,14 +187,15 @@ public class SaveManager {
 							default:
 								if (e.opts.boolean_names.containsKey(name)) e.opts.boolean_names.get(name).setSelected(fstr.nextBoolean());
 								else if (e.opts.integer_names.containsKey(name)) e.opts.integer_names.get(name).setValue(fstr.nextInt());
+								else fstr.skipValue();
 								break;
 							}
 						}
 						fstr.endObject();
-						e.renderer.cam = e.renderer.ortho_cam;
 						e.opts.setRedundantOptions();
 						e.lock_resolution = true;
 						e.reset(true, null);
+						e.renderer.set3Dmode();
 						e.lock_resolution = false;
 
 						assertNextObject(fstr, "data");

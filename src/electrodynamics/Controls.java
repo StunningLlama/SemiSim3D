@@ -1902,6 +1902,9 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 			e.materialviewer.updateUI();
 			e.materialviewer.setVisible(true);
 			break;
+		case "menu_resetcamera":
+			e.renderer.cam.resetCameraPos(e.renderer.max_size);
+			break;
 		case "menu_workshop":
 			Steam.createWorkshopItem();
 			break;
@@ -2488,19 +2491,18 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 
 			outputfile.createNewFile();
 
-			//TODO
-			
-			BufferedImage screenshot = (BufferedImage)e.opts.createImage(e.renderer.img_back.getWidth(), e.renderer.img_back.getHeight());
-			Graphics2D g = screenshot.createGraphics();
-			
-			e.canvas.draw(g, screenshot.getWidth(), screenshot.getHeight());
-			g.dispose();
+
+
+		    BufferedImage screenshot = new BufferedImage(e.renderer.imgpanel.getWidth(), e.renderer.imgpanel.getHeight(), BufferedImage.TYPE_INT_RGB);
+		    Graphics2D g = screenshot.createGraphics();
+		    e.renderer.imgpanel.paint(g);
+		    g.dispose();
 
 			ImageIO.write(screenshot, "png", outputfile);
 			e.renderer.screenshot_name = "Screenshot added: " + outputfile.getAbsolutePath();
 			e.renderer.screenshot_timer = 60;
 
-			Steam.addSteamScreenshot(outputfile.getAbsolutePath(), e.renderer.img_front.getWidth(), e.renderer.img_front.getHeight());
+			Steam.addSteamScreenshot(outputfile.getAbsolutePath(), screenshot.getWidth(), screenshot.getHeight());
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

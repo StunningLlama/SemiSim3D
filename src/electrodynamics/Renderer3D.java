@@ -21,7 +21,7 @@ import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.GLCapabilities;
 import com.jogamp.opengl.GLEventListener;
 import com.jogamp.opengl.GLProfile;
-import com.jogamp.opengl.awt.GLCanvas;
+import com.jogamp.opengl.awt.GLJPanel;
 import com.jogamp.opengl.glu.GLU;
 import com.jogamp.opengl.util.FPSAnimator;
 import com.jogamp.opengl.util.GLBuffers;
@@ -44,7 +44,7 @@ import electrodynamics.util.Vector3;
 public class Renderer3D implements GLEventListener {
 
 	Simulation e;
-	public GLCanvas canvas;
+	public GLJPanel canvas;
 	IntBuffer selectBuf;
 	GLU glu;
 	IntBuffer viewport;
@@ -93,10 +93,10 @@ public class Renderer3D implements GLEventListener {
 		capabilities.setDepthBits(24);
 		
 		// Create canvas
-		canvas = new GLCanvas(capabilities);
-		//canvas.
+		canvas = new GLJPanel(capabilities);
 		canvas.addGLEventListener(this);
 		canvas.setSize(768, 768);
+		//canvas.setIgnoreRepaint(true);
 
 		animator = new FPSAnimator(canvas, (int)e.renderer.targetframerate);
 		
@@ -858,21 +858,25 @@ public class Renderer3D implements GLEventListener {
 		gl.glDisable(GL2.GL_BLEND);
 
 		for (Text text : ui_texts) {
-			Rectangle2D bounds;
-			if (text.isBig) 
-				bounds = UIfont_big.getBounds(text.text);
-			else
-				bounds = UIfont_small.getBounds(text.text);
+			float width;
+			float height;
+			if (text.isBig) {
+				width = (float) UIfont_big.getBounds(text.text).getWidth();
+				height = (float) UIfont_big.getBounds("Ip").getHeight();
+			} else {
+				width = (float) UIfont_small.getBounds(text.text).getWidth();
+				height = (float) UIfont_small.getBounds("Ip").getHeight();
+			}
 
-			text.width = (int)bounds.getWidth();
-			text.height = (int)bounds.getHeight();
+			//text.width = (int)bounds.getWidth();
+			//text.height = (int)bounds.getHeight();
 
-			text.y += text.height + 2;
+			text.y += height + 3;
 
-			if (text.isRightJustified) text.x -= (text.width+3);
-			if (text.isBottomJustified) text.y += (text.height+5);
-			if (text.isHorizontalCentered) text.x -= (text.width/2-3);
-			if (text.isVerticalCentered) text.y += (text.height/2+2);
+			if (text.isRightJustified) text.x -= (width+3);
+			if (text.isBottomJustified) text.y -= (height+5);
+			if (text.isHorizontalCentered) text.x -= (width/2-3);
+			if (text.isVerticalCentered) text.y -= (height/2+2);
 		}
 
 		if (e.opts.menu_text_bg.isSelected())
@@ -881,13 +885,17 @@ public class Renderer3D implements GLEventListener {
 			for (int pass = 1; pass <= 2; pass++) {
 				for (Text text : ui_texts) {
 					if (text.hasBackground) {
-						Rectangle2D bounds;
-						if (text.isBig) 
-							bounds = UIfont_big.getBounds(text.text);
-						else
-							bounds = UIfont_small.getBounds(text.text);
-						int width = (int)Math.max(text.minwidth, bounds.getWidth()+8);
-						int height = (int)bounds.getHeight()+4;
+						float bwidth;
+						float bheight;
+						if (text.isBig) {
+							bwidth = (float) UIfont_big.getBounds(text.text).getWidth();
+							bheight = (float) UIfont_big.getBounds("Ip").getHeight();
+						} else {
+							bwidth = (float) UIfont_small.getBounds(text.text).getWidth();
+							bheight = (float) UIfont_small.getBounds("Ip").getHeight();
+						}
+						int width = (int)Math.max(text.minwidth, bwidth+8);
+						int height = (int)bheight+4;
 						int x = (int)text.x-3;
 						int y = (int)text.y-height+6;
 

@@ -255,6 +255,8 @@ public class SemiSim {
 		installLaf(new FlatHighContrastIJTheme());
 		
 		Theme.initThemes();
+		
+		//System.setProperty("sun.awt.noerasebackground", "true");
 	}
 	
 	public static <T extends LookAndFeel> void installLaf(T t) {

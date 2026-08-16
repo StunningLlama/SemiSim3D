@@ -55,7 +55,6 @@ import electrodynamics.util.Timer;
 import electrodynamics.util.Utils;
 
 public class Simulation extends PeriodicTask {
-	//screenshots
 	
 	//Update manual
 	//Add heat and entropy

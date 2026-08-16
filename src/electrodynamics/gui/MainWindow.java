@@ -148,6 +148,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 	public JMenuItem menu_view_materials;
 	public JMenuItem menu_browse;
 	public JMenuItem menu_probearrows;
+	public JMenuItem menu_resetcamera;
 	private JMenuItem menu_workshop;
 	private JMenuItem menu_load_workshop;
 	public JSeparator separator_3;
@@ -355,6 +356,10 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_probearrows = new CustJCheckBoxMenuItem("Show current probe arrows");
 		menu_probearrows.setSelected(true);
 		menu_graphics.add(menu_probearrows);
+		
+		menu_resetcamera = new JMenuItem("Reset camera position");
+		menu_resetcamera.setSelected(true);
+		menu_graphics.add(menu_resetcamera);
 
 		JSeparator separator_4 = new JSeparator();
 		menu_graphics.add(separator_4);
@@ -793,6 +798,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_report.addActionListener(e.controls);
 		menu_cust_material.addActionListener(e.controls);
 		menu_view_materials.addActionListener(e.controls);
+		menu_resetcamera.addActionListener(e.controls);
 		menu_workshop.addActionListener(e.controls);
 		menu_load_workshop.addActionListener(e.controls);
 		gui_slice.addAdjustmentListener(e.controls);
@@ -830,6 +836,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_report				.setActionCommand("menu_report");
 		menu_cust_material		.setActionCommand("menu_cust_material");
 		menu_view_materials		.setActionCommand("menu_view_materials");
+		menu_resetcamera		.setActionCommand("menu_resetcamera");
 		menu_workshop			.setActionCommand("menu_workshop");
 		menu_load_workshop			.setActionCommand("menu_load_workshop");
 		menu_browse				.setActionCommand("menu_browse");

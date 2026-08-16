@@ -1034,17 +1034,7 @@ public class Renderer extends PeriodicTask {
 				}
 			}
 
-			if (e.opts.menu_materialname.isSelected()) {
-				if (disp_mat_name) {
-					String name = "Material: " + mat.getDisplayName();
-					Text text = drawString(name, hoffset, voffset);
-					text.isBig = true;
-				} else {
-					String name = mat.getDisplayName();
-					Text text = drawString(name, imgpanel.getWidth(), 0);
-					text.isRightJustified = true;
-				}
-			}
+			drawRightHUD();
 
 			if (e.opts.menu_tooltip.isSelected()) {
 				voffset = voffset+3;
@@ -1201,6 +1191,37 @@ public class Renderer extends PeriodicTask {
 		}
 	}
 	
+	private void drawRightHUD() {
+		int voffset = 0;
+		int hoffset = imgpanel.getWidth();
+		int line = 0;
+		int vspacing = Text.fontsize+1;
+		
+		Text text;
+		
+		int mx = clamp(e.controls.mx, 0, e.nx-1);
+		int my = clamp(e.controls.my, 0, e.ny-1);
+		int mz = clamp(e.controls.mz, 0, e.nz-1);
+		Material mat = e.materials[mx][my][mz];
+		
+		if (e.opts.menu_materialname.isSelected()) {
+			if (!disp_mat_name) {
+				String name = mat.getDisplayName();
+				text = drawString(name, hoffset, voffset + line*vspacing); line++;
+				text.isRightJustified = true;
+			}
+		}
+		
+		if (drawCrosshairGuides) {
+			text = drawString("x: " + e.units.toString(mx*e.ds, Quantity.LENGTH),	hoffset, voffset + line*vspacing); line++; text.isRightJustified = true;
+			text = drawString("y: " + e.units.toString(my*e.ds, Quantity.LENGTH), hoffset, voffset + line*vspacing); line++; text.isRightJustified = true;
+			text = drawString("z: " + e.units.toString(mz*e.ds, Quantity.LENGTH), hoffset, voffset + line*vspacing); line++; text.isRightJustified = true;
+			text = drawString("Cam x: " + e.units.toString(cam.cam_x*e.ds, Quantity.LENGTH), hoffset, voffset + line*vspacing); line++; text.isRightJustified = true;
+			text = drawString("Cam y: " + e.units.toString(cam.cam_y*e.ds, Quantity.LENGTH), hoffset, voffset + line*vspacing); line++; text.isRightJustified = true;
+			text = drawString("Cam z: " + e.units.toString(cam.cam_z*e.ds, Quantity.LENGTH), hoffset, voffset + line*vspacing); line++; text.isRightJustified = true;
+		}
+	}
+	
 	class GraphicsThread extends Thread {
 		
 		int n_thread;
@@ -1256,7 +1277,7 @@ public class Renderer extends PeriodicTask {
 
 					graphics_mid_barrier.await();
 					
-					if (imgData != null) {
+					if (imgData != null && !synchronized_draw3D) {
 						stampPixelData();
 					}
 
@@ -1797,8 +1818,10 @@ public class Renderer extends PeriodicTask {
 							int di = ((direction&0b000011)+1)%3 - 1;
 							int dj = (((direction&0b001100) >> 2)+1)%3 - 1;
 							int dk = (((direction&0b110000) >> 4)+1)%3 - 1;
+							int corner_offset = ((di+dj+dk) + 1)/2;
 							
-							if (e.materials[i][j][k].type == MaterialType.ABSORBER && !Renderer.this.renderer_left_eye.surfVisible(i, j, k, di, dj, dk))
+							//TODO
+							if (e.materials[i][j][k].type == MaterialType.ABSORBER && !Renderer.this.renderer_left_eye.surfVisible(i+corner_offset, j+corner_offset, k+corner_offset, di, dj, dk))
 								continue;
 
 							if (i+di >= 0 && i + di < e.nx
@@ -1822,8 +1845,9 @@ public class Renderer extends PeriodicTask {
 							int di = ((direction&0b000011)+1)%3 - 1;
 							int dj = (((direction&0b001100) >> 2)+1)%3 - 1;
 							int dk = (((direction&0b110000) >> 4)+1)%3 - 1;
+							int corner_offset = ((di+dj+dk) + 1)/2;
 							
-							if (!Renderer.this.renderer_left_eye.surfVisible(i, j, k, di, dj, dk))
+							if (!Renderer.this.renderer_left_eye.surfVisible(i+corner_offset, j+corner_offset, k+corner_offset, di, dj, dk))
 								continue;
 
 							if (i+di >= 0 && i + di < e.nx
@@ -1843,50 +1867,54 @@ public class Renderer extends PeriodicTask {
 		public void stampPixelData() {
 			if (n_thread == 0) e.t9.start();
 
-			int lower = lower(imgwidth);
-			int upper = upper(imgwidth);
-			if (slice_z) {
-				int k_slice = getSlice();
-				for (int x = lower; x < upper; x++) {
-					for (int y = 0; y < imgheight; y++) {
-						int i = x/scalefactor;
-						int j = e.ny-1-y/scalefactor;
-						double scale = 1f/max(image_r[i][j][k_slice], image_g[i][j][k_slice], image_b[i][j][k_slice], 1f);
-						int rgb = clamp((int)(256*image_r[i][j][k_slice]*scale), 0, 255) << 16
-						| clamp((int)(256*image_g[i][j][k_slice]*scale), 0, 255) << 8
-						| clamp((int)(256*image_b[i][j][k_slice]*scale), 0, 255);
-						imgData[x + y*imgwidth] = rgb;
+			try {
+				int lower = lower(imgwidth);
+				int upper = upper(imgwidth);
+				if (slice_z) {
+					int k_slice = getSlice();
+					for (int x = lower; x < upper; x++) {
+						for (int y = 0; y < imgheight; y++) {
+							int i = x/scalefactor;
+							int j = e.ny-1-y/scalefactor;
+							double scale = 1f/max(image_r[i][j][k_slice], image_g[i][j][k_slice], image_b[i][j][k_slice], 1f);
+							int rgb = clamp((int)(256*image_r[i][j][k_slice]*scale), 0, 255) << 16
+									| clamp((int)(256*image_g[i][j][k_slice]*scale), 0, 255) << 8
+									| clamp((int)(256*image_b[i][j][k_slice]*scale), 0, 255);
+							imgData[x + y*imgwidth] = rgb;
+						}
 					}
 				}
-			}
-			if (slice_x) {
-				int i_slice = getSlice();
-				for (int x = lower; x < upper; x++) {
-					for (int y = 0; y < imgheight; y++) {
-						int j = x/scalefactor;
-						int k = e.nz-1-y/scalefactor;
-						double scale = 1f/max(image_r[i_slice][j][k], image_g[i_slice][j][k], image_b[i_slice][j][k], 1f);
-						int rgb = clamp((int)(256*image_r[i_slice][j][k]*scale), 0, 255) << 16
-						| clamp((int)(256*image_g[i_slice][j][k]*scale), 0, 255) << 8
-						| clamp((int)(256*image_b[i_slice][j][k]*scale), 0, 255);
-						imgData[x + y*imgwidth] = rgb;
+				if (slice_x) {
+					int i_slice = getSlice();
+					for (int x = lower; x < upper; x++) {
+						for (int y = 0; y < imgheight; y++) {
+							int j = x/scalefactor;
+							int k = e.nz-1-y/scalefactor;
+							double scale = 1f/max(image_r[i_slice][j][k], image_g[i_slice][j][k], image_b[i_slice][j][k], 1f);
+							int rgb = clamp((int)(256*image_r[i_slice][j][k]*scale), 0, 255) << 16
+									| clamp((int)(256*image_g[i_slice][j][k]*scale), 0, 255) << 8
+									| clamp((int)(256*image_b[i_slice][j][k]*scale), 0, 255);
+							imgData[x + y*imgwidth] = rgb;
+						}
 					}
 				}
-			}
 
-			if (slice_y) {
-				int j_slice = getSlice();
-				for (int x = lower; x < upper; x++) {
-					for (int y = 0; y < imgheight; y++) {
-						int i = x/scalefactor;
-						int k = e.nz-1-y/scalefactor;
-						double scale = 1f/max(image_r[i][j_slice][k], image_g[i][j_slice][k], image_b[i][j_slice][k], 1f);
-						int rgb = clamp((int)(256*image_r[i][j_slice][k]*scale), 0, 255) << 16
-						| clamp((int)(256*image_g[i][j_slice][k]*scale), 0, 255) << 8
-						| clamp((int)(256*image_b[i][j_slice][k]*scale), 0, 255);
-						imgData[x + y*imgwidth] = rgb;
+				if (slice_y) {
+					int j_slice = getSlice();
+					for (int x = lower; x < upper; x++) {
+						for (int y = 0; y < imgheight; y++) {
+							int i = x/scalefactor;
+							int k = e.nz-1-y/scalefactor;
+							double scale = 1f/max(image_r[i][j_slice][k], image_g[i][j_slice][k], image_b[i][j_slice][k], 1f);
+							int rgb = clamp((int)(256*image_r[i][j_slice][k]*scale), 0, 255) << 16
+									| clamp((int)(256*image_g[i][j_slice][k]*scale), 0, 255) << 8
+									| clamp((int)(256*image_b[i][j_slice][k]*scale), 0, 255);
+							imgData[x + y*imgwidth] = rgb;
+						}
 					}
 				}
+			} catch(ArrayIndexOutOfBoundsException ex) {
+				ex.printStackTrace();
 			}
 
 			if (n_thread == 0) e.t9.stop();
@@ -2120,50 +2148,54 @@ public class Renderer extends PeriodicTask {
 			double P_deficit = Math.max(-(C-C_prev)/C_prev, 0);
 
 			boolean show_gen_recomb = e.opts.menu_gen_recomb.isSelected();
-			
-			for (int i = i_low; i < i_high; i++) {
-				ChargeCarrierDot d = ccdots.get(i);
-				if (d == null) continue;
-				
-				d.time -= delta_t;
-				if (d.time < 0) {
-					ccdots.remove(i);
-					i--;
-				}
-				else {
-					double R_tmp = Utils.bilinearinterp(e.R, d.x, d.y, d.z)*e.e_charge;
-					if (d.type == DotType.HOLE) {
-						if (R_tmp > 0 && frand.next() < R_tmp/Utils.bilinearinterp(e.rho_p, d.x, d.y, d.z)*delta_t) {
-							if (show_gen_recomb) {
-								ccdots.replace(i, new ChargeCarrierDot(d.x, d.y, d.z, tau_events, tau_events*0.5, DotType.RECOMBINATION, 1));
-							} else {
-								ccdots.remove(i);
-								i--;
-							}
-							continue;
-						}
-					} else if (d.type == DotType.ELECTRON) {
-						if (R_tmp > 0 && frand.next() < -R_tmp/Utils.bilinearinterp(e.rho_n, d.x, d.y, d.z)*delta_t) {
-							if (show_gen_recomb) {
-								ccdots.replace(i, new ChargeCarrierDot(d.x, d.y, d.z, tau_events, tau_events*0.5, DotType.RECOMBINATION, 1));
-							} else {
-								ccdots.remove(i);
-								i--;
-							}
-							continue;
-						}
-					} else {
-						if (Utils.bilinearinterp(e.semiconducting, d.x, d.y, d.z) == 0) {
-							d.time -= 5*delta_t;
-						}
-					}
 
-					if (P_deficit > 0 && frand.next() < P_deficit) {
+			try {
+				for (int i = i_low; i < i_high; i++) {
+					ChargeCarrierDot d = ccdots.get(i);
+					if (d == null) continue;
+
+					d.time -= delta_t;
+					if (d.time < 0) {
 						ccdots.remove(i);
 						i--;
-						continue;
+					}
+					else {
+						double R_tmp = Utils.bilinearinterp(e.R, d.x, d.y, d.z)*e.e_charge;
+						if (d.type == DotType.HOLE) {
+							if (R_tmp > 0 && frand.next() < R_tmp/Utils.bilinearinterp(e.rho_p, d.x, d.y, d.z)*delta_t) {
+								if (show_gen_recomb) {
+									ccdots.replace(i, new ChargeCarrierDot(d.x, d.y, d.z, tau_events, tau_events*0.5, DotType.RECOMBINATION, 1));
+								} else {
+									ccdots.remove(i);
+									i--;
+								}
+								continue;
+							}
+						} else if (d.type == DotType.ELECTRON) {
+							if (R_tmp > 0 && frand.next() < -R_tmp/Utils.bilinearinterp(e.rho_n, d.x, d.y, d.z)*delta_t) {
+								if (show_gen_recomb) {
+									ccdots.replace(i, new ChargeCarrierDot(d.x, d.y, d.z, tau_events, tau_events*0.5, DotType.RECOMBINATION, 1));
+								} else {
+									ccdots.remove(i);
+									i--;
+								}
+								continue;
+							}
+						} else {
+							if (Utils.bilinearinterp(e.semiconducting, d.x, d.y, d.z) == 0) {
+								d.time -= 5*delta_t;
+							}
+						}
+
+						if (P_deficit > 0 && frand.next() < P_deficit) {
+							ccdots.remove(i);
+							i--;
+							continue;
+						}
 					}
 				}
+			} catch (IndexOutOfBoundsException e) {
+				System.out.println("Charge carrier issue detected...");
 			}
 
 			graphics_mid_barrier.await();
