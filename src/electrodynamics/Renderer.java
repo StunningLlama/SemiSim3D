@@ -127,6 +127,7 @@ public class Renderer extends PeriodicTask {
 	boolean slice_x = false;
 	boolean slice_y = false;
 	boolean slice_z = true;
+	int cut_max = 0;
     float max_size;
     
     Camera ortho_cam = new Camera(Perspective.ORTHO);
@@ -339,22 +340,21 @@ public class Renderer extends PeriodicTask {
 	}
 	
 	public int getSliceLow() {
-		return clamp(e.opts.gui_slice_l.getValue(), 0, rz-1);
+		return clamp(e.opts.gui_slice_l.getValue(), 0, cut_max);
 	}
 	
 	public int getSliceHigh() {
-		return clamp(e.opts.gui_slice_h.getValue(), 0, rz-1);
+		return clamp(e.opts.gui_slice_h.getValue(), 0, cut_max);
 	}
 
 	public void setCanvasSize() {
 		e.rwLock.writeLock().lock();
 		try {
 			Perspective mode = e.controls.perspective.getOption();
-			Slice slice = e.controls.slice.getOption();
 			threeD_mode = mode.is3D();
-			slice_x = (slice == Slice.SLICE_X);
-			slice_y = (slice == Slice.SLICE_Y);
-			slice_z = (slice == Slice.SLICE_Z);
+			slice_x = (mode == Perspective.SLICE_X);
+			slice_y = (mode == Perspective.SLICE_Y);
+			slice_z = (mode == Perspective.SLICE_Z);
 
 			rx = e.renderer.project_x(e.nx, e.ny, e.nz);
 			ry = e.renderer.project_y(e.nx, e.ny, e.nz);
@@ -420,21 +420,32 @@ public class Renderer extends PeriodicTask {
 			imgpanel.remove(renderer_left_eye.canvas);
 			imgpanel.remove(renderer_right_eye.canvas);
 
-			e.opts.gui_slice.setVisible(!threeD_mode && e.controls.slice.getOption().isSlice());
-			e.opts.gui_slicelabel.setVisible(!threeD_mode && e.controls.slice.getOption().isSlice());
+			e.opts.gui_slice.setVisible(!threeD_mode && !e.controls.perspective.getOption().is3D());
+			e.opts.gui_slicelabel.setVisible(!threeD_mode && !e.controls.perspective.getOption().is3D());
 			e.opts.gui_slice_l.setVisible(threeD_mode && e.controls.slice.getOption().isSlice());
 			e.opts.gui_slicelabel_l.setVisible(threeD_mode && e.controls.slice.getOption().isSlice());
 			e.opts.gui_slice_h.setVisible(threeD_mode && e.controls.slice.getOption().isSlice());
 			e.opts.gui_slicelabel_h.setVisible(threeD_mode && e.controls.slice.getOption().isSlice());
 			
-			if (e.controls.slice.getOption().isSlice()) {
+			if (!e.controls.perspective.getOption().is3D()) {
 				e.opts.gui_slice.setMaximum(rz + e.opts.gui_slice.getVisibleAmount() - 1);
-				e.opts.gui_slice_l.setMaximum(rz + e.opts.gui_slice_l.getVisibleAmount() - 1);
-				e.opts.gui_slice_h.setMaximum(rz + e.opts.gui_slice_h.getVisibleAmount() - 1);
 				e.opts.gui_slice.setValue(getSlice());
+				e.controls.adjustmentValueChanged(new AdjustmentEvent(e.opts.gui_slice, 0, 0, 0));
+			}
+			
+			if (e.controls.slice.getOption() == Cut.CUT_X) {
+				cut_max = e.nx - 1;
+			} else if (e.controls.slice.getOption() == Cut.CUT_Y) {
+				cut_max = e.ny - 1;
+			} else if (e.controls.slice.getOption() == Cut.CUT_Z) {
+				cut_max = e.nz - 1;
+			}
+			
+			if (e.controls.slice.getOption().isSlice()) {
+				e.opts.gui_slice_l.setMaximum(cut_max + e.opts.gui_slice_l.getVisibleAmount());
+				e.opts.gui_slice_h.setMaximum(cut_max + e.opts.gui_slice_h.getVisibleAmount());
 				e.opts.gui_slice_l.setValue(getSliceLow());
 				e.opts.gui_slice_h.setValue(getSliceHigh());
-				e.controls.adjustmentValueChanged(new AdjustmentEvent(e.opts.gui_slice, 0, 0, 0));
 				e.controls.adjustmentValueChanged(new AdjustmentEvent(e.opts.gui_slice_l, 0, 0, 0));
 				e.controls.adjustmentValueChanged(new AdjustmentEvent(e.opts.gui_slice_h, 0, 0, 0));
 			}
@@ -876,20 +887,21 @@ public class Renderer extends PeriodicTask {
 			t_prev = e.time;
 		}
 
-		if (e.controls.slice.getOption().isSlice()) {
-			nx_min = this.embed_x(0, 0, getSliceLow());
-			ny_min = this.embed_y(0, 0, getSliceLow());
-			nz_min = this.embed_z(0, 0, getSliceLow());
-			nx_max = this.embed_x(rx, ry, getSliceHigh());
-			ny_max = this.embed_y(rx, ry, getSliceHigh());
-			nz_max = this.embed_z(rx, ry, getSliceHigh());
-		} else {
-			nx_min = 0;
-			ny_min = 0;
-			nz_min = 0;
-			nx_max = e.nx-1;
-			ny_max = e.ny-1;
-			nz_max = e.nz-1;
+		nx_min = 0;
+		ny_min = 0;
+		nz_min = 0;
+		nx_max = e.nx-1;
+		ny_max = e.ny-1;
+		nz_max = e.nz-1;
+		if (e.controls.slice.getOption() == Cut.CUT_X) {
+			nx_min = getSliceLow();
+			nx_max = getSliceHigh();
+		} else if (e.controls.slice.getOption() == Cut.CUT_Y) {
+			ny_min = getSliceLow();
+			ny_max = getSliceHigh();
+		} else if (e.controls.slice.getOption() == Cut.CUT_Z) {
+			nz_min = getSliceLow();
+			nz_max = getSliceHigh();
 		}
 
 		synchronized_show_carriers = e.opts.gui_carriers.isSelected();
@@ -1139,11 +1151,11 @@ public class Renderer extends PeriodicTask {
 			text.isRightJustified = true;
 		}
 		
-		if (!e.controls.slice.getOption().isSlice() && !e.controls.perspective.getOption().is3D()) {
+		/*if (!e.controls.slice.getOption().isSlice() && !e.controls.perspective.getOption().is3D()) {
 			Text text = drawString("Pick a slice.", imgpanel.getWidth()/2, imgpanel.getHeight()/2);
 			text.isHorizontalCentered = true;
 			text.isVerticalCentered = true;
-		}
+		}*/
 
 		if (g != null && e.opts.menu_axes.isSelected()) {
 			int pad = 15;
@@ -2757,7 +2769,9 @@ public class Renderer extends PeriodicTask {
 	}
 
 	public enum Perspective {
-		SLICE_X("2D slice"),
+		SLICE_X("2D x slice"),
+		SLICE_Y("2D y slice"),
+		SLICE_Z("2D z slice"),
 		ORTHO("3D orthographic"),
 		PERSPECTIVE("3D perspective");
 
@@ -2777,14 +2791,14 @@ public class Renderer extends PeriodicTask {
 		}
 	}
 	
-	public enum Slice {
-		NONE("No slice"),
-		SLICE_X("x cross-section"),
-		SLICE_Y("y cross-section"),
-		SLICE_Z("z cross-section");
+	public enum Cut {
+		NONE("No cut"),
+		CUT_X("Cut along yz plane"),
+		CUT_Y("Cut along xz plane"),
+		CUT_Z("Cut along xy plane");
 
 		String name;
-		Slice(String name)
+		Cut(String name)
 		{
 			this.name = name;
 		}

@@ -45,7 +45,7 @@ import electrodynamics.Renderer.Perspective;
 import electrodynamics.Renderer.RenderMode;
 import electrodynamics.Renderer.ScalarMode;
 import electrodynamics.Renderer.ScalarView;
-import electrodynamics.Renderer.Slice;
+import electrodynamics.Renderer.Cut;
 import electrodynamics.Renderer.Stereo;
 import electrodynamics.Renderer.VectorMode;
 import electrodynamics.Renderer.VectorView;
@@ -180,7 +180,7 @@ public class SaveManager {
 							case "vectormode": e.controls.vectormode.setOption(gson.fromJson(fstr, VectorMode.class)); break;
 							case "perspective": e.controls.perspective.setOption(gson.fromJson(fstr, Perspective.class)); break;
 							case "rendermode": e.controls.rendermode.setOption(gson.fromJson(fstr, RenderMode.class)); break;
-							case "slice": e.controls.slice.setOption(gson.fromJson(fstr, Slice.class)); break;
+							case "slice": e.controls.slice.setOption(gson.fromJson(fstr, Cut.class)); break;
 							case "stereo": e.controls.stereo.setOption(gson.fromJson(fstr, Stereo.class)); break;
 							case "gui_bc": e.opts.gui_bc.setSelectedItem(gson.fromJson(fstr, BoundaryCondition.class)); break;
 

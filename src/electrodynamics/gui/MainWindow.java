@@ -47,6 +47,7 @@ import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JTextArea;
+import javax.swing.JToolBar;
 import javax.swing.KeyStroke;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.UIManager;
@@ -70,6 +71,7 @@ import electrodynamics.SemiSim;
 import electrodynamics.Simulation;
 import electrodynamics.Simulation.BoundaryCondition;
 import electrodynamics.util.OctahedralAction.OctahedralGenerator;
+import javax.swing.border.EtchedBorder;
 
 public class MainWindow extends JFrame implements ComponentListener {
 
@@ -121,6 +123,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 	public JMenu menu_tools;
 	public JMenu menu_view;
 	public JMenu menu_graphics;
+	public JMenu menu_perspective;
 	public JMenu menu_help2;
 	public JMenu menu_edit;
 	public JMenu menu_file;
@@ -179,13 +182,18 @@ public class MainWindow extends JFrame implements ComponentListener {
 	public JLabel gui_light_text;
 	public JScrollBar gui_light;
 	public JComboBox<CustProbeType> gui_probetype;
-	public HashMap<Brush, IconButton> toolbuttons = new HashMap<Brush, IconButton>();
 	public JLabel gui_slicelabel_l;
 	public JScrollBar gui_slice_l;
 	public JScrollBar gui_slice_h;
+	
+	public IconButton tb_undo;
+	public IconButton tb_redo;
+	public IconButton tb_cut;
+	public IconButton tb_copy;
+	public IconButton tb_paste;
 
 	JPanel panel_3;
-	JPanel panel_4;
+	JToolBar toolbar;
 	public JLabel gui_slicelabel_h;
 
 	/**
@@ -304,11 +312,14 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_tools = new JMenu("Tools");
 		menuBar.add(menu_tools);
 
-		menu_view = new JMenu("View");
+		menu_view = new JMenu("Fields");
 		menuBar.add(menu_view);
 
-		menu_graphics = new JMenu("Graphics");
+		menu_graphics = new JMenu("View");
 		menuBar.add(menu_graphics);
+		
+		menu_perspective = new JMenu("Perspective");
+		menuBar.add(menu_perspective);
 
 		menu_interface = new CustJCheckBoxMenuItem("Display interface");
 		menu_interface.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_H, 0));
@@ -463,7 +474,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		gui_slice = new JScrollBar();
 		gui_slice.setMaximum(42);
 		gui_slice.setOrientation(JScrollBar.HORIZONTAL);
-		gui_slice.setBounds(203, 403, 171, 17);
+		gui_slice.setBounds(10, 402, 171, 17);
 		panel.add(gui_slice);
 		
 		gui_brush = new JComboBox();
@@ -546,7 +557,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		
 		scrollPane = new JScrollPane();
 		scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-		scrollPane.setBounds(20, 434, 341, 319);
+		scrollPane.setBounds(20, 440, 341, 313);
 		panel.add(scrollPane);
 		
 		textPane = new JTextArea();
@@ -598,11 +609,11 @@ public class MainWindow extends JFrame implements ComponentListener {
 		panel.add(gui_carriers);
 		
 		gui_slicelabel = new JLabel("Slice");
-		gui_slicelabel.setBounds(213, 380, 150, 14);
+		gui_slicelabel.setBounds(20, 379, 150, 14);
 		panel.add(gui_slicelabel);
 		
 		gui_rotate = new JCheckBox("Rotate view");
-		gui_rotate.setBounds(90, 36, 112, 23);
+		gui_rotate.setBounds(96, 38, 85, 23);
 		panel.add(gui_rotate);
 		
 		gui_parallax = new JScrollBar();
@@ -666,25 +677,30 @@ public class MainWindow extends JFrame implements ComponentListener {
 		panel.add(gui_slice_l);
 		
 		gui_slicelabel_h = new JLabel("Upper cut");
-		gui_slicelabel_h.setBounds(213, 380, 150, 14);
+		gui_slicelabel_h.setBounds(211, 379, 150, 14);
 		panel.add(gui_slicelabel_h);
 		
 		gui_slice_h = new JScrollBar();
 		gui_slice_h.setOrientation(JScrollBar.HORIZONTAL);
 		gui_slice_h.setMaximum(42);
 		gui_slice_h.setValue(32);
-		gui_slice_h.setBounds(203, 403, 171, 17);
+		gui_slice_h.setBounds(201, 402, 171, 17);
 		panel.add(gui_slice_h);
+		
+		JPanel panel_1 = new JPanel();
+		panel_1.setBorder(new EtchedBorder(EtchedBorder.LOWERED, null, null));
+		panel_1.setBounds(197, 35, 180, 245);
+		panel.add(panel_1);
 		panel_3 = new JPanel();
 		//panel_3.setBorder(new EmptyBorder(0, 0, 0, 0));
 		contentPane.add(panel_3, BorderLayout.CENTER);
 		panel_3.setLayout(new BorderLayout(0, 0));
 		
-		panel_4 = new JPanel();
+		toolbar = new JToolBar();
 		//panel_4.setBorder(new EmptyBorder(0, 0, 0, 0));
-		panel_3.add(panel_4, BorderLayout.NORTH);
-		panel_4.setLayout(new BoxLayout(panel_4, BoxLayout.X_AXIS));
-		panel_4.setBorder(new EmptyBorder(2, 0, 2, 0));
+		panel_3.add(toolbar, BorderLayout.NORTH);
+		toolbar.setLayout(new BoxLayout(toolbar, BoxLayout.X_AXIS));
+		toolbar.setBorder(new EmptyBorder(2, 0, 2, 0));
 	}
 	
 	public void listSettings() {
@@ -854,13 +870,13 @@ public class MainWindow extends JFrame implements ComponentListener {
 			menu_file.remove(separator_6);
 		}
 
-		e.controls.perspective.initialize(menu_graphics, e.controls, null, () -> new CustJRadioButtonMenuItem());
-		menu_graphics.add(new JSeparator());
-		e.controls.rendermode.initialize(menu_graphics, e.controls, null, () -> new CustJRadioButtonMenuItem());
-		menu_graphics.add(new JSeparator());
-		e.controls.slice.initialize(menu_graphics, e.controls, null, () -> new CustJRadioButtonMenuItem());
-		menu_graphics.add(new JSeparator());
-		e.controls.stereo.initialize(menu_graphics, e.controls, null, () -> new CustJRadioButtonMenuItem());
+		e.controls.perspective.initialize(menu_perspective, e.controls, null, () -> new CustJRadioButtonMenuItem());
+		menu_perspective.add(new JSeparator());
+		e.controls.rendermode.initialize(menu_perspective, e.controls, null, () -> new CustJRadioButtonMenuItem());
+		menu_perspective.add(new JSeparator());
+		e.controls.slice.initialize(menu_perspective, e.controls, null, () -> new CustJRadioButtonMenuItem());
+		menu_perspective.add(new JSeparator());
+		e.controls.stereo.initialize(menu_perspective, e.controls, null, () -> new CustJRadioButtonMenuItem());
 		
 		e.controls.brushes.initialize(menu_tools, e.controls, new Controls.Brush[] {Controls.Brush.DRAW, Controls.Brush.VOLTAGE, Controls.Brush.BANDS}, () -> new JRadioButtonMenuItem());
 
@@ -971,17 +987,37 @@ public class MainWindow extends JFrame implements ComponentListener {
 		
 		e.renderer.imgpanel.addKeyListener(e.controls);
 		
-		addToolButton(Brush.INTERACT, 25);
-		addToolButton(Brush.DRAW, 25);
-		addToolButton(Brush.ERASE, 25);
-		addToolButton(Brush.LINE, 25);
-		addToolButton(Brush.FILL, 25);
-		addToolButton(Brush.RECTANGLE, 25);
-		addToolButton(Brush.TEXT, 25);
-		addToolButton(Brush.SELECT, 25);
-		addToolButton(Brush.CAMERA, 25);
-		addToolButton(Brush.ZOOM, 25);
-		addToolButton(Brush.PAN, 25);
+		IconButton button;
+		addToolButton("New", "menu_new", 25);
+		addToolButton("Open", "menu_open", 25);
+		addToolButton("Save", "menu_save", 25);
+		toolbar.addSeparator();
+		tb_undo = addToolButton("Undo", "menu_undo", 25);
+		tb_redo = addToolButton("Redo", "menu_redo", 25);
+		tb_cut = addToolButton("Cut", "menu_cut", 25);
+		tb_copy = addToolButton("Copy", "menu_copy", 25);
+		tb_paste = addToolButton("Paste", "menu_paste", 25);
+		toolbar.addSeparator();
+		addToolButton(e.controls.brushes, Brush.INTERACT, 25);
+		addToolButton(e.controls.brushes, Brush.DRAW, 25);
+		addToolButton(e.controls.brushes, Brush.ERASE, 25);
+		addToolButton(e.controls.brushes, Brush.LINE, 25);
+		addToolButton(e.controls.brushes, Brush.FILL, 25);
+		addToolButton(e.controls.brushes, Brush.RECTANGLE, 25);
+		addToolButton(e.controls.brushes, Brush.TEXT, 25);
+		addToolButton(e.controls.brushes, Brush.SELECT, 25);
+		addToolButton(e.controls.brushes, Brush.CAMERA, 25);
+		addToolButton(e.controls.brushes, Brush.ZOOM, 25);
+		addToolButton(e.controls.brushes, Brush.PAN, 25);
+		toolbar.addSeparator();
+		button = addToolButton(e.controls.perspective, Perspective.SLICE_X, 25); button.grayscale = false; button.updateUI();
+		button = addToolButton(e.controls.perspective, Perspective.SLICE_Y, 25); button.grayscale = false; button.updateUI();
+		button = addToolButton(e.controls.perspective, Perspective.SLICE_Z, 25); button.grayscale = false; button.updateUI();
+		button = addToolButton(e.controls.perspective, Perspective.ORTHO, 25); button.grayscale = false; button.updateUI();
+		button = addToolButton(e.controls.perspective, Perspective.PERSPECTIVE, 25); button.grayscale = false; button.updateUI();
+
+		e.controls.brushes.updateToolbar();
+		e.controls.perspective.updateToolbar();
 		
 		if (BuildFlags.steam_enabled)
 			menu_github.setText("Steam");
@@ -995,37 +1031,59 @@ public class MainWindow extends JFrame implements ComponentListener {
 		
 		setDefaults(e);
 	}
-	
-	public void addToolButton(Brush brush, int size) {
+
+
+	public BufferedImage loadIcon(String name, int size) {
+		BufferedImage bufferedicon = null;
+
 		try {
-			Image icon = ImageIO.read(SemiSim.getRootFile("images/icons/" + brush.name() + ".png")).getScaledInstance(size, size, Image.SCALE_SMOOTH);
+			Image icon = ImageIO.read(SemiSim.getRootFile("images/icons/" + name + ".png")).getScaledInstance(size, size, Image.SCALE_SMOOTH);
 			if (icon != null) {
 				int width = icon.getWidth(null);
 				int height = icon.getHeight(null);
 
 				// width and height are of the toolkit image
-				BufferedImage bufferedicon = new BufferedImage(width, height, 
-				      BufferedImage.TYPE_INT_ARGB);
+				bufferedicon = new BufferedImage(width, height, 
+						BufferedImage.TYPE_INT_ARGB);
 				Graphics g = bufferedicon.getGraphics();
 				g.drawImage(icon, 0, 0, null);
 				g.dispose();
-				
-				
-				IconButton button = new IconButton(bufferedicon, size);
-				
-				button.setToolTipText(brush.toString());
-				button.addActionListener(new ActionListener() {
-					@Override
-					public void actionPerformed(ActionEvent arg0) {
-						e.controls.brushes.setOption(brush);
-						gui_brush.setSelectedItem(brush);
-					}
-				});
-				
-				panel_4.add(button);
-				toolbuttons.put(brush, button);
 			}
 		} catch (IOException e1) {}
+
+		if (bufferedicon == null) {
+			bufferedicon = new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB);
+		}
+		
+		return bufferedicon;
+	}
+	
+	public <T extends Enum> IconButton addToolButton(MenuCheckList<T, ? extends JRadioButtonMenuItem> list, T t, int size) {
+		IconButton button = new IconButton(loadIcon(t.name(), size), size);
+		
+		button.setToolTipText(t.toString());
+		button.addActionListener(e.controls);
+		button.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				list.setOption(t);
+			}
+		});
+		
+		toolbar.add(button);
+		list.addToolbarButton(t, button);
+		return button;
+	}
+	
+	public <T extends Enum> IconButton addToolButton(String action_name, String action_command, int size) {
+		IconButton button = new IconButton(loadIcon(action_name.toUpperCase(), size), size);
+		
+		button.setToolTipText(action_name);
+		button.setActionCommand(action_command);
+		button.addActionListener(e.controls);
+		
+		toolbar.add(button);
+		return button;
 	}
 	
 	public void removeKeyListeners(Component c) {

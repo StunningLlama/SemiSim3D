@@ -21,6 +21,8 @@ public class IconButton extends JButton {
 	ImageIcon highlighted;
 	Color fc;
 	Color bc;
+	boolean grayscale = true;
+	boolean is_highlighted = false;
 
 	public IconButton(BufferedImage icon, int size) {
 		super();
@@ -41,14 +43,16 @@ public class IconButton extends JButton {
 		bc = this.getBackground();
 
 		if (icon != null) {
-			normal = makeIcon(fc, Color.BLACK, true);
-			highlighted = makeIcon(bc, fc, false);
-			setIcon(normal);
+			makeNormalIcon();
+			makeHighlightedIcon();
+			
+			setHighlighted(is_highlighted);
 		}
 	}
 
 	public void setHighlighted(boolean value) {
-		if (value) {
+		is_highlighted = value;
+		if (is_highlighted) {
 			setIcon(highlighted);
 			this.setBackground(fc);
 		}
@@ -58,14 +62,57 @@ public class IconButton extends JButton {
 		}
 	}
 	
-	private ImageIcon makeIcon(Color fc, Color bc, boolean applyAlpha) {
+	private void makeNormalIcon() {
 		int fr = fc.getRed();
 		int fg = fc.getGreen();
 		int fb = fc.getBlue();
+
+		BufferedImage image = new BufferedImage(icon.getWidth(), icon.getHeight(), icon.getType());
+		Graphics gr = image.getGraphics();
+		gr.drawImage(icon, 0, 0, null);
+		for(int y = 0; y < icon.getHeight(); y++) {
+			for(int x = 0; x < icon.getWidth(); x++)
+			{
+				int argb = icon.getRGB(x, y);
+
+				int a = ((argb>>24)&255);
+				int ir = ((argb>>16)&255);
+				int ig = ((argb>>8)&255);
+				int ib = ((argb>>0)&255);
+				
+				int r, g, b;
+
+				if (grayscale) {
+					r = fr;
+					g = fg;
+					b = fb;
+				} else {
+					r = ir;
+					g = ig;
+					b = ib;
+				}
+				if (r > 255)
+					r = 255;
+				if (g > 255)
+					g = 255;
+				if (b > 255)
+					b = 255;
+				
+				image.setRGB(x, y, a<<24 | r << 16 | g << 8 | b);
+			}
+		}
 		
-		int br = bc.getRed();
-		int bg = bc.getGreen();
-		int bb = bc.getBlue();
+		normal = new ImageIcon(image);
+	}
+	
+	private void makeHighlightedIcon() {
+		int fr = bc.getRed();
+		int fg = bc.getGreen();
+		int fb = bc.getBlue();
+		
+		int br = fc.getRed();
+		int bg = fc.getGreen();
+		int bb = fc.getBlue();
 
 		BufferedImage image = new BufferedImage(icon.getWidth(), icon.getHeight(), icon.getType());
 		Graphics gr = image.getGraphics();
@@ -77,10 +124,23 @@ public class IconButton extends JButton {
 
 				int a = ((argb>>24)&255);
 				double af = a/255.0;
+
+				int ir = ((argb>>16)&255);
+				int ig = ((argb>>8)&255);
+				int ib = ((argb>>0)&255);
 				
-				int r = (int)(fr*af+br*(1-af));
-				int g = (int)(fg*af+bg*(1-af));
-				int b = (int)(fb*af+bb*(1-af));
+				int r, g, b;
+
+				if (grayscale) {
+					r = (int)(fr*af+br*(1-af));
+					g = (int)(fg*af+bg*(1-af));
+					b = (int)(fb*af+bb*(1-af));
+				} else {
+					r = (int)(ir*af+br*(1-af));
+					g = (int)(ig*af+bg*(1-af));
+					b = (int)(ib*af+bb*(1-af));
+				}
+				
 				if (r > 255)
 					r = 255;
 				if (g > 255)
@@ -88,13 +148,12 @@ public class IconButton extends JButton {
 				if (b > 255)
 					b = 255;
 				
-				if (!applyAlpha)
-					a = 255;
+				a = 255;
 				
 				image.setRGB(x, y, a<<24 | r << 16 | g << 8 | b);
 			}
 		}
 		
-		return new ImageIcon(image);
+		highlighted = new ImageIcon(image);
 	}
 }

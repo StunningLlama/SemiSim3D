@@ -55,7 +55,8 @@ public class SemiSim {
 									+ "Thanks to Paul Falstad, Ariel Baksh, and retconaway for providing help, feedback, and suggestions.<br><br>"
 									+ "Data taken from:<br>"
 									+ "Sitlisky, Vadim. &ldquo;New Semiconductor Materials. Characteristics and Properties&rdquo;. <a href=\"http://www.ioffe.ru\"><em>www.ioffe.ru</em></a>.<br> Retrieved June 2026.<br>"
-									+ "Schroder, D. K. (2006). <em>Semiconductor material<br> and device characterization</em>. John Wiley &amp; Sons.</p></body></html>";
+									+ "Schroder, D. K. (2006). <em>Semiconductor material<br> and device characterization</em>. John Wiley &amp; Sons.<br>"
+									+ "Icons made by Hugeicons</p></body></html>";
 	public static String version = "";
 	
 	public static Path rootdir = Paths.get(".");

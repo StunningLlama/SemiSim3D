@@ -60,6 +60,11 @@ public class Simulation extends PeriodicTask {
 	//Add heat and entropy
 	//Implement arrow length 
 	//Graphics settings
+	//Fix sim lag affecting camera
+	//Reset sim should reset camera
+	//Constrain to layer
+	//Cancel paste
+	//Hide absorber currents??
 	
 	/* Parts */
 	

@@ -21,12 +21,14 @@ import javax.swing.JSeparator;
 public class MenuCheckList<T extends Enum<?>, Button extends JRadioButtonMenuItem> implements ActionListener {
 
 	public HashMap<T, Button> buttonmap = new HashMap<T, Button>();
+	public HashMap<T, IconButton> toolbarmap = new HashMap<T, IconButton>();
 	public List<Button> buttonlist = new ArrayList<Button>();
 	public List<T> optionlist = new ArrayList<T>();
 	public ButtonGroup buttongroup = new ButtonGroup();
 	public JMenu menu;
 	public HashSet<T> separators;
 	private T default_option;
+	private ActionListener listener;
 	
 	public MenuCheckList(T[] values, T default_option) {
 		for (T b : values) {
@@ -51,13 +53,23 @@ public class MenuCheckList<T extends Enum<?>, Button extends JRadioButtonMenuIte
 			buttonlist.add(button);
 			button.setActionCommand(optionlist.get(0).getClass().getName());
 			button.addActionListener(a);
-			button.addActionListener(this);
+			button.addActionListener((ev) -> {
+				updateToolbar();
+			});
 			buttongroup.add(button);
 			menu.add(button);
 		}
 		
 		if (default_option != null)
 			buttongroup.setSelected(buttonmap.get(default_option).getModel(), true);
+		
+		listener = a;
+	}
+	
+	public void addToolbarButton(T t, IconButton b) {
+		toolbarmap.put(t, b);
+		b.setActionCommand(optionlist.get(0).getClass().getName());
+		//b.addActionListener(listener);
 	}
 	
 	public void removeOption(T t) {
@@ -89,10 +101,28 @@ public class MenuCheckList<T extends Enum<?>, Button extends JRadioButtonMenuIte
 	public void setOption(T t) {
 		if (buttonmap.get(t) != null)
 			buttongroup.setSelected(buttonmap.get(t).getModel(), true);
+		
+		for (T t2 : toolbarmap.keySet()) {
+			toolbarmap.get(t2).setHighlighted(t2.equals(t));
+		}
 	}
 	
 	public void setOption(int i) {
 		buttongroup.setSelected(buttonlist.get(i).getModel(), true);
+
+		T t = getOption();
+		
+		for (T t2 : toolbarmap.keySet()) {
+			toolbarmap.get(t2).setHighlighted(t2.equals(t));
+		}
+	}
+	
+	public void updateToolbar() {
+		T t = getOption();
+		
+		for (T t2 : toolbarmap.keySet()) {
+			toolbarmap.get(t2).setHighlighted(t2.equals(t));
+		}
 	}
 
 	@Override

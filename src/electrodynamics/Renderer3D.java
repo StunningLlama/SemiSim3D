@@ -104,7 +104,7 @@ public class Renderer3D implements GLEventListener {
 			Br57 = Font.createFont(Font.TRUETYPE_FONT, SemiSim.getRootFile("images/Br57.ttf"));
 		} catch (FontFormatException | IOException e1) {
 			Br57 = new Font("Monospaced", Font.PLAIN, 12);
-			e1.printStackTrace();
+			System.out.println("Pixel font missing!");
 		}
 	}
 	
@@ -132,9 +132,9 @@ public class Renderer3D implements GLEventListener {
 
 		if (use_pixel_font) {
 			int ppi = Toolkit.getDefaultToolkit().getScreenResolution();
-			labelfont_small = new TextRenderer(Br57.deriveFont(extra_res_scale * 7f * (ppi / 72f)), false, true);
+			labelfont_small = new TextRenderer(Br57.deriveFont(extra_res_scale * 8f * (ppi / 72f)), true, true);
 			labelfont_small.setSmoothing(false);
-			labelfont_big = new TextRenderer(Br57.deriveFont(extra_res_scale * 14f * (ppi / 72f)), false, true);
+			labelfont_big = new TextRenderer(Br57.deriveFont(extra_res_scale * 16f * (ppi / 72f)), true, true);
 			labelfont_big.setSmoothing(false);
 		} else {
 			labelfont_small = new TextRenderer(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, (int)(extra_res_scale*12/font_scale)), true, true);
