@@ -228,7 +228,6 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	public double prev_EMF_setting = 0;
 	public double new_EMF_setting = 0;
 	public double new_EMF = 0;
-	public double angle = 0;
 	public double emf_len;
 	public double cur_area;
 	public boolean setvoltage = true;
@@ -336,7 +335,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	}
 
 	private void transformMouseCoords() {
-		pressed_left = mouse_pressed_left || Keyboard.isKeyPressed(KeyEvent.VK_ENTER);
+		pressed_left = mouse_pressed_left || (Keyboard.isKeyPressed(KeyEvent.VK_ENTER) && e.renderer.imgpanel.hasFocus());
 		pressing_left = false;
 		releasing_left = false;
 		if (pressed_left) {
@@ -559,20 +558,6 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	
 	private void getUIinputs() {
 		brushsize = Math.pow(10.0, 2*e.opts.gui_brushsize.getValue()/(50.0*10.0) - 0.75) + e.opts.gui_brushsize.getValue()/10.0 + 0.5;
-
-		int directionval = e.opts.gui_parameter2.getValue()/6;
-		if (directionval == 0) {
-			angle = -Math.PI/2;
-		}
-		if (directionval == 1) {
-			angle = 0;
-		}
-		if (directionval == 2) {
-			angle = Math.PI/2;
-		}
-		if (directionval == 3) {
-			angle = Math.PI;
-		}
 
 		new_EMF_setting = e.opts.gui_parameter3.getValue();
 		if (!iscurrentselected) {
@@ -1898,6 +1883,9 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 			e.materialviewer.updateUI();
 			e.materialviewer.setVisible(true);
 			break;
+		case "menu_editor":
+			e.codeeditor.setVisible(true);
+			break;
 		case "menu_resetcamera":
 			e.renderer.cam.resetCameraPos(e.renderer.max_size);
 			break;
@@ -2817,7 +2805,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		}
 	}
 
-	interface FloodFillFunc {
+	public interface FloodFillFunc {
 		boolean isValid(int i, int j, int k);
 		void fill(int i, int j, int k);
 	}

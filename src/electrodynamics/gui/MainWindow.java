@@ -7,6 +7,7 @@ import java.awt.Adjustable;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Image;
@@ -149,6 +150,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 	public JMenuItem menu_advancedsettings;
 	public JMenuItem menu_cust_material;
 	public JMenuItem menu_view_materials;
+	public JMenuItem menu_editor;
 	public JMenuItem menu_browse;
 	public JMenuItem menu_probearrows;
 	public JMenuItem menu_resetcamera;
@@ -308,6 +310,9 @@ public class MainWindow extends JFrame implements ComponentListener {
 
 		menu_view_materials = new JMenuItem("Material property viewer");
 		menu_edit.add(menu_view_materials);
+
+		menu_editor = new JMenuItem("Run commands");
+		menu_edit.add(menu_editor);
 
 		menu_tools = new JMenu("Tools");
 		menuBar.add(menu_tools);
@@ -700,6 +705,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		//panel_4.setBorder(new EmptyBorder(0, 0, 0, 0));
 		panel_3.add(toolbar, BorderLayout.NORTH);
 		toolbar.setLayout(new BoxLayout(toolbar, BoxLayout.X_AXIS));
+		//toolbar.setLayout(new FlowLayout(FlowLayout.LEADING));
 		toolbar.setBorder(new EmptyBorder(2, 0, 2, 0));
 	}
 	
@@ -814,6 +820,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_report.addActionListener(e.controls);
 		menu_cust_material.addActionListener(e.controls);
 		menu_view_materials.addActionListener(e.controls);
+		menu_editor.addActionListener(e.controls);
 		menu_resetcamera.addActionListener(e.controls);
 		menu_workshop.addActionListener(e.controls);
 		menu_load_workshop.addActionListener(e.controls);
@@ -852,6 +859,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_report				.setActionCommand("menu_report");
 		menu_cust_material		.setActionCommand("menu_cust_material");
 		menu_view_materials		.setActionCommand("menu_view_materials");
+		menu_editor		.setActionCommand("menu_editor");
 		menu_resetcamera		.setActionCommand("menu_resetcamera");
 		menu_workshop			.setActionCommand("menu_workshop");
 		menu_load_workshop			.setActionCommand("menu_load_workshop");

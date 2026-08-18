@@ -26,6 +26,7 @@ import com.codedisaster.steamworks.SteamAPI;
 import electrodynamics.Renderer.ScalarView;
 import electrodynamics.Renderer.VectorView;
 import electrodynamics.gui.AdvancedOptions;
+import electrodynamics.gui.CodeEditor;
 import electrodynamics.gui.MainWindow;
 import electrodynamics.gui.MaterialManager;
 import electrodynamics.gui.MaterialViewer;
@@ -65,6 +66,7 @@ public class Simulation extends PeriodicTask {
 	//Constrain to layer
 	//Cancel paste
 	//Hide absorber currents??
+	//Strings
 	
 	/* Parts */
 	
@@ -77,6 +79,7 @@ public class Simulation extends PeriodicTask {
 	public Preferences prefs;
 	public MaterialManager materialmanager;
 	public MaterialViewer materialviewer;
+	public CodeEditor codeeditor;
 	
 	public ArrayList<Plot> plots = new ArrayList<>();
 	public BandPlot bandplot;
@@ -560,6 +563,7 @@ public class Simulation extends PeriodicTask {
 		adv_opts = new AdvancedOptions(this);
 		materialmanager = new MaterialManager(this);
 		materialviewer = new MaterialViewer(this);
+		codeeditor = new CodeEditor(this);
 		datafile = SemiSim.getUserFile(datafilename);
 
 		bandplot = new BandPlot(); plots.add(bandplot);
@@ -585,6 +589,7 @@ public class Simulation extends PeriodicTask {
 		prefs.initialize();
 		materialmanager.initialize();
 		materialviewer.initialize();
+		codeeditor.initialize();
 		Steam.e = this;
 
 		try {
