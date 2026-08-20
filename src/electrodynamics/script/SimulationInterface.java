@@ -1,3 +1,7 @@
+// Copyright (c) Brandon Li 2026
+// This file is part of Brandon's Semiconductor Simulator which is released under GNU GPL v3.0.
+// See LICENSE.txt for full license details.
+
 package electrodynamics.script;
 
 import electrodynamics.GeneralMaterialType;
@@ -7,18 +11,22 @@ import electrodynamics.Controls.BrushAction;
 import electrodynamics.Controls.BrushShape;
 import electrodynamics.Controls.FloodFillFunc;
 
-public class SimInterface {
+public class SimulationInterface {
 	Simulation e;
 	public State state;
 	
-	public boolean replace = false;
-	public boolean overwrite = false;
-	public double emf_x = 0;
-	public double emf_y = 0;
-	public double emf_z = 0;
+	public boolean replace;
+	public boolean overwrite;
+	public double emf_x;
+	public double emf_y;
+	public double emf_z;
+	public double brush_size;
+	public BrushShape brush_shape;
+	public GeneralMaterialType material;
 	
-	public SimInterface(Simulation e) {
+	public SimulationInterface(Simulation e) {
 		this.e = e;
+		reset();
 	}
 	
 	public void reset() {
@@ -27,6 +35,9 @@ public class SimInterface {
 		emf_x = 0;
 		emf_y = 0;
 		emf_z = 0;
+		brush_size = 0.5;
+		brush_shape = BrushShape.SQUARE;
+		material = new GeneralMaterialType(MaterialType.METAL);
 	}
 	
 	public void register(Evaluator evaluator) {
@@ -37,16 +48,19 @@ public class SimInterface {
 		evaluator.registerFunction("set_replace", set_replace);
 		evaluator.registerFunction("set_overwrite", set_overwrite);
 		evaluator.registerFunction("set_emf_direction", set_emf_direction);
+		evaluator.registerFunction("set_option", set_option);
+		evaluator.registerFunction("wait", wait);
 		evaluator.registerFunction("print", print);
 		evaluator.registerFunction("reset", reset);
 		evaluator.registerFunction("rectangle", rectangle);
 		evaluator.registerFunction("line", line);
 		evaluator.registerFunction("point", point);
 		evaluator.registerFunction("fill", fill);
+		evaluator.registerFunction("set_vi", set_vi);
 	}
 	
 	public BrushAction getAction() {
-		GeneralMaterialType final_mat = (GeneralMaterialType) e.opts.gui_material.getSelectedItem();
+		GeneralMaterialType final_mat = material;
 		return (i, j, k, in_bounds) -> {
 			if (in_bounds) {
 				if (final_mat.type == MaterialType.VACUUM) {
@@ -63,16 +77,12 @@ public class SimInterface {
 			}
 		};
 	}
-	
-	//set replace mode
+
+
 	//get field value
 	//make probe
 	//record probe
 	//make plot
-	
-	//pause/unpause
-	//set sim variables
-	//set timestep
 
 	NaryFunction list = new NaryFunction() {
 		@Override
@@ -98,8 +108,8 @@ public class SimInterface {
 		@Override
 		public Object operate(Object[] args) {
 			String name = (String) args[0];
-			e.opts.gui_material.setSelectedItem(new GeneralMaterialType(MaterialType.valueOf(name)));
-			state.println("Material changed to " + e.opts.gui_material.getSelectedItem().toString());
+			material = new GeneralMaterialType(MaterialType.valueOf(name));
+			state.println("Material changed to " + material.toString());
 			return 0;
 		}
 	};
@@ -111,8 +121,8 @@ public class SimInterface {
 		@Override
 		public Object operate(Object[] args) {
 			String name = (String) args[0];
-			e.opts.gui_brush_1.setSelectedItem(BrushShape.valueOf(name));
-			state.println("Brush shape changed to " + e.opts.gui_brush_1.getSelectedItem().toString());
+			brush_shape = BrushShape.valueOf(name);
+			state.println("Brush shape changed to " + brush_shape.toString());
 			return 0;
 		}
 	};
@@ -123,9 +133,8 @@ public class SimInterface {
 
 		@Override
 		public Object operate(Object[] args) {
-			double size = (double) args[0];
-			e.controls.brushsize = size;
-			state.println("Brush size changed to " + e.opts.gui_brushsize.getValue());
+			brush_size = (double) args[0];
+			state.println("Brush size changed to " + brush_size);
 			return 0;
 		}
 	};
@@ -165,6 +174,43 @@ public class SimInterface {
 			emf_x = (double) args[0];
 			emf_y = (double) args[1];
 			emf_z = (double) args[2];
+			return 0;
+		}
+	};
+	
+
+	NaryFunction set_option = new NaryFunction() {
+		@Override
+		public int get_n_args() { return 2; }
+
+		@Override
+		public Object operate(Object[] args) {
+			String name = (String) args[0];
+			double value = (double) args[1];
+			
+			if (e.opts.boolean_names.containsKey(name)) {
+				e.opts.boolean_names.get(name).setSelected(value > 0.5);
+			} else if (e.opts.integer_names.containsKey(name)) {
+				e.opts.integer_names.get(name).setValue((int)Math.round(value));
+			} else {
+				return -1;
+			}
+			
+			return 0;
+		}
+	};
+	
+
+	NaryFunction wait = new NaryFunction() {
+		@Override
+		public int get_n_args() { return 1; }
+
+		@Override
+		public Object operate(Object[] args) {
+			double value = (double) args[0];
+			
+			//TODO
+			
 			return 0;
 		}
 	};
@@ -227,7 +273,7 @@ public class SimInterface {
 			}
 			e.controls.flagChanges(true);
 			
-			state.println("Rectangle drawn from " + i1 + " " + j2 + " " + k1 + " to " + i2 + " " + j2 + " " + k2);
+			state.println("Rectangle drawn from " + i1 + " " + j1 + " " + k1 + " to " + i2 + " " + j2 + " " + k2);
 			return 0;
 		}
 	};
@@ -247,10 +293,10 @@ public class SimInterface {
 			
 			BrushAction action = getAction();
 
-			e.controls.applyBrush(i1, j1, k1, i2, j2, k2, (BrushShape) e.opts.gui_brush_1.getSelectedItem(), e.controls.brushsize, action);
+			e.controls.applyBrush(i1, j1, k1, i2, j2, k2, brush_shape, brush_size, action);
 			e.controls.flagChanges(true);
 			
-			state.println("Line drawn from " + i1 + " " + j2 + " " + k1 + " to " + i2 + " " + j2 + " " + k2);
+			state.println("Line drawn from " + i1 + " " + j1 + " " + k1 + " to " + i2 + " " + j2 + " " + k2);
 			return 0;
 		}
 	};
@@ -268,7 +314,7 @@ public class SimInterface {
 			BrushAction action = getAction();
 
 			action.perform(i, j, k, true);
-			e.controls.flagChanges(true);
+			e.controls.flagChanges(true); // TODO
 
 			//state.println("Pixel set " + i + " " + j + " " + k);
 			return 0;
@@ -307,6 +353,44 @@ public class SimInterface {
 				});
 				e.controls.flagChanges(true);
 			}
+			
+			return 0;
+		}
+	};
+	
+	NaryFunction set_vi = new NaryFunction() {
+		@Override
+		public int get_n_args() { return 4; }
+
+		@Override
+		public Object operate(Object[] args) {
+			int mx = (int)Math.round((double) args[0]);
+			int my = (int)Math.round((double) args[1]);
+			int mz = (int)Math.round((double) args[2]);
+			int value = (int)Math.round((double) args[3]);
+			
+			boolean iscurrentselected = e.materials[mx][my][mz].type == MaterialType.CURRENT;
+
+			double emf = 0;
+			if (!iscurrentselected) {
+				 emf = value/e.controls.calcVoltageLength(e.materials[mx][my][mz].emf_x, e.materials[mx][my][mz].emf_y, e.materials[mx][my][mz].emf_z);
+			} else {
+				emf = value/(e.currentsource_sigma*e.controls.calcCurrentArea((int)Math.round(e.materials[mx][my][mz].emf_x), (int)Math.round(e.materials[mx][my][mz].emf_y), (int)Math.round(e.materials[mx][my][mz].emf_z)));
+			}
+			
+			double emf_final = emf;
+			
+			e.controls.floodFill(mx, my, mz, new FloodFillFunc() {
+				@Override
+				public boolean isValid(int i, int j, int k) {
+					return e.materials[i][j][k].type == e.materials[mx][my][mz].type;
+				}
+
+				@Override
+				public void fill(int i, int j, int k) {
+					e.materials[i][j][k].emf = emf_final;
+				}
+			});
 			
 			return 0;
 		}

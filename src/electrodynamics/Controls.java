@@ -102,8 +102,8 @@ import electrodynamics.probe.Ruler;
 import electrodynamics.probe.VoltageProbe;
 import electrodynamics.probe.VolumeProbe;
 import electrodynamics.units.Quantity;
-import electrodynamics.util.Font7x5;
 import electrodynamics.util.OctahedralAction.OctahedralGenerator;
+import electrodynamics.util.PixelFont;
 import electrodynamics.util.Utils;
 import electrodynamics.util.Vector3;
 import javafx.application.Platform;
@@ -244,6 +244,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	public boolean selectionempty = true;
 	public boolean clipboardempty = true;
 
+	public PixelFont pixelfont;
 	public int text_x = 0;
 	public int text_y = 0;
 	public int text_z = 0;
@@ -281,7 +282,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	public MenuCheckList<VectorMode, CustJRadioButtonMenuItem> vectormode = new MenuCheckList<VectorMode, CustJRadioButtonMenuItem>(VectorMode.values(), VectorMode.ARROWS);
 	public MenuCheckList<Perspective, CustJRadioButtonMenuItem> perspective = new MenuCheckList<Perspective, CustJRadioButtonMenuItem>(Perspective.values(), Perspective.ORTHO);
 	public MenuCheckList<Stereo, CustJRadioButtonMenuItem> stereo = new MenuCheckList<Stereo, CustJRadioButtonMenuItem>(Stereo.values(), Stereo.DISABLED);
-	public MenuCheckList<Cut, CustJRadioButtonMenuItem> slice = new MenuCheckList<Cut, CustJRadioButtonMenuItem>(Cut.values(), Cut.NONE);
+	public MenuCheckList<Cut, CustJRadioButtonMenuItem> slice = new MenuCheckList<Cut, CustJRadioButtonMenuItem>(Cut.values(), Cut.CUT_NONE);
 	public MenuCheckList<RenderMode, CustJRadioButtonMenuItem> rendermode = new MenuCheckList<RenderMode, CustJRadioButtonMenuItem>(RenderMode.values(), RenderMode.NORMAL);
 	//public JCheckBoxMenuItem carriers = new JCheckBoxMenuItem("Show charge carriers");
 
@@ -296,6 +297,9 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		} catch (IOException e1) {
 			e1.printStackTrace();
 		}
+		
+		pixelfont = new PixelFont();
+		pixelfont.load(SemiSim.getRootFile("Br57.ttf"), 5, 7);
 
         KeyboardFocusManager.getCurrentKeyboardFocusManager().addKeyEventDispatcher(event -> {
             synchronized (Keyboard.class) {
@@ -1104,6 +1108,11 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 							e.probes.forEach((p) -> p.selected = false);
 						}
 					}
+				}
+			} else if (pressing_right) {
+				if (moving_selection && !dragging_selection) {
+					moving_selection = false;
+					dragging_selection = false;
 				}
 			} else {
 				delta_mx = mx;
@@ -2372,6 +2381,10 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 			@Override
 			public void actionPerformed(ActionEvent ev) {
 				looking = false;
+				if (moving_selection && !dragging_selection) {
+					moving_selection = false;
+					dragging_selection = false;
+				}
 			}
 		});
 		addKeyBind(contentPane, KeyEvent.VK_W, 0, new AbstractAction(null) {
@@ -2572,7 +2585,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	@Override
 	public void keyTyped(KeyEvent ev) {
 		if (texting) {
-			if (Font7x5.getCharacter(ev.getKeyChar()) != null) {
+			if (pixelfont.containsChar(ev.getKeyChar())) {
 				for (int i = 0; i < 5; i++) {
 					for (int j = 0; j < 7; j++) {
 						int scx = text_x+i+1;
@@ -2583,7 +2596,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 						int fj = e.renderer.embed_y(scx, scy, scz);
 						int fk = e.renderer.embed_z(scx, scy, scz);
 						if (fi >= 0 && fi < e.nx && fj >= 0 && fj < e.ny && fk >= 0 && fk < e.nz
-						&& Font7x5.getPixel(ev.getKeyChar(), 4-i, 6-j) == 1 && e.materials[fi][fj][fk].type == MaterialType.VACUUM) {
+						&& pixelfont.getPixel(ev.getKeyChar(), i, pixelfont.height-1-j) && e.materials[fi][fj][fk].type == MaterialType.VACUUM) {
 							e.initializeMaterial(e.materials[fi][fj][fk], MaterialType.DECO);
 						}
 					}

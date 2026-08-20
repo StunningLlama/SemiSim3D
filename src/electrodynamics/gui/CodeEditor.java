@@ -1,3 +1,7 @@
+// Copyright (c) Brandon Li 2026
+// This file is part of Brandon's Semiconductor Simulator which is released under GNU GPL v3.0.
+// See LICENSE.txt for full license details.
+
 package electrodynamics.gui;
 
 import java.awt.BorderLayout;
@@ -24,10 +28,11 @@ import javax.swing.undo.CannotRedoException;
 import javax.swing.undo.CannotUndoException;
 import javax.swing.undo.UndoManager;
 
+import electrodynamics.Renderer.Text;
 import electrodynamics.Simulation;
 import electrodynamics.script.Interpreter;
 import electrodynamics.script.Interpreter.Instruction;
-import electrodynamics.script.SimInterface;
+import electrodynamics.script.SimulationInterface;
 import electrodynamics.script.State;
 
 public class CodeEditor extends JFrame implements ActionListener {
@@ -46,10 +51,10 @@ public class CodeEditor extends JFrame implements ActionListener {
 	public JTextField recomb_rate_metal;
 	public JTextField T;
 	
-	public JTextArea list;
+	public CustTextArea list;
 	private JButton btn_cancel;
 	private JButton btn_run;
-	private JTextArea  textPane;
+	private CustTextArea  textPane;
 	private JPanel panel;
 	private JPanel panel_1;
 	private JPanel panel_2;
@@ -74,7 +79,7 @@ public class CodeEditor extends JFrame implements ActionListener {
 		JScrollPane scrollPane = new JScrollPane();
 		panel.add(scrollPane);
 		
-		list = new JTextArea();
+		list = new CustTextArea();
 		scrollPane.setViewportView(list);
 		list.setColumns(35);
 		list.setEditable(false);
@@ -85,7 +90,7 @@ public class CodeEditor extends JFrame implements ActionListener {
 		panel_1.setLayout(new BorderLayout(0, 0));
 		
 		
-		textPane = new JTextArea ();
+		textPane = new CustTextArea();
 		textPane.setColumns(50);
 		
 		scrollPane_1 = new JScrollPane(textPane);
@@ -147,7 +152,7 @@ public class CodeEditor extends JFrame implements ActionListener {
 	}
 
 	Interpreter interpreter = new Interpreter();
-	SimInterface simint;
+	SimulationInterface simint;
 	State state = new State();
 	private JSplitPane splitPane;
 	
@@ -156,7 +161,7 @@ public class CodeEditor extends JFrame implements ActionListener {
 		this.btn_run.addActionListener(this);
 		setLocationRelativeTo(null);
 
-		simint = new SimInterface(e);
+		simint = new SimulationInterface(e);
 		simint.state = state;
 		simint.register(interpreter.evaluator);
 	}
@@ -180,6 +185,16 @@ public class CodeEditor extends JFrame implements ActionListener {
 			state.println_force("Script finished.");
 			
 			list.setText(state.get_output());
+		}
+	}
+	
+	class CustTextArea extends JTextArea {
+		private static final long serialVersionUID = 151978487570095242L;
+		
+		@Override
+		public void updateUI() {
+			super.updateUI();
+			this.setFont(Text.getMonospacedFont());
 		}
 	}
 }

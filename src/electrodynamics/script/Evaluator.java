@@ -1,3 +1,7 @@
+// Copyright (c) Brandon Li 2026
+// This file is part of Brandon's Semiconductor Simulator which is released under GNU GPL v3.0.
+// See LICENSE.txt for full license details.
+
 package electrodynamics.script;
 
 import java.util.ArrayList;
@@ -142,48 +146,45 @@ public class Evaluator {
 	}
 	
 	private boolean followingTokenUnary(Token t) {
-		return t.type == TokenType.PUNCTUATION && !t.chars.equals(")");
+		return t.type == TokenType.PUNCTUATION && !t.chars.equals(")") || t.type == TokenType.NAME && functions.containsKey(t.chars);
 	}
 	
 	public List<Unit> toPostfix(Queue<Unit> tokens)
 	{
 		List<Unit> output = new ArrayList<Unit>();
 		Stack<Unit> operatorstack = new Stack<Unit>();
-		while(!tokens.isEmpty())
-		{
-			Unit token = tokens.poll();
 
-			if (token.type == UnitType.VALUE)
-				output.add(token);
-			else if (token.type == UnitType.LEFT_PAREN)
-				operatorstack.push(token);
-			else if (token.type == UnitType.RIGHT_PAREN) {
-				while (!(operatorstack.peek().type == UnitType.LEFT_PAREN))
-					output.add(operatorstack.pop());
-				operatorstack.pop();
-				if (!operatorstack.isEmpty()) {
-					if (operatorstack.peek().type == UnitType.FUNCTION)
+		try {
+			while(!tokens.isEmpty())
+			{
+				Unit token = tokens.poll();
+
+				if (token.type == UnitType.VALUE)
+					output.add(token);
+				else if (token.type == UnitType.LEFT_PAREN)
+					operatorstack.push(token);
+				else if (token.type == UnitType.RIGHT_PAREN) {
+					while (operatorstack.peek().type != UnitType.LEFT_PAREN)
+						output.add(operatorstack.pop());
+					operatorstack.pop();
+					if (!operatorstack.isEmpty() && operatorstack.peek().type == UnitType.FUNCTION)
 						output.add(operatorstack.pop());
 				}
-			}
-			else if (token.type == UnitType.COMMA)
-				while (!(operatorstack.peek().type == UnitType.LEFT_PAREN))
-					output.add(operatorstack.pop());
-			else if (token.type == UnitType.FUNCTION)
-				operatorstack.push(token);
-			else if (token.type == UnitType.OPERATOR) {
-				Operator first = token.op;
-				while (!operatorstack.isEmpty() && operatorstack.peek().op != null) {
-					Operator second = operatorstack.peek().op;
-					if (operatorstack.peek().type == UnitType.OPERATOR &&
-							((first.assoc == Association.LEFT && first.precedence <= second.precedence)
-									|| (first.assoc == Association.RIGHT && first.precedence < second.precedence)))
+				else if (token.type == UnitType.COMMA)
+					while (operatorstack.peek().type != UnitType.LEFT_PAREN)
 						output.add(operatorstack.pop());
-					else
-						break;
+				else if (token.type == UnitType.FUNCTION)
+					operatorstack.push(token);
+				else if (token.type == UnitType.OPERATOR) {
+					while (!operatorstack.isEmpty() && operatorstack.peek().type == UnitType.OPERATOR &&
+							((token.op.precedence < operatorstack.peek().op.precedence)
+									|| (token.op.assoc == Association.LEFT && token.op.precedence == operatorstack.peek().op.precedence)))
+						output.add(operatorstack.pop());
+					operatorstack.push(token);
 				}
-				operatorstack.push(token);
-			}
+			} 
+		} catch (EmptyStackException ex) {
+			throw new EvalException("Malformed expression!");
 		}
 
 		while (!operatorstack.isEmpty())

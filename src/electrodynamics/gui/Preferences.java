@@ -28,6 +28,7 @@ import javax.swing.UIManager;
 import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.border.EmptyBorder;
 
+import com.formdev.flatlaf.intellijthemes.FlatSolarizedLightIJTheme;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -237,6 +238,7 @@ public class Preferences extends JFrame implements ActionListener {
 		
 		e.renderer.targetframerate = (double)((int) spinner_fps.getValue());
 		e.renderer.frameduration = 1000/e.renderer.targetframerate;
+		e.controls.update3dmode = true;
 
 		e.targetframerate = (double)((int) spinner_fps_sim.getValue());
 		e.frameduration = 1000/e.targetframerate;
@@ -268,7 +270,7 @@ public class Preferences extends JFrame implements ActionListener {
 		spinner_fps.setValue(60);
 		spinner_fps_sim.setValue(60);
 		spinner_font.setValue(12);
-		gui_lookfeel.setSelectedItem(Theme.system);
+		gui_lookfeel.setSelectedItem(Theme.default_theme);
 	}
 
 	public void readfile(File infile) {
@@ -397,13 +399,13 @@ public class Preferences extends JFrame implements ActionListener {
 	
 	public static class Theme {
 		public static Theme[] values;
-		public static Theme system;
+		public static Theme default_theme;
 		public static void initThemes() {
 			ArrayList<Theme> themes = new ArrayList<Theme>(UIManager.getInstalledLookAndFeels().length);
-			system = null;
+			default_theme = null;
 			for (LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
 				themes.add(new Theme(info));
-				if (info.getClassName() == UIManager.getSystemLookAndFeelClassName()) system = new Theme(info);
+				if (info.getClassName() == FlatSolarizedLightIJTheme.class.getName()) default_theme = new Theme(info);
 			}
 			values = themes.toArray(new Theme[0]);
 		}

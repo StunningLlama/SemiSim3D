@@ -82,7 +82,7 @@ public class IconButton extends JButton {
 				
 				int r, g, b;
 
-				if (grayscale) {
+				if (grayscale || (ir+ig+ib < 30)) {
 					r = fr;
 					g = fg;
 					b = fb;
@@ -131,7 +131,7 @@ public class IconButton extends JButton {
 				
 				int r, g, b;
 
-				if (grayscale) {
+				if (grayscale || (ir+ig+ib < 30)) {
 					r = (int)(fr*af+br*(1-af));
 					g = (int)(fg*af+bg*(1-af));
 					b = (int)(fb*af+bb*(1-af));

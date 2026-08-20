@@ -4,6 +4,10 @@
 
 package electrodynamics.gui;
 
+// Copyright (c) Brandon Li 2026
+// This file is part of Brandon's Semiconductor Simulator which is released under GNU GPL v3.0.
+// See LICENSE.txt for full license details.
+
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;

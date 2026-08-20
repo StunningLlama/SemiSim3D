@@ -182,13 +182,20 @@ public class Renderer extends PeriodicTask {
 		
 		setCanvasSize();
 		resetChargeDots();
-		ortho_cam.resetCameraPos(max_size);
-		pers_cam.resetCameraPos(max_size);
-		ortho_cam.setPivotPoint(e.nx/2.0, e.ny/2.0, e.nz/2.0);
-		pers_cam.setPivotPoint(e.nx/2.0, e.ny/2.0, e.nz/2.0);
+		
+		resetCamera();
 
 		renderer_left_eye.setResolution();
 		renderer_right_eye.setResolution();
+	}
+
+	public void resetCamera() {
+		if (ortho_cam != null && pers_cam != null) {
+			ortho_cam.resetCameraPos(max_size);
+			pers_cam.resetCameraPos(max_size);
+			ortho_cam.setPivotPoint(e.nx/2.0, e.ny/2.0, e.nz/2.0);
+			pers_cam.setPivotPoint(e.nx/2.0, e.ny/2.0, e.nz/2.0);
+		}
 	}
 	
 	int project_x(int x, int y, int z) {
@@ -413,8 +420,10 @@ public class Renderer extends PeriodicTask {
 	public void set3Dmode() {
 		e.rwLock.writeLock().lock();
 		try {
-			renderer_left_eye.animator.pause();
-			renderer_right_eye.animator.pause();
+			renderer_left_eye.animator.stop();
+			renderer_right_eye.animator.stop();
+			renderer_left_eye.animator.setFPS((int)targetframerate);
+			renderer_right_eye.animator.setFPS((int)targetframerate);
 			
 			imgpanel.remove(e.canvas);
 			imgpanel.remove(renderer_left_eye.canvas);
@@ -452,14 +461,12 @@ public class Renderer extends PeriodicTask {
 
 			if (threeD_mode) {
 				imgpanel.add(renderer_left_eye.canvas);
-				renderer_left_eye.animator.resume();
-				if (!renderer_left_eye.animator.isStarted()) renderer_left_eye.animator.start();
+				renderer_left_eye.animator.start();
 
 				if (e.controls.stereo.getOption().isStereo()) {
 					e.opts.gui_parallax.setVisible(true);
 					e.opts.gui_parallaxlabel.setVisible(true);
-					renderer_right_eye.animator.resume();
-					if (!renderer_right_eye.animator.isStarted()) renderer_right_eye.animator.start();
+					renderer_right_eye.animator.start();
 					imgpanel.add(renderer_right_eye.canvas);
 				} else {
 					e.opts.gui_parallax.setVisible(false);
@@ -880,6 +887,9 @@ public class Renderer extends PeriodicTask {
 	}
 
 	synchronized void draw(Renderer3D canvas3d) {
+
+		e.controls.handleMouseInput();
+		
 		boolean do_timestep = (canvas3d == null || canvas3d.isMainCanvas);
 		
 		if (do_timestep) {
@@ -1083,7 +1093,7 @@ public class Renderer extends PeriodicTask {
 		
 		if (e.opts.menu_time.isSelected()) {
 			drawString("Time: " + e.units.toString(e.time, Quantity.TIME), hoffset, voffset + line*vspacing); line++;
-			double pct = 100/(e.simFPStimer.getAverageTime()*e.renderer.targetframerate);
+			double pct = 100/(e.simFPStimer.getAverageTime()*e.targetframerate);
 			drawString("Steps/s: " + e.units.toString(e.opts.gui_simspeed_2.getValue()/e.simFPStimer.getAverageTime(), Quantity.DIMENSIONLESS) + " (" + String.format("%.0f", pct) + "%)", hoffset, voffset + line*vspacing); line++;
 
 			String sv_a = e.controls.scalarmode.getOption() != ScalarMode.NONE? (e.controls.scalarmode.getOption().shorthand + ": " + e.controls.scalarview.getOption().shorthand) : "";
@@ -2527,11 +2537,11 @@ public class Renderer extends PeriodicTask {
 		public static Font getMonospacedFont() {
 			Font f = Font.decode("Consolas-PLAIN-" + fontsize);
 			String specialstring = "\u03c1\u2099\u209A\u2080\u03d5";
-			if (f.getFamily() == "Dialog" || f.canDisplayUpTo(specialstring) != -1)
+			if (f.getFamily().equals("Dialog") || f.canDisplayUpTo(specialstring) != -1)
 				f = Font.decode("Andale Mono-PLAIN-" + fontsize);
-			if (f.getFamily() == "Dialog" || f.canDisplayUpTo(specialstring) != -1)
+			if (f.getFamily().equals("Dialog") || f.canDisplayUpTo(specialstring) != -1)
 				f = new Font(Font.MONOSPACED, Font.PLAIN, fontsize);
-			System.out.println(f.getName());
+			System.out.println(f.getFamily());
 			return f;
 		}
 	}
@@ -2792,10 +2802,10 @@ public class Renderer extends PeriodicTask {
 	}
 	
 	public enum Cut {
-		NONE("No cut"),
-		CUT_X("Cut along yz plane"),
-		CUT_Y("Cut along xz plane"),
-		CUT_Z("Cut along xy plane");
+		CUT_NONE("No cut"),
+		CUT_X("Cut in x direction"),
+		CUT_Y("Cut in y direction"),
+		CUT_Z("Cut in z direction");
 
 		String name;
 		Cut(String name)
@@ -2809,7 +2819,7 @@ public class Renderer extends PeriodicTask {
 		}
 		
 		public boolean isSlice() {
-			return (this != NONE);
+			return (this != CUT_NONE);
 		}
 	}
 	

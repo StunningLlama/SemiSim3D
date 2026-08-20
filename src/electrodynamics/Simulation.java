@@ -61,12 +61,10 @@ public class Simulation extends PeriodicTask {
 	//Add heat and entropy
 	//Implement arrow length 
 	//Graphics settings
-	//Fix sim lag affecting camera
-	//Reset sim should reset camera
 	//Constrain to layer
-	//Cancel paste
-	//Hide absorber currents??
-	//Strings
+	//Fix vf brightness
+	//Toggle between cursor and move
+	//Add file operations to code editor
 	
 	/* Parts */
 	
@@ -647,8 +645,6 @@ public class Simulation extends PeriodicTask {
     				controls.redo = false;
     			}
 
-    			controls.handleMouseInput();
-
     			if (!opts.gui_paused.isSelected() || controls.advanceframe) {
     				for (int i = 0; i < iteration_multiplier ; i++) {
     					store_diff_drift = (i == iteration_multiplier-1 && need_diff_drift);
@@ -1067,7 +1063,8 @@ public class Simulation extends PeriodicTask {
 				p.reset();
 				p.data.resetData();
 			}
-			
+
+			renderer.resetCamera();
 			renderer.resetChargeDots();
 
 			initializeAllMaterials();

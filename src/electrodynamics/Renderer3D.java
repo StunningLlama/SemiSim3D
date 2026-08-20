@@ -45,43 +45,43 @@ public class Renderer3D implements GLEventListener {
 
 	Simulation e;
 	public GLJPanel canvas;
-	IntBuffer selectBuf;
-	GLU glu;
-	IntBuffer viewport;
+	public IntBuffer selectBuf;
+	public GLU glu;
+	public IntBuffer viewport;
 
-	Vector3 g = new Vector3(0, 0, 0);
+	public Vector3 g = new Vector3(0, 0, 0);
 
-	float aspect = 1;
-	float eye_offset = 0;
-	float z_near = 0.01f;
-	int width;
-	int height;
-	boolean isMainCanvas = false;
-	boolean isOrtho = false;
-	boolean pick = true;
-	Random rand = new Random();
+	public float aspect = 1;
+	public float eye_offset = 0;
+	public float z_near = 0.01f;
+	public int width;
+	public int height;
+	public boolean isMainCanvas = false;
+	public boolean isOrtho = false;
+	public boolean pick = true;
+	public Random rand = new Random();
 
-	Font Br57;
-	TextRenderer UIfont_small;
-	TextRenderer UIfont_big;
-	TextRenderer labelfont_small;
-	TextRenderer labelfont_big;
-	FPSAnimator animator;
-	float extra_res_scale = 3;
-	float textsize = 0.0025f;
-	float shadow = 0.0025f;
-	boolean use_pixel_font = false;
+	public Font Br57;
+	public TextRenderer UIfont_small;
+	public TextRenderer UIfont_big;
+	public TextRenderer labelfont_small;
+	public TextRenderer labelfont_big;
+	public FPSAnimator animator;
+	public float extra_res_scale = 3;
+	public float textsize = 0.0025f;
+	public float shadow = 0.0025f;
+	public boolean use_pixel_font = false;
 
-	ArrayList<Text> fg_texts = new ArrayList<>();
-	ArrayList<Text> bg_texts = new ArrayList<>();
-	ArrayList<Text> ui_texts = new ArrayList<>();
+	public ArrayList<Text> fg_texts = new ArrayList<>();
+	public ArrayList<Text> bg_texts = new ArrayList<>();
+	public ArrayList<Text> ui_texts = new ArrayList<>();
 
 	public float[][][] image_r;
 	public float[][][] image_g;
 	public float[][][] image_b;
 	
-	int[][][] opaque_surfs;
-	int[][][] translucent_surfs;
+	public int[][][] opaque_surfs;
+	public int[][][] translucent_surfs;
 
 	public Renderer3D(Simulation e) {
 		this.e = e;
@@ -101,7 +101,7 @@ public class Renderer3D implements GLEventListener {
 		animator = new FPSAnimator(canvas, (int)e.renderer.targetframerate);
 		
 		try {
-			Br57 = Font.createFont(Font.TRUETYPE_FONT, SemiSim.getRootFile("images/Br57.ttf"));
+			Br57 = Font.createFont(Font.TRUETYPE_FONT, SemiSim.getRootFile("Br57.ttf"));
 		} catch (FontFormatException | IOException e1) {
 			Br57 = new Font("Monospaced", Font.PLAIN, 12);
 			System.out.println("Pixel font missing!");

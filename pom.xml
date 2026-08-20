@@ -96,6 +96,7 @@
 					<include>README.html</include>
 					<include>examples.html</include>
 					<include>keybinds.html</include>
+					<include>Br57.ttf</include>
 				</includes>
 			</resource>
 		</resources>
