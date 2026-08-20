@@ -1045,7 +1045,7 @@ public class Simulation extends PeriodicTask {
 			if (resetall || size_changed) {
 				controls.EMF_selected = false;
 				controls.changesmade = false;
-				opts.gui_bc.setSelectedItem(BoundaryCondition.DISSIPATIVE);
+				controls.bc.setOption(BoundaryCondition.DISSIPATIVE);
 				controls.prev_boundary = BoundaryCondition.DISSIPATIVE;
 				
 				probes.clear();
@@ -1090,7 +1090,7 @@ public class Simulation extends PeriodicTask {
 					double dz = (double)Math.max(0, absorber_width-Math.min(k, nz-1-k))/absorber_width;
 					double depth = Math.sqrt(dx*dx+dy*dy+dz*dz);
 					if (depth > 0) {
-						if ((BoundaryCondition)opts.gui_bc.getSelectedItem() == BoundaryCondition.DISSIPATIVE) {
+						if (controls.bc.getOption() == BoundaryCondition.DISSIPATIVE) {
 							if (materials[i][j][k].type == MaterialType.VACUUM) {
 								initializeMaterial(materials[i][j][k], MaterialType.ABSORBER);
 								materials[i][j][k].auto_placed = true;

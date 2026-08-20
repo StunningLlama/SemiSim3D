@@ -284,6 +284,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	public MenuCheckList<Stereo, CustJRadioButtonMenuItem> stereo = new MenuCheckList<Stereo, CustJRadioButtonMenuItem>(Stereo.values(), Stereo.DISABLED);
 	public MenuCheckList<Cut, CustJRadioButtonMenuItem> slice = new MenuCheckList<Cut, CustJRadioButtonMenuItem>(Cut.values(), Cut.CUT_NONE);
 	public MenuCheckList<RenderMode, CustJRadioButtonMenuItem> rendermode = new MenuCheckList<RenderMode, CustJRadioButtonMenuItem>(RenderMode.values(), RenderMode.NORMAL);
+	public MenuCheckList<BoundaryCondition, CustJRadioButtonMenuItem> bc = new MenuCheckList<BoundaryCondition, CustJRadioButtonMenuItem>(BoundaryCondition.values(), BoundaryCondition.DISSIPATIVE);
 	//public JCheckBoxMenuItem carriers = new JCheckBoxMenuItem("Show charge carriers");
 
     ScalarMode prev_scalar_mode = ScalarMode.NONE;
@@ -1467,10 +1468,10 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 
 		prev_EMF_setting = new_EMF_setting;
 
-		if ((BoundaryCondition)e.opts.gui_bc.getSelectedItem() != prev_boundary)
+		if (bc.getOption() != prev_boundary)
 			updatematerials = true;
 
-		prev_boundary = (BoundaryCondition)e.opts.gui_bc.getSelectedItem();
+		prev_boundary = bc.getOption();
 
 		if (updatematerials) {
 			e.updateAllMaterials(false);

@@ -114,7 +114,6 @@ public class MainWindow extends JFrame implements ComponentListener {
 	public JCheckBox gui_brush_highlight;
 	public JComboBox gui_material;
 	public JComboBox gui_brush;
-	public JComboBox gui_bc;
 	public JLabel lblBrushSize;
 	public JLabel gui_slicelabel;
 	public JCheckBox gui_rotate;
@@ -320,6 +319,8 @@ public class MainWindow extends JFrame implements ComponentListener {
 
 		menu_editor = new JMenuItem("Run commands");
 		menu_edit.add(menu_editor);
+		
+		menu_edit.add(new JSeparator());
 
 		menu_tools = new JMenu("Tools");
 		menuBar.add(menu_tools);
@@ -447,7 +448,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		panel0.setLayout(new BorderLayout());
 		
 		panel = new JPanel();
-		panel.setPreferredSize(new Dimension(400, 530));
+		panel.setPreferredSize(new Dimension(400, 484));
 		panel.setMinimumSize(new Dimension(200, 200));
 		panel0.add(panel, BorderLayout.NORTH);
 		panel.setLayout(null);
@@ -461,19 +462,13 @@ public class MainWindow extends JFrame implements ComponentListener {
 		textPane = new JTextArea();
 		textPane.setColumns(16);
 		textPane.setWrapStyleWord(true);
-		textPane.setRows(16);
+		textPane.setRows(50);
 		textPane.setText("Description of simulation");
 		textPane.setFont(new Font("SansSerif", Font.PLAIN, 13));
 		textPane.setMargin(new Insets(4, 4, 4, 4));
 		textPane.setLineWrap(true);
 		textPane.setEditable(false);
 		scrollPane.setColumnHeaderView(textPane);
-		
-		gui_bc = new JComboBox();
-		gui_bc.setModel(new DefaultComboBoxModel(BoundaryCondition.values()));
-		gui_bc.setSelectedIndex(0);
-		gui_bc.setBounds(126, 487, 171, 22);
-		panel.add(gui_bc);
 		
 		JPanel panel_1 = new JPanel();
 		panel_1.setBorder(new EtchedBorder(EtchedBorder.LOWERED, null, null));
@@ -620,7 +615,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		
 		panel_4 = new JPanel();
 		panel_4.setBorder(new EtchedBorder(EtchedBorder.LOWERED, null, null));
-		panel_4.setBounds(12, 32, 184, 443);
+		panel_4.setBounds(12, 31, 184, 443);
 		panel.add(panel_4);
 		panel_4.setLayout(null);
 		
@@ -737,7 +732,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		panel.add(lbld);
 		
 		panel_5 = new JPanel();
-		panel_5.setBorder(new EmptyBorder(10, 10, 10, 10));
+		panel_5.setBorder(new EmptyBorder(2, 11, 10, 11));
 		panel_5.setLayout(new BorderLayout(0, 0));
 		panel0.add(panel_5, BorderLayout.CENTER);
 		panel_5.add(scrollPane);
@@ -821,6 +816,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		e.controls.slice.setOption(Cut.CUT_NONE);
 		e.controls.stereo.setOption(Stereo.DISABLED);
 		e.controls.rendermode.setOption(RenderMode.NORMAL);
+		e.controls.bc.setOption(BoundaryCondition.DISSIPATIVE);
 		
 		setRedundantOptions();
 	}
@@ -914,7 +910,6 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_browse				.setActionCommand("menu_browse");
 
 		removeKeyListeners(gui_brush);
-		removeKeyListeners(gui_bc);
 		removeKeyListeners(gui_material);
 		removeKeyListeners(gui_brush_1);
 		
@@ -925,6 +920,8 @@ public class MainWindow extends JFrame implements ComponentListener {
 			menu_file.remove(menu_workshop);
 			menu_file.remove(separator_6);
 		}
+
+		e.controls.bc.initialize(menu_edit, e.controls, null, () -> new CustJRadioButtonMenuItem());
 
 		e.controls.perspective.initialize(menu_perspective, e.controls, null, () -> new CustJRadioButtonMenuItem());
 		menu_perspective.add(new JSeparator());
@@ -1004,8 +1001,6 @@ public class MainWindow extends JFrame implements ComponentListener {
 		e.controls.scalarview.removeOption(ScalarView.NONE);
 		e.controls.vectorview.removeOption(VectorView.NONE);
 		
-
-		menu_graphics.add(new JSeparator());
 		menu_graphics.add(menu_debug);
 
 		gui_parameter1.setEnabled(true);

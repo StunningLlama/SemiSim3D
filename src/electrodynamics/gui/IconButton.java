@@ -11,6 +11,7 @@ import java.awt.image.BufferedImage;
 
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.border.EmptyBorder;
 
 public class IconButton extends JButton {
 
@@ -31,6 +32,7 @@ public class IconButton extends JButton {
 		this.setIcon(new ImageIcon(icon));
 		setPreferredSize(new Dimension(size+8, size+8));
 		setMaximumSize(new Dimension(size+8, size+8));
+		setBorder(new EmptyBorder(0, 0, 0, 0));
 		
 		updateUI();
 	}

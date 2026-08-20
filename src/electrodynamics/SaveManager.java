@@ -182,7 +182,7 @@ public class SaveManager {
 							case "rendermode": e.controls.rendermode.setOption(gson.fromJson(fstr, RenderMode.class)); break;
 							case "slice": e.controls.slice.setOption(gson.fromJson(fstr, Cut.class)); break;
 							case "stereo": e.controls.stereo.setOption(gson.fromJson(fstr, Stereo.class)); break;
-							case "gui_bc": e.opts.gui_bc.setSelectedItem(gson.fromJson(fstr, BoundaryCondition.class)); break;
+							case "gui_bc": e.controls.bc.setOption(gson.fromJson(fstr, BoundaryCondition.class)); break;
 
 							default:
 								if (e.opts.boolean_names.containsKey(name)) e.opts.boolean_names.get(name).setSelected(fstr.nextBoolean());
@@ -462,7 +462,7 @@ public class SaveManager {
 					header.add("rendermode", gson.toJsonTree(e.controls.rendermode.getOption()));
 					header.add("slice", gson.toJsonTree(e.controls.slice.getOption()));
 					header.add("stereo", gson.toJsonTree(e.controls.stereo.getOption()));
-					header.add("gui_bc", gson.toJsonTree(e.opts.gui_bc.getSelectedItem()));
+					header.add("gui_bc", gson.toJsonTree(e.controls.bc.getOption()));
 
 					header.addProperty("gui_slice", e.opts.gui_slice.getValue());
 					header.addProperty("gui_slice_l", e.opts.gui_slice_l.getValue());

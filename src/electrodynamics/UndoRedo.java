@@ -127,7 +127,7 @@ class Snapshot {
 		//resolution = e.resolution;
 		//width = e.width;
 		time = e.time;
-		gui_bc = (BoundaryCondition) e.opts.gui_bc.getSelectedItem();
+		gui_bc = e.controls.bc.getOption();
 
 		ex = copy(e.Ex);
 		ey = copy(e.Ey);
@@ -164,7 +164,7 @@ class Snapshot {
 				//int resolution_tmp = resolution;
 				//double width_tmp = width;
 				e.time = time;
-				e.opts.gui_bc.setSelectedItem(gui_bc);
+				e.controls.bc.setOption(gui_bc);
 
 				//e.setSize(resolution_tmp, width_tmp);
 				//e.resetFields(true);
