@@ -17,7 +17,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -26,7 +25,6 @@ import java.util.List;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
-import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -39,7 +37,6 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-import javax.swing.filechooser.FileFilter;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -52,6 +49,7 @@ import electrodynamics.MaterialType;
 import electrodynamics.SemiSim;
 import electrodynamics.Simulation;
 import electrodynamics.Steam;
+import electrodynamics.util.FileInterface;
 import electrodynamics.util.Utils;
 
 public class MaterialManager extends JFrame implements ActionListener, ListSelectionListener, ItemListener {
@@ -116,7 +114,6 @@ public class MaterialManager extends JFrame implements ActionListener, ListSelec
 
 	public MaterialManager(Simulation e) {
 		this.e = e;
-		startingpath = SemiSim.userdir;
 		setResizable(false);
 		setTitle("Material editor");
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -362,6 +359,14 @@ public class MaterialManager extends JFrame implements ActionListener, ListSelec
 		e.opts.gui_material.setModel(new DefaultComboBoxModel<GeneralMaterialType>(makelist()));
 		setInputVisibility();
 		setLocationRelativeTo(null);
+		
+		io.fileextension = ".material";
+		io.read_title = "Import material(s)";
+		io.write_title = "Export material(s)";
+		io.saveversion = 1;
+		io.window = this;
+		io.multifile = true;
+		io.startingpath = SemiSim.userdir;
 	}
 	
 	public void resetMaterialList() {
@@ -461,9 +466,9 @@ public class MaterialManager extends JFrame implements ActionListener, ListSelec
 		} else if (e.getSource() == btn_cancel) {
 			this.setVisible(false);
 		}else if (e.getSource() == btn_import) {
-			this.readFile();
+			io.readFile();
 		} else if (e.getSource() == btn_export) {
-			this.writeFile();
+			io.writeFile(true);
 		} else if (e.getSource() == btn_calc) {
 			Calculator calc = new Calculator(this);
 			calc.setVisible(true);
@@ -617,184 +622,95 @@ public class MaterialManager extends JFrame implements ActionListener, ListSelec
 		setInputVisibility();
 	}
 
-	public int current_material_saveversion = 1;
-	public String fileextension = ".material";
-	public Path startingpath;
 	JTextField gv;
 	private JLabel lbl_gv;
 	private JButton btn_calc;
 	
-	public void readFile()
-	{
-		SwingUtilities.invokeLater(() -> {
-			File testfile = startingpath.toFile();
-			if (!testfile.canRead()) {
-				JOptionPane.showMessageDialog(this,
-				"Error: Java does not have access to this folder. Please see instructions to fix this issue.");
-			}
+	FileInterface io = new FileInterface() {
 
-			JFileChooser fd = new JFileChooser(startingpath.toFile());
-			fd.setDialogTitle("Import material(s)");
-			fd.setMultiSelectionEnabled(true);
-			fd.setFileFilter(new FileFilter(){
-				@Override
-				public boolean accept(File f) {
-					if (f.isDirectory() || f.getName().endsWith(fileextension)) return true;
-					return false;
-				}
-				@Override
-				public String getDescription() {
-					return fileextension;
-				}
-			});
-			fd.setVisible(true);
-			int result = fd.showOpenDialog(this);
-			startingpath = fd.getCurrentDirectory().toPath();
-
-			if (result == JFileChooser.APPROVE_OPTION) {
-				File[] files = fd.getSelectedFiles();
-				for (File infile : files)
-					readfile(infile);
-			}
-		});
-	}
-
-	public void readfile(File infile) {
-		SwingUtilities.invokeLater(() -> {
-			e.rwLock.writeLock().lock();
-			try {
-				if (infile == null || !infile.exists()) return;
-
+		public void readfile(File infile, Runnable callback) {
+			SwingUtilities.invokeLater(() -> {
+				e.rwLock.writeLock().lock();
 				try {
-					JsonReader fstr = new JsonReader(new InputStreamReader(new FileInputStream(infile)));
-					Gson gson = new GsonBuilder().serializeSpecialFloatingPointValues().create();
+					if (infile == null || !infile.exists()) return;
 
-					fstr.beginObject();
+					try {
+						JsonReader fstr = new JsonReader(new InputStreamReader(new FileInputStream(infile)));
+						Gson gson = new GsonBuilder().serializeSpecialFloatingPointValues().create();
 
-					assertNextObject(fstr, "version");
-					int version = fstr.nextInt();
+						fstr.beginObject();
 
-					System.out.println("Loading " + infile.getName() + ", version = " + version);
+						assertNextObject(fstr, "version");
+						int version = fstr.nextInt();
 
-					if (version > current_material_saveversion) {
-						fstr.close();
-						throw new IllegalArgumentException("The file was created in a newer version of SemiSim.");
-					}
+						System.out.println("Loading " + infile.getName() + ", version = " + version);
 
-					if (version == current_material_saveversion) {
-						assertNextObject(fstr, "materials");
-						Material[] mats = (Material[]) gson.fromJson(fstr, Material[].class);
-
-						for (Material mat : mats) {
-							mat.cust_id = id_counter;
-							mat_map.put(mat.cust_id, mat);
-							id_counter++;
-							updateUI();
-							list.setSelectedValue(mat, true);
+						if (version > saveversion) {
+							fstr.close();
+							throw new IllegalArgumentException("The file was created in a newer version of SemiSim.");
 						}
 
-						fstr.close();
+						if (version == saveversion) {
+							assertNextObject(fstr, "materials");
+							Material[] mats = (Material[]) gson.fromJson(fstr, Material[].class);
 
+							for (Material mat : mats) {
+								mat.cust_id = id_counter;
+								mat_map.put(mat.cust_id, mat);
+								id_counter++;
+								updateUI();
+								list.setSelectedValue(mat, true);
+							}
+
+							fstr.close();
+
+						}
+					} catch (FileNotFoundException ex) {
+						return;
+					} catch (IOException | IllegalArgumentException ex) {
+						JOptionPane.showMessageDialog(MaterialManager.this,
+								"Unable to load file.\n" + ex.getMessage());
+						ex.printStackTrace();
+						return;
 					}
-				} catch (FileNotFoundException ex) {
 					return;
-				} catch (IOException | IllegalArgumentException ex) {
-					JOptionPane.showMessageDialog(this,
-							"Unable to load file.\n" + ex.getMessage());
-					ex.printStackTrace();
-					return;
-				}
-				return;
-			} finally {
-				e.rwLock.writeLock().unlock();
-			}
-		});
-	}
-
-	public void writeFile()
-	{
-		SwingUtilities.invokeLater(() -> {
-			if (list.getSelectedValue() == null) {
-				JOptionPane.showMessageDialog(this,
-				"Please select a material to save.");
-				return;
-			}
-			
-			File testfile = startingpath.toFile();
-			if (!testfile.canWrite()) {
-				JOptionPane.showMessageDialog(this,
-				"Error: Java does not have access to this folder. Please see instructions to fix this issue.");
-				return;
-			}
-			
-			JFileChooser fd = new JFileChooser(startingpath.toFile());
-			fd.setSelectedFile(new File(list.getSelectedValue().toString() + ".material"));
-			fd.setDialogTitle("Export material(s)");
-			fd.setFileFilter(new FileFilter(){
-				@Override
-				public boolean accept(File f) {
-					if (f.isDirectory() || f.getName().endsWith(fileextension)) return true;
-					return false;
-				}
-				@Override
-				public String getDescription() {
-					return fileextension;
+				} finally {
+					e.rwLock.writeLock().unlock();
 				}
 			});
-			int result = fd.showSaveDialog(this);
-			startingpath = fd.getCurrentDirectory().toPath();
+		}
 
-			File outfile = null;
-			
-			if (result == JFileChooser.APPROVE_OPTION)
-				outfile = fd.getSelectedFile();
-
-			if (outfile == null) return;
-			if (!outfile.getName().endsWith(fileextension))
-				outfile = new File(outfile.getAbsolutePath() + fileextension);
-
-			if (outfile.exists()) {
-				String[] options = {"Yes", "No"};
-
-				result = JOptionPane.showOptionDialog(this, "A file named " + outfile.getName() + " already exists. Do you wish to overwrite it?", "Message", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, options, options[1]);
-				if (result != JOptionPane.OK_OPTION)
-					return;
-			}
-			
-			writeFile(outfile);
-		});
-	}
-
-	public void writeFile(File outfile)
-	{
-		SwingUtilities.invokeLater(() -> {
-			e.rwLock.writeLock().lock();
-			try {
+		public void writeFile(File outfile, Runnable callback)
+		{
+			SwingUtilities.invokeLater(() -> {
+				e.rwLock.writeLock().lock();
 				try {
-					PrintWriter fstr = new PrintWriter(new FileOutputStream(outfile));
+					try {
+						PrintWriter fstr = new PrintWriter(new FileOutputStream(outfile));
 
-					Gson gson = new GsonBuilder().serializeSpecialFloatingPointValues().setPrettyPrinting().create();
+						Gson gson = new GsonBuilder().serializeSpecialFloatingPointValues().setPrettyPrinting().create();
 
-					JsonObject save = new JsonObject();
-					save.addProperty("version", current_material_saveversion);
-					Material[] mats = list.getSelectedValuesList().toArray(new Material[0]);
-					save.add("materials", gson.toJsonTree(mats));
-					String json = gson.toJson(save);
+						JsonObject save = new JsonObject();
+						save.addProperty("version", saveversion);
+						Material[] mats = list.getSelectedValuesList().toArray(new Material[0]);
+						save.add("materials", gson.toJsonTree(mats));
+						String json = gson.toJson(save);
 
-					fstr.print(json);
-					fstr.flush();
-					fstr.close();
+						fstr.print(json);
+						fstr.flush();
+						fstr.close();
 
-					JOptionPane.showMessageDialog(this, "Material(s) saved successfully.");
-				} catch (FileNotFoundException e) {
+						JOptionPane.showMessageDialog(MaterialManager.this, "Material(s) saved successfully.");
+					} catch (FileNotFoundException e) {
+						return;
+					}
 					return;
+				} finally {
+					e.rwLock.writeLock().unlock();
 				}
-				return;
-			} finally {
-				e.rwLock.writeLock().unlock();
-			}
-		});
-	}
+			});
+		}
+	};
 	
 
 	public void assertNextObject(JsonReader fstr, String name) throws IOException {

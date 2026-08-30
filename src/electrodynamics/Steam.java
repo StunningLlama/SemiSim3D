@@ -120,7 +120,7 @@ public class Steam {
 				    	}
 				    	
 						File newfile = SemiSim.getUserFile("_tmp/workshop_item.semisim");
-						e.savemanager.writeFile(newfile, () -> {
+						e.savemanager.io.writeFile(newfile, () -> {
 							SteamUGCUpdateHandle handle = UGC.startItemUpdate(Utils.getAppID(), publishedFileID);
 							UGC.setItemVisibility(handle, PublishedFileVisibility.Public);
 							UGC.setItemTitle(handle, ws_title);
@@ -232,7 +232,7 @@ public class Steam {
 			UGC.getItemInstallInfo(id, info);
 			File file = Paths.get(info.getFolder(), "workshop_item.semisim").toFile();
 			new Thread(() -> {
-				e.savemanager.readfile(file);
+				e.savemanager.io.readfile(file);
 			}).start();
 		}
 	}

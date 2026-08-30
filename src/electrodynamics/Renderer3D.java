@@ -515,7 +515,7 @@ public class Renderer3D implements GLEventListener {
 
 			VectorMode vector_display_mode = e.controls.vectormode.getOption();
 
-			double vectorscalingconstant = Math.pow(10.0, e.opts.gui_brightness_vec.getValue()/5.0)/(e.controls.vectorview.getOption()).getScalingConstant(e);
+			double vectorscalingconstant = 10*Math.pow(10.0, e.opts.gui_brightness_vec.getValue()/10.0)/(e.controls.vectorview.getOption()).getScalingConstant(e);
 
 
 			rand.setSeed(4);
@@ -602,7 +602,7 @@ public class Renderer3D implements GLEventListener {
 				}
 
 				gl.glEnd();
-			} else if (vector_display_mode == VectorMode.ARROWS && vf_x != null) {
+			} else if ((vector_display_mode == VectorMode.ARROWS || vector_display_mode == VectorMode.ARROWS_LEN) && vf_x != null) {
 
 				Vector3 ctr = new Vector3(0,0,0);
 				Vector3 arrow = new Vector3(0,0,0);
@@ -631,7 +631,10 @@ public class Renderer3D implements GLEventListener {
 							arrow.y = Utils.bilinearinterp(vf_y, x+dual_offset, y+grid_offset, z+dual_offset);
 							arrow.z = Utils.bilinearinterp(vf_z, x+dual_offset, y+dual_offset, z+grid_offset);
 
-							double fieldmagnitude = Math.max(0.1, vectorscalingconstant*Math.sqrt(arrow.dot(arrow)));
+
+							double arrowlength_varying = (vector_display_mode == VectorMode.ARROWS_LEN)? vectorscalingconstant*Math.sqrt(arrow.dot(arrow)) : arrowlength;
+							double fieldmagnitude = (vector_display_mode == VectorMode.ARROWS_LEN)? Math.max(0.1, arrowlength_varying) : Math.max(0.1, 10*vectorscalingconstant*Math.sqrt(arrow.dot(arrow)));
+							
 							arrow.normalize();
 
 							tip1.copy(arrow);
@@ -644,18 +647,19 @@ public class Renderer3D implements GLEventListener {
 							tip2.addmult(arrow, -2);
 
 							body1.copy(ctr);
-							body1.addmult(arrow, -0.5*arrowlength);
+							body1.addmult(arrow, -0.5*arrowlength_varying);
 							body2.copy(ctr);
-							body2.addmult(arrow, 0.5*arrowlength);
+							body2.addmult(arrow, 0.5*arrowlength_varying);
 
-							tip1.scalarmult(0.1*arrowlength);
+							tip1.scalarmult(0.1*arrowlength_varying);
 							tip1.add(body2);
-							tip2.scalarmult(0.1*arrowlength);
+							tip2.scalarmult(0.1*arrowlength_varying);
 							tip2.add(body2);
 
 							ctr.add(o);
 							double depth = ctr.dot(g);
 							float gray = 0.5f*(float)Math.exp(-0.5*depth/e.renderer.max_size);
+							
 							float alpha = (float)(0.1*Math.sqrt(fieldmagnitude));
 
 							gl.glColor4f(gray, gray, gray, alpha);

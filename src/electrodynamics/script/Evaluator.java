@@ -14,10 +14,10 @@ import java.util.Queue;
 import java.util.Stack;
 
 public class Evaluator {
-	private HashMap<String, Operator> operators;
-	private HashMap<String, Function> functions;
-	private HashMap<String, Double> constants;
-	private HashSet<String> reserved_names;
+	public HashMap<String, Operator> operators;
+	public HashMap<String, Function> functions;
+	public HashMap<String, Double> constants;
+	public HashSet<String> reserved_names;
 	boolean DEBUG = false;
 	
 	public Evaluator()
@@ -256,8 +256,8 @@ public class Evaluator {
 		registerOperator("%", 2, Association.LEFT, (a, b) -> a%b);
 		registerOperator("<", 0, Association.LEFT, (a, b) -> (a<b)? 1: 0);
 		registerOperator(">", 0, Association.LEFT, (a, b) -> (a>b)? 1: 0);
-		registerOperator("eq", 2, Association.LEFT, (a, b) -> (a==b)? 1: 0);
-		registerOperator("neq", 2, Association.LEFT, (a, b) -> (a!=b)? 1: 0);
+		registerOperator("==", 2, Association.LEFT, (a, b) -> (a==b)? 1: 0);
+		registerOperator("!=", 2, Association.LEFT, (a, b) -> (a!=b)? 1: 0);
 		registerOperator("_unary_sub", 4, Association.RIGHT, a -> -a);
 		
 		registerFunction("sqrt", a -> Math.sqrt(a));
@@ -283,6 +283,8 @@ public class Evaluator {
 
 		setConstant("pi", Math.PI);
 		setConstant("e", Math.E);
+		setConstant("true", 1);
+		setConstant("false", 0);
 	}
 
 	public class EvalException extends RuntimeException {
@@ -321,10 +323,8 @@ enum TokenType {
 			return NUMBER;
 		else if (i == 2)
 			return NAME;
-		else if (i == 3)
+		else if (i == 3 || i == 4)
 			return PUNCTUATION;
-		else if (i == 4)
-			return STRING;
 		else
 			return UNKNOWN;
 	}
@@ -356,8 +356,6 @@ enum UnitType {
 enum Association {
 	LEFT, RIGHT
 }
-
-abstract interface Function {};
 
 interface BinaryOperator extends Function {
 	public double operate(double b, double a);

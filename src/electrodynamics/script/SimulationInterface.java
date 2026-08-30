@@ -41,6 +41,9 @@ public class SimulationInterface {
 	}
 	
 	public void register(Evaluator evaluator) {
+		evaluator.registerFunction("set_material", set_material);
+		evaluator.registerFunction("write", write);
+		evaluator.registerFunction("read", read);
 		evaluator.registerFunction("list", list);
 		evaluator.registerFunction("set_material", set_material);
 		evaluator.registerFunction("set_brush_shape", set_brush_shape);
@@ -84,7 +87,56 @@ public class SimulationInterface {
 	//record probe
 	//make plot
 
+	NaryFunction write = new NaryFunction() {
+		@Override
+		public String getHelpText() {
+			return "write({address} [number], value [any type]): Writes {value} to memory location given by {address}";
+		}
+		
+		@Override
+		public int get_n_args() { return 2; }
+
+		@Override
+		public Object operate(Object[] args) {
+			int address = (int) Math.round((Double) args[0]);
+			Object value = args[1];
+			
+			if (address >= 0 && address < state.tape.length) {
+				state.tape[address] = value;
+				return 0;
+			} else {
+				return -1;
+			}
+		}
+	};
+	
+	NaryFunction read = new NaryFunction() {
+		@Override
+		public String getHelpText() {
+			return "read({address} [number]): Returns the value at memory location given by {address}.";
+		}
+		
+		@Override
+		public int get_n_args() { return 1; }
+
+		@Override
+		public Object operate(Object[] args) {
+			int address = (int) Math.round((Double) args[0]);
+			
+			if (address >= 0 && address < state.tape.length) {
+				return state.tape[address];
+			} else {
+				return Double.NaN;
+			}
+		}
+	};
+	
 	NaryFunction list = new NaryFunction() {
+		@Override
+		public String getHelpText() {
+			return "list(): Lists all materials and brush shapes.";
+		}
+		
 		@Override
 		public int get_n_args() { return 0; }
 
@@ -103,6 +155,11 @@ public class SimulationInterface {
 	
 	NaryFunction set_material = new NaryFunction() {
 		@Override
+		public String getHelpText() {
+			return "set_material({name} [string]): Sets the brush material to that with name given by {name}. See list() for a list of material names.";
+		}
+		
+		@Override
 		public int get_n_args() { return 1; }
 
 		@Override
@@ -115,6 +172,11 @@ public class SimulationInterface {
 	};
 	
 	NaryFunction set_brush_shape = new NaryFunction() {
+		@Override
+		public String getHelpText() {
+			return "set_brush_shape({shape} [string]): Sets the brush shape to that given by {shape}. See list() for a list of shapes.";
+		}
+		
 		@Override
 		public int get_n_args() { return 1; }
 
@@ -129,6 +191,11 @@ public class SimulationInterface {
 
 	NaryFunction set_brush_size = new NaryFunction() {
 		@Override
+		public String getHelpText() {
+			return "set_brush_size({size} [number]): Sets the brush radius (in pixels) to {size}. {size} may be a real number.";
+		}
+		
+		@Override
 		public int get_n_args() { return 1; }
 
 		@Override
@@ -140,6 +207,10 @@ public class SimulationInterface {
 	};
 
 	NaryFunction set_replace = new NaryFunction() {
+		public String getHelpText() {
+			return "set_replace({replace} [boolean]): Sets replace mode.";
+		}
+		
 		@Override
 		public int get_n_args() { return 1; }
 
@@ -153,6 +224,10 @@ public class SimulationInterface {
 	};
 
 	NaryFunction set_overwrite = new NaryFunction() {
+		public String getHelpText() {
+			return "set_overwrite({overwrite} [boolean]): Sets overwrite mode.";
+		}
+		
 		@Override
 		public int get_n_args() { return 1; }
 
@@ -166,6 +241,10 @@ public class SimulationInterface {
 	};
 	
 	NaryFunction set_emf_direction = new NaryFunction() {
+		public String getHelpText() {
+			return "set_emf_direction({x} [number], {y} [number], {z} [number]): Sets EMF direction to vector ({x}, {y}, {z}). The vector should be normalized.";
+		}
+		
 		@Override
 		public int get_n_args() { return 3; }
 
@@ -180,6 +259,10 @@ public class SimulationInterface {
 	
 
 	NaryFunction set_option = new NaryFunction() {
+		public String getHelpText() {
+			return "set_option({name} [string], {value} [number]): Changes the simulation setting given by {name} to {value}.";
+		}
+		
 		@Override
 		public int get_n_args() { return 2; }
 
@@ -202,6 +285,10 @@ public class SimulationInterface {
 	
 
 	NaryFunction wait = new NaryFunction() {
+		public String getHelpText() {
+			return "wait({time} [number]): Waits for amount of time {time} in seconds.";
+		}
+		
 		@Override
 		public int get_n_args() { return 1; }
 
@@ -209,13 +296,29 @@ public class SimulationInterface {
 		public Object operate(Object[] args) {
 			double value = (double) args[0];
 			
-			//TODO
+			e.codeeditor.flush();
+
+			e.rwLock.readLock().unlock();
+			
+			long nanos = (long)(value*1e9);
+			
+			try {
+				Thread.sleep(nanos/1000000l, (int)(nanos%1000000l));
+			} catch (InterruptedException e1) {
+				throw new RuntimeException("Script was interrupted.");
+			} finally {
+				e.rwLock.readLock().lock();
+			}
 			
 			return 0;
 		}
 	};
 	
 	NaryFunction print = new NaryFunction() {
+		public String getHelpText() {
+			return "print({value} [any type]): Prints {value}.";
+		}
+		
 		@Override
 		public int get_n_args() { return 1; }
 
@@ -228,6 +331,10 @@ public class SimulationInterface {
 	
 
 	NaryFunction reset = new NaryFunction() {
+		public String getHelpText() {
+			return "reset(): Clears all materials in the simulation.";
+		}
+		
 		@Override
 		public int get_n_args() { return 0; }
 
@@ -250,6 +357,10 @@ public class SimulationInterface {
 	};
 	
 	NaryFunction rectangle = new NaryFunction() {
+		public String getHelpText() {
+			return "rectangle({x1} [number], {y1} [number], {z1} [number], {x2} [number], {y2} [number], {z2} [number]): Draws rectangle from ({x1}, {y1}, {z1}) to ({x2}, {y2}, {z2}), in pixels.";
+		}
+		
 		@Override
 		public int get_n_args() { return 6; }
 
@@ -279,6 +390,10 @@ public class SimulationInterface {
 	};
 	
 	NaryFunction line = new NaryFunction() {
+		public String getHelpText() {
+			return "line({x1} [number], {y1} [number], {z1} [number], {x2} [number], {y2} [number], {z2} [number]): Draws line from ({x1}, {y1}, {z1}) to ({x2}, {y2}, {z2}), in pixels.";
+		}
+		
 		@Override
 		public int get_n_args() { return 6; }
 
@@ -302,6 +417,10 @@ public class SimulationInterface {
 	};
 	
 	NaryFunction point = new NaryFunction() {
+		public String getHelpText() {
+			return "line({x} [number], {y} [number], {z} [number]): Draws pixel at ({x}, {y}, {z}).";
+		}
+		
 		@Override
 		public int get_n_args() { return 3; }
 
@@ -322,6 +441,10 @@ public class SimulationInterface {
 	};
 	
 	NaryFunction fill = new NaryFunction() {
+		public String getHelpText() {
+			return "fill({x} [number], {y} [number], {z} [number]): Fills region with a material, starting at ({x}, {y}, {z}).";
+		}
+		
 		@Override
 		public int get_n_args() { return 3; }
 
@@ -359,6 +482,10 @@ public class SimulationInterface {
 	};
 	
 	NaryFunction set_vi = new NaryFunction() {
+		public String getHelpText() {
+			return "set_vi({x} [number], {y} [number], {z} [number], {value} [number]): Sets the voltage (V) or current (I) of a source at ({x}, {y}, {z}) to {value}";
+		}
+		
 		@Override
 		public int get_n_args() { return 4; }
 

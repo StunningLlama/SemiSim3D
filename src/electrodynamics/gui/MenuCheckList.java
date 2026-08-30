@@ -28,7 +28,7 @@ public class MenuCheckList<T extends Enum<?>, Button extends JRadioButtonMenuIte
 	public JMenu menu;
 	public HashSet<T> separators;
 	private T default_option;
-	private ActionListener listener;
+	//private ActionListener listener;
 	
 	public MenuCheckList(T[] values, T default_option) {
 		for (T b : values) {
@@ -63,7 +63,7 @@ public class MenuCheckList<T extends Enum<?>, Button extends JRadioButtonMenuIte
 		if (default_option != null)
 			buttongroup.setSelected(buttonmap.get(default_option).getModel(), true);
 		
-		listener = a;
+		//listener = a;
 	}
 	
 	public void addToolbarButton(T t, IconButton b) {

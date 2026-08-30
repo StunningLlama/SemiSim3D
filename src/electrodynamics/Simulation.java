@@ -56,15 +56,13 @@ import electrodynamics.util.Timer;
 import electrodynamics.util.Utils;
 
 public class Simulation extends PeriodicTask {
-	
+
+	//Constrain to layer
+
+	//Graphics settings
 	//Update manual
 	//Add heat and entropy
-	//Implement arrow length 
-	//Graphics settings
-	//Constrain to layer
-	//Fix vf brightness
-	//Toggle between cursor and move
-	//Add file operations to code editor
+	//java.util.ConcurrentModificationException
 	
 	/* Parts */
 	
@@ -619,7 +617,7 @@ public class Simulation extends PeriodicTask {
         					reset(true, null);
             				opts.setDefaults(this);
             				description = "Description of simulation";
-            				SaveManager.currentfile = null;
+            				savemanager.io.currentfile = null;
         				}
     				});
     				controls.reset = false;
@@ -664,17 +662,17 @@ public class Simulation extends PeriodicTask {
     				opts.gui_paused.setSelected(true);
 
     			if (controls.save) {
-    				savemanager.writeFile(false);
+    				savemanager.io.writeFile(false);
     				controls.save = false;
     			}
     			
     			if (controls.saveas) {
-    				savemanager.writeFile(true);
+    				savemanager.io.writeFile(true);
     				controls.saveas = false;
     			}
 
     			if (controls.load) {
-    				savemanager.readFile();
+    				savemanager.io.readFile();
     				controls.load = false;
     			}
 

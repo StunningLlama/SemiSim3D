@@ -325,7 +325,7 @@ public class SemiSim {
 
 				new Thread(() -> {
 					File file = new File(fname);
-					instance.sim.savemanager.readfile(file);
+					instance.sim.savemanager.io.readfile(file);
 				}).start();
 			}
 			});

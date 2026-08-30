@@ -758,6 +758,10 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		if (brush != Brush.CAMERA) {
 			looking = false;
 		}
+		
+		
+		if (Brush.moveCamera(brush))
+			e.renderer.cam.processKey(e.renderer.max_size, e.renderer.targetframerate);
 
 		shift_down = Keyboard.isKeyPressed(KeyEvent.VK_SHIFT);
 		alt_down = Keyboard.isKeyPressed(KeyEvent.VK_ALT);
@@ -959,9 +963,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 			}
 			break;
 		case CAMERA:
-		{
-			e.renderer.cam.processKey(e.renderer.max_size, e.renderer.targetframerate);
-			
+		{	
 			float thetascale = 2/(float)e.renderer.imgpanel.getHeight();
 			float phiscale = 2/(float)e.renderer.imgpanel.getWidth();
 
@@ -1943,7 +1945,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		public void load(String name) {
 			new Thread(() -> {
 				File file = SemiSim.getRootFile(name);
-				e.savemanager.readfile(file);
+				e.savemanager.io.readfile(file);
 			}).start();
 			browser.setVisible(false);
 		}
@@ -2435,6 +2437,8 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 	}
 	
 	public void moveDir(int fwd, int left, int up) {
+		if (!Brush.moveCamera(brushes.getOption())) return;
+		
 		double x = Math.cos(e.renderer.cam.yaw)*Math.cos(e.renderer.cam.pitch);
 		double y = Math.sin(e.renderer.cam.yaw)*Math.cos(e.renderer.cam.pitch);
 		int fwd_x = 0;
@@ -2496,7 +2500,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
     
     public void makeThumbnail() {
     	try {
-    		File outputfile = new File(SaveManager.currentfile.toString().replace("examples", "images/thumbnails").replace(".semisim", ".png"));
+    		File outputfile = new File(e.savemanager.io.currentfile.toString().replace("examples", "images/thumbnails").replace(".semisim", ".png"));
     		
     		try {
     			Files.createDirectories(outputfile.toPath());
@@ -2748,6 +2752,12 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		
 		public static boolean sticksOut(Brush brush) {
 			return (brush == Brush.DRAW || brush == Brush.LINE);
+		}
+		
+		public static boolean moveCamera(Brush brush) {
+			return (brush == Brush.INTERACT
+					|| brush == Brush.CAMERA
+					|| brush == Brush.PAN);
 		}
 	}
 

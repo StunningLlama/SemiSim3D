@@ -10,7 +10,7 @@ import java.util.Stack;
 
 public class Interpreter {
 	
-	public static void main(String[] args) {
+	/*public static void main(String[] args) {
 		Interpreter i = new Interpreter();
 		String testcode = "n = 7200\r\n"
 				+ "m = 2\r\n"
@@ -26,7 +26,7 @@ public class Interpreter {
 		List<Instruction> program = i.process(testcode);
 		State state = new State();
 		i.execute(program, state);
-	}
+	}*/
 	
 	public Evaluator evaluator;
 	
@@ -74,9 +74,31 @@ public class Interpreter {
 						((While) ins2).end_pos = ins.pos;
 						((End) ins).start_pos = ins2.pos;
 						((End) ins).end_while = true;
+					} else if (ins2 instanceof Else) {
+						((Else) ins2).end_pos = ins.pos;
+						if (!stack.isEmpty()) {
+							Instruction ins3 = stack.pop();
+							if (ins3 instanceof If) {
+								((If) ins3).end_pos = ins.pos;
+							}
+						} else {
+							throw new CodeException("Too many ends!");
+						}
 					}
 				} else {
 					throw new CodeException("Too many ends!");
+				}
+			} else if (ins instanceof Else) {
+				if (!stack.isEmpty()) {
+					Instruction ins2 = stack.peek();
+					if (ins2 instanceof If) {
+						((If) ins2).else_pos = ins.pos;
+					} else {
+						throw new CodeException("Else must match if.");
+					}
+					stack.push(ins);
+				} else {
+					throw new CodeException("Too many elses!");
 				}
 			}
 		}
@@ -111,6 +133,8 @@ public class Interpreter {
 				return new If(tokens, evaluator);
 			case "while":
 				return new While(tokens, evaluator);
+			case "else":
+				return new Else();
 			case "end":
 				return new End();
 			default:
@@ -135,10 +159,11 @@ public class Interpreter {
 		int CONTINUE = 2;
 		
 		int[][] a = 
-			{{DISCARD, NEW, NEW, NEW},
-			{DISCARD, CONTINUE, CONTINUE, NEW},
-			{DISCARD, CONTINUE, CONTINUE, NEW},
-			{DISCARD, NEW, NEW, NEW}};
+			{{DISCARD, NEW, NEW, NEW, NEW},
+			{DISCARD, CONTINUE, CONTINUE, NEW, NEW},
+			{DISCARD, CONTINUE, CONTINUE, NEW, NEW},
+			{DISCARD, NEW, NEW, NEW, NEW},
+			{DISCARD, NEW, NEW, NEW, CONTINUE}};
 		
 		List<Token> tokens = new ArrayList<Token>();
 		StringBuilder b = new StringBuilder();
@@ -152,6 +177,7 @@ public class Interpreter {
 			if (isNum(c)) new_state = 1;
 			else if (isLetter(c)) new_state = 2;
 			else if (isWhitespace(c)) new_state = 0;
+			else if (isSpecialPunctuation(c)) new_state = 4;
 			else new_state = 3;
 			
 			int action = a[state][new_state];
@@ -219,6 +245,10 @@ public class Interpreter {
 		return Character.isWhitespace(c);
 	}
 	
+	public boolean isSpecialPunctuation(char c) {
+		return c == '!' || c == '=';
+	}
+	
 	public boolean isQuote(char c) {
 		return c == '\"';
 	}
@@ -232,6 +262,7 @@ public class Interpreter {
 	public class If extends Instruction {
 		List<Unit> condition;
 		int end_pos = -2;
+		int else_pos = -2;
 		
 		public If(List<Token> tokens, Evaluator evaluator) {
 			List<Token> sub_tokens = new ArrayList<Token>();
@@ -252,10 +283,14 @@ public class Interpreter {
 			if (!(result instanceof Double))
 				throw new CodeException("If: Number expected, got " + result.toString() + " instead.");
 			
-			if ((double) result > 0.5)
+			if ((double) result > 0.5) {
 				return pos+1;
-			else
-				return end_pos+1;
+			} else {
+				if (else_pos >= 0)
+					return else_pos+1;
+				else
+					return end_pos+1;
+			}
 		}
 	}
 
@@ -289,7 +324,16 @@ public class Interpreter {
 				return end_pos+1;
 		}
 	}
-
+	
+	public class Else extends Instruction {
+		int end_pos = -2;
+		
+		@Override
+		int execute(State state, Evaluator evaluator) {
+			return end_pos+1;
+		}
+	}
+	
 	public class End extends Instruction {
 		int start_pos = -2;
 		boolean end_while = false;

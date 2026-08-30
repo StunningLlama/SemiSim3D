@@ -993,7 +993,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		e.controls.scalarmode.buttonmap.get(ScalarMode.NONE).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0));
 		e.controls.vectormode.buttonmap.get(VectorMode.NONE).setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V, 0));
 		
-		addDirectoryToMenu(menu_examples, SemiSim.getRootFile("examples"), e.savemanager.fileextension, (File f) -> e.savemanager.readfile(f));
+		addDirectoryToMenu(menu_examples, SemiSim.getRootFile("examples"), e.savemanager.io.fileextension, (File f) -> e.savemanager.io.readfile(f));
 		//gui_material.removeItem(MaterialType.ABSORBER);
 		if (!BuildFlags.debugging)
 			e.controls.scalarview.removeOption(ScalarView.DEBUG);

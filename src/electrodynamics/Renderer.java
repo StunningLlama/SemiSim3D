@@ -1359,6 +1359,8 @@ public class Renderer extends PeriodicTask {
 							if (!skip) drawLines();
 						} else if (synchronized_vector_display_mode == VectorMode.ARROWS && !synchronized_draw3D) {
 							if (!skip) drawArrows();
+						} else if (synchronized_vector_display_mode == VectorMode.ARROWS_LEN && !synchronized_draw3D) {
+							if (!skip) drawArrowsLength();
 						} else if (synchronized_vector_display_mode == VectorMode.DOTS) {
 							drawDots();
 						}
@@ -2040,6 +2042,67 @@ public class Renderer extends PeriodicTask {
 					tip1.add(body2);
 					tip2.scalarmult(0.35*arrowlength);
 					tip2.add(body2);
+					double alphaFG = (0.1*Math.sqrt(fieldmagnitude));
+					drawLine((int)(body1.x*scalefactor), (int)(body1.y*scalefactor), (int)(body2.x*scalefactor), (int)(body2.y*scalefactor), true,
+					(float)fieldmagnitude, (float)fieldmagnitude, (float)fieldmagnitude, (float)alphaFG, 1f);
+					drawLine((int)(body2.x*scalefactor), (int)(body2.y*scalefactor), (int)(tip1.x*scalefactor), (int)(tip1.y*scalefactor), false,
+					(float)fieldmagnitude, (float)fieldmagnitude, (float)fieldmagnitude, (float)alphaFG, 1f);
+					drawLine((int)(body2.x*scalefactor), (int)(body2.y*scalefactor), (int)(tip2.x*scalefactor), (int)(tip2.y*scalefactor), false,
+					(float)fieldmagnitude, (float)fieldmagnitude, (float)fieldmagnitude, (float)alphaFG, 1f);
+				}
+			}
+		}
+		
+		private void drawArrowsLength() {
+			rand.setSeed(n_thread);
+			
+			density_x = 7*scalefactor*rx/256;
+			density_y = 7*scalefactor*ry/256;
+			
+			Vector ctr = new Vector(0,0);
+			Vector arrow = new Vector(0,0);
+			Vector tip1 = new Vector(0,0);
+			Vector tip2 = new Vector(0,0);
+			Vector body1 = new Vector(0,0);
+			Vector body2 = new Vector(0,0);
+			
+			for (int i = lower(density_x); i < upper(density_x); i++) {
+				for (int j = 0; j < density_y; j++) {
+
+					//double x = (npx-1)*(i+0.5)/50;
+					//double y = (npy-1)*(j+0.5)/50;
+					double x = npx*(i+randomness*(rand.nextFloat()-0.5))/density_x;
+					double y = npy*(j+randomness*(rand.nextFloat()-0.5))/density_y;
+					ctr.x = x+0.5;
+					ctr.y = y+0.5;
+
+					if (slice_x) {
+						arrow.x = Utils.bilinearinterp(vf_x, slice+dual_offset, x+grid_offset, y+dual_offset);
+						arrow.y = Utils.bilinearinterp(vf_y, slice+dual_offset, x+dual_offset, y+grid_offset);
+					} else if (slice_y) {
+						arrow.x = Utils.bilinearinterp(vf_x,x+grid_offset, slice+dual_offset, y+dual_offset);
+						arrow.y = Utils.bilinearinterp(vf_y,x+dual_offset, slice+dual_offset, y+grid_offset);
+					} else if (slice_z) {
+						arrow.x = Utils.bilinearinterp(vf_x,x+grid_offset, y+dual_offset, slice+dual_offset);
+						arrow.y = Utils.bilinearinterp(vf_y,x+dual_offset, y+grid_offset, slice+dual_offset);
+					}
+
+					double arrowlength_varying = vectorscalingconstant*Math.sqrt(arrow.dot(arrow));
+					arrow.normalize();
+					tip1.copy(arrow);
+					tip2.copy(arrow);
+					tip1.rotate(Math.PI*5.0/6.0);
+					tip2.rotate(Math.PI*7.0/6.0);
+
+					body1.copy(ctr);
+					body1.addmult(arrow, -0.5*arrowlength_varying);
+					body2.copy(ctr);
+					body2.addmult(arrow, 0.5*arrowlength_varying);
+					tip1.scalarmult(0.35*arrowlength_varying);
+					tip1.add(body2);
+					tip2.scalarmult(0.35*arrowlength_varying);
+					tip2.add(body2);
+					double fieldmagnitude = Math.max(0.1, arrowlength_varying);
 					double alphaFG = (0.1*Math.sqrt(fieldmagnitude));
 					drawLine((int)(body1.x*scalefactor), (int)(body1.y*scalefactor), (int)(body2.x*scalefactor), (int)(body2.y*scalefactor), true,
 					(float)fieldmagnitude, (float)fieldmagnitude, (float)fieldmagnitude, (float)alphaFG, 1f);
@@ -2760,7 +2823,8 @@ public class Renderer extends PeriodicTask {
 	
 	public enum VectorMode {
 		NONE("Turn off vector overlay", ""),
-		ARROWS("Show vectors", "vectors"),
+		ARROWS("Display arrows (brightness)", "arrows"),
+		ARROWS_LEN("Display arrows (length)", "arrows"),
 		LINES("Show lines", "lines"),
 		DOTS("Show moving dots", "dots");
 	

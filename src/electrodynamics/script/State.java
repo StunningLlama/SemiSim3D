@@ -8,17 +8,21 @@ import java.util.HashMap;
 
 public class State {
 	public HashMap<String, Object> variables;
+	public Object[] tape;
 	public boolean suppress_output = false;
 	public StringBuilder stdout = new StringBuilder();
 	public static int stdout_max_length = 10000;
+	public static int array_length = 10000;
 	
 	public State() {
 		variables = new HashMap<String, Object>();
+		tape = new Object[array_length];
 	}
 	
 	public void reset() {
 		variables.clear();
 		stdout.delete(0, stdout.length());
+		tape = new Object[array_length];
 	}
 	
 	public void println(String str) {
