@@ -1,22 +1,24 @@
 clear
 
-surface = 15
-width = 7
+surface = 17
+width = 6
 center = 12
 s_start = 5
 s_end = 10
 d_start = 21
 d_end = 26
 sd_depth = 4
+sd_depth_lower = 8
 
 set_replace 0
-set_material "SEMI_P_TYPE"
+set_material "SEMI_HEAVY_P_TYPE"
 rectangle(3, 3, 3, 28, 28, surface)
 
 set_replace 1
 set_material "SEMI_HEAVY_N_TYPE"
-rectangle(s_start, center-width, surface-sd_depth, s_end, center+width, surface)
-rectangle(d_start, center-width, surface-sd_depth, d_end, center+width, surface)
+rectangle(s_start, center-width, surface-sd_depth_lower, s_end, center+width, surface)
+rectangle(d_start, center-width, surface-sd_depth_lower, d_end, center+width, surface)
+rectangle(s_end, center-width, surface-sd_depth_lower, d_start, center+width, surface-sd_depth)
 
 Sx = 0.5*(s_start+s_end)
 Sy = center
@@ -39,11 +41,8 @@ set_brush_size 1
 set_material "EMF"
 set_emf_direction(1 0 0)
 line(Sx, Sy, top, Dx, Dy, top)
-line(Sx, Sy, mid, Gx, Gy, mid)
-
-set_material "METAL"
+set_emf_direction(0 1 0)
 line(Sx, Sy, top, Bx, By, top)
-rectangle(s_end+1, center-width, surface+2, d_start-1, center+width, surface+3)
 
 set_overwrite 0
 set_material "METAL_HIGH_W"
@@ -55,12 +54,10 @@ set_material "METAL"
 line(Sx, Sy, surface, Sx, Sy, top)
 line(Dx, Dy, surface, Dx, Dy, top)
 line(Bx, By, surface, Bx, By, top)
-line(Gx, Gy, surface+3, Gx, Gy, mid)
 
 set_overwrite 1
 line(Sx, Sy, top, Sx, Sy, top)
-line(Sx, Sy, mid, Sx, Sy, mid)
 line(Dx, Dy, top, Dx, Dy, top)
-line(Gx, Gy, mid, Gx, Gy, mid)
+line(Bx, By, top, Bx, By, top)
 
 reset

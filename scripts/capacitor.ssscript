@@ -1,0 +1,31 @@
+clear
+
+cx = 16
+cy = 17
+cz = 16
+
+x_width = 10
+y_width = 6
+
+set_material "METAL"
+set_brush_size 1
+
+line(cx-x_width, cy-y_width, cz, cx+x_width, cy-y_width, cz)
+line(cx-x_width, cy+y_width, cz, cx+x_width, cy+y_width, cz)
+line(cx-x_width, cy-y_width, cz, cx-x_width, cy+y_width, cz)
+line(cx+x_width, cy-y_width, cz, cx+x_width, cy+y_width, cz)
+
+cap_width = 4
+diode_length = 2
+emf_length = 3
+set_overwrite true
+set_material "METAL"
+rectangle(cx-diode_length, cy-cap_width-y_width, cz-cap_width, cx-1, cy+cap_width-y_width, cz+cap_width)
+rectangle(cx+1, cy-cap_width-y_width, cz-cap_width, cx+diode_length, cy+cap_width-y_width, cz+cap_width)
+set_material "VACUUM"
+rectangle(cx, cy-cap_width-y_width, cz-cap_width, cx, cy+cap_width-y_width, cz+cap_width)
+set_material "EMF"
+set_emf_direction(1, 0, 0)
+line(cx-emf_length, cy+y_width, cz, cx+emf_length, cy+y_width, cz)
+
+reset

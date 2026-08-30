@@ -1,6 +1,7 @@
-reset
+clear # Deletes all pre-existing materials from simulation region
 
-surface = 19
+# Specify transistor dimensions
+surface = 19 # Surface height
 p_start = 4
 p_end = 26
 p_width = 8
@@ -12,21 +13,25 @@ n_depth = 5
 nc_depth = 15
 center = 12
 
+# First draw the n-type collector region
 set_replace 0
 set_material "SEMI_N_TYPE"
 rectangle(3, 3, 3, 28, 28, surface)
 
-set_replace 1
+# Draw the p-type base on top of the collector
+set_replace 1 # Turn on replace mode
 set_material "SEMI_HEAVY_P_TYPE"
 rectangle(p_start, center-p_width, surface-p_depth, p_end, center+p_width, surface)
 
+# Draw n-type emitter region over top the base.
 set_material "SEMI_HEAVY_N_TYPE"
 rectangle(n_start, center-n_width, surface-n_depth, n_end, center+n_width, surface)
 
+# Draw buried n++ layer beneath the collector
 set_material "SEMI_HEAVY_N_TYPE"
 rectangle(3, 3, 3, 28, 28, surface-nc_depth)
 
-
+# Calculate the (x, y) locations for the emitter, base, and collector contacts respectively.
 Ex = 0.5*(n_start+n_end)
 Ey = center
 
@@ -36,24 +41,25 @@ By = center
 Cx = 0.5*(n_start+n_end)
 Cy = 0.75*28 + 0.25*(center+p_width)
 
-top = 26
+top = 26 # Height of voltage sources
 
 set_replace 0
 set_brush_size 1
 
+# Draw voltage sources from emitter to base and emitter to collector.
 set_material "EMF"
 set_emf_direction -1 0 0
 line(Ex, Ey, top, Bx, By, top)
 set_emf_direction(0, 1, 0)
 line(Ex, Ey, top, Cx, Cy, top)
 
+# Draw n++ channel from collector contact to buried n++ layer.
 set_overwrite 1
-
 set_material "SEMI_HEAVY_N_TYPE"
 line(Cx, Cy, surface-nc_depth, Cx, Cy, surface-2)
 
+# Draw metal contacts.
 set_overwrite 0
-
 set_material "METAL_HIGH_W"
 line(Bx, By, surface, Bx, By, surface)
 set_material "METAL_LOW_W"
@@ -68,3 +74,6 @@ set_overwrite 1
 line(Ex, Ey, top, Ex, Ey, top)
 line(Bx, By, top, Bx, By, top)
 line(Cx, Cy, top, Cx, Cy, top)
+
+# Last step is resetting all the fields.
+reset

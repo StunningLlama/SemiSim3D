@@ -13,6 +13,13 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Stack;
 
+import electrodynamics.script.Function.BinaryOperator;
+import electrodynamics.script.Function.NaryFunction;
+import electrodynamics.script.Function.UnaryOperator;
+import electrodynamics.script.Operator.Association;
+import electrodynamics.script.Token.TokenType;
+import electrodynamics.script.Unit.UnitType;
+
 public class Evaluator {
 	public HashMap<String, Operator> operators;
 	public HashMap<String, Function> functions;
@@ -28,14 +35,34 @@ public class Evaluator {
 		reserved_names = new HashSet<String>();
 	}
 	
-	public List<Unit> parse(List<Token> tokens) {
-		List<Unit> list = processTokens(tokens);
+	public List<Unit> parse(List<Token> tokens, Highlighter highlighter) {
+		List<Unit> list = processTokens(tokens, highlighter);
+		if (highlighter != null) highlight(list, highlighter);
 		Queue<Unit> input = new LinkedList<Unit>();
 		for (Unit s: list) input.add(s);
-		List<Unit> rpn = toPostfix(input);
+		List<Unit> rpn = toPostfix(input, highlighter);
 		return rpn;
 	}
-	
+
+	public void highlight(List<Unit> list, Highlighter highlighter) {
+		if (highlighter != null) {
+			for (Unit s: list) {
+				if (s.type == UnitType.FUNCTION)
+					highlighter.markText(s.bounds, highlighter.getFunctionColor());
+				else if (s.type == UnitType.VARIABLE)
+					highlighter.markText(s.bounds, highlighter.getVariableColor());
+				else if (s.type == UnitType.NUMBER)
+					highlighter.markText(s.bounds, highlighter.getNumberColor());
+				else if (s.type == UnitType.STRING)
+					highlighter.markText(s.bounds, highlighter.getStringColor());
+				else if (s.type == UnitType.CONSTANT)
+					highlighter.markText(s.bounds, highlighter.getKeywordColor());
+				else
+					highlighter.markText(s.bounds, highlighter.getOperatorColor());
+			}
+		}
+	}
+
 	public boolean isReserved(String name) {
 		return reserved_names.contains(name);
 	}
@@ -79,7 +106,7 @@ public class Evaluator {
 		reserved_names.add(str);
 	}
 	
-	public List<Unit> processTokens(List<Token> tokens) {
+	public List<Unit> processTokens(List<Token> tokens, Highlighter highlighter) {
 		for (int i = tokens.size() - 1; i >= 0 ; i--) 
 			if (tokens.get(i).chars.equals("-") && (i == 0 || (i > 0 && followingTokenUnary(tokens.get(i-1))))) {
 				tokens.get(i).chars = "_unary_sub";
@@ -91,8 +118,9 @@ public class Evaluator {
 		for (int i = 0; i < tokens.size(); i++) {
 			Token t = tokens.get(i);
 			Unit u = new Unit();
+			u.bounds = t.bounds;
 			if (t.type == TokenType.NUMBER) {
-				u.type = UnitType.VALUE;
+				u.type = UnitType.NUMBER;
 				u.value = Double.valueOf(t.chars);
 			} else if (t.type == TokenType.NAME) {
 				if (operators.containsKey(t.chars)) {
@@ -103,10 +131,10 @@ public class Evaluator {
 					u.func = functions.get(t.chars);
 					u.type = UnitType.FUNCTION;
 				} else if (constants.containsKey(t.chars)) {
-					u.type = UnitType.VALUE;
+					u.type = UnitType.CONSTANT;
 					u.value = constants.get(t.chars);
 				} else {
-					u.type = UnitType.VALUE;
+					u.type = UnitType.VARIABLE;
 				}
 			} else if (t.type == TokenType.PUNCTUATION) {
 				if (t.chars.equals("("))
@@ -124,14 +152,14 @@ public class Evaluator {
 						u.func = functions.get(t.chars);
 						u.type = UnitType.FUNCTION;
 					} else {
-						throw new EvalException("Missing symbol: " + t.chars);
+						throwError("Missing symbol: " + t.chars, t.bounds, highlighter);
 					}
 				}
 			} else if (t.type == TokenType.STRING) {
-				u.type = UnitType.VALUE;
+				u.type = UnitType.STRING;
 				u.value = t.chars;
 			} else {
-				throw new EvalException("Missing token: " + t.chars);
+				throwError("Missing token: " + t.chars, t.bounds, highlighter);
 			}
 			
 			u.chars = t.chars;
@@ -149,7 +177,7 @@ public class Evaluator {
 		return t.type == TokenType.PUNCTUATION && !t.chars.equals(")") || t.type == TokenType.NAME && functions.containsKey(t.chars);
 	}
 	
-	public List<Unit> toPostfix(Queue<Unit> tokens)
+	public List<Unit> toPostfix(Queue<Unit> tokens, Highlighter highlighter)
 	{
 		List<Unit> output = new ArrayList<Unit>();
 		Stack<Unit> operatorstack = new Stack<Unit>();
@@ -159,38 +187,37 @@ public class Evaluator {
 			{
 				Unit token = tokens.poll();
 
-				if (token.type == UnitType.VALUE)
-					output.add(token);
-				else if (token.type == UnitType.LEFT_PAREN)
+				if (token.type == UnitType.LEFT_PAREN) {
 					operatorstack.push(token);
-				else if (token.type == UnitType.RIGHT_PAREN) {
+				} else if (token.type == UnitType.RIGHT_PAREN) {
 					while (operatorstack.peek().type != UnitType.LEFT_PAREN)
 						output.add(operatorstack.pop());
 					operatorstack.pop();
 					if (!operatorstack.isEmpty() && operatorstack.peek().type == UnitType.FUNCTION)
 						output.add(operatorstack.pop());
-				}
-				else if (token.type == UnitType.COMMA)
+				} else if (token.type == UnitType.COMMA) {
 					while (operatorstack.peek().type != UnitType.LEFT_PAREN)
 						output.add(operatorstack.pop());
-				else if (token.type == UnitType.FUNCTION)
+				} else if (token.type == UnitType.FUNCTION) {
 					operatorstack.push(token);
-				else if (token.type == UnitType.OPERATOR) {
+				} else if (token.type == UnitType.OPERATOR) {
 					while (!operatorstack.isEmpty() && operatorstack.peek().type == UnitType.OPERATOR &&
 							((token.op.precedence < operatorstack.peek().op.precedence)
 									|| (token.op.assoc == Association.LEFT && token.op.precedence == operatorstack.peek().op.precedence)))
 						output.add(operatorstack.pop());
 					operatorstack.push(token);
+				} else {
+					output.add(token);
 				}
 			} 
 		} catch (EmptyStackException ex) {
-			throw new EvalException("Malformed expression!");
+			throwError("Malformed expression!", null, highlighter);
 		}
 
 		while (!operatorstack.isEmpty())
 		{
 			if (operatorstack.peek().type == UnitType.LEFT_PAREN || operatorstack.peek().type == UnitType.RIGHT_PAREN)
-				throw new EvalException("Mismatched Parenthesis!");
+				throwError("Mismatched Parenthesis!", operatorstack.peek().bounds, highlighter);
 			output.add(operatorstack.pop());
 		}
 
@@ -256,6 +283,8 @@ public class Evaluator {
 		registerOperator("%", 2, Association.LEFT, (a, b) -> a%b);
 		registerOperator("<", 0, Association.LEFT, (a, b) -> (a<b)? 1: 0);
 		registerOperator(">", 0, Association.LEFT, (a, b) -> (a>b)? 1: 0);
+		registerOperator("<=", 0, Association.LEFT, (a, b) -> (a<=b)? 1: 0);
+		registerOperator(">=", 0, Association.LEFT, (a, b) -> (a>=b)? 1: 0);
 		registerOperator("==", 2, Association.LEFT, (a, b) -> (a==b)? 1: 0);
 		registerOperator("!=", 2, Association.LEFT, (a, b) -> (a!=b)? 1: 0);
 		registerOperator("_unary_sub", 4, Association.RIGHT, a -> -a);
@@ -286,6 +315,14 @@ public class Evaluator {
 		setConstant("true", 1);
 		setConstant("false", 0);
 	}
+	
+
+	public void throwError(String message, Bounds bounds, Highlighter highlighter) {
+		if (bounds != null && highlighter != null)
+			highlighter.markError(bounds, highlighter.getErrorColor(), message);
+		
+		throw new EvalException(message);
+	}
 
 	public class EvalException extends RuntimeException {
 		private static final long serialVersionUID = 2662454885274139289L;
@@ -293,91 +330,5 @@ public class Evaluator {
 		{
 			super(msg);
 		}
-	}
-}
-
-class Token {
-	String chars;
-	TokenType type;
-	
-	public Token(String chars, TokenType type) {
-		this.chars = chars;
-		this.type = type;
-	}
-	
-	@Override
-	public String toString() {
-		return chars + ":" + type.toString();
-	}
-	
-	public boolean isComment() {
-		return type == TokenType.PUNCTUATION && chars.equals("#");
-	}
-}
-
-enum TokenType {
-	NAME, NUMBER, PUNCTUATION, STRING, UNKNOWN;
-	
-	public static TokenType fromInt(int i) {
-		if (i == 1)
-			return NUMBER;
-		else if (i == 2)
-			return NAME;
-		else if (i == 3 || i == 4)
-			return PUNCTUATION;
-		else
-			return UNKNOWN;
-	}
-}
-
-class Unit {
-	UnitType type;
-	Operator op = null;
-	Function func = null;
-	String chars = "";
-	Object value = null;
-
-	@Override
-	public String toString() {
-		if (op != null)
-			return chars + " (Op, " + op.precedence + ", " + op.assoc.toString() + ");";
-		else if (func != null) {
-			return chars + " (Func);";
-		} else {
-			return chars + " (" + type.toString() + ");";
-		}
-	}
-}
-
-enum UnitType {
-	LEFT_PAREN, RIGHT_PAREN, COMMA, OPERATOR, FUNCTION, VALUE
-}
-
-enum Association {
-	LEFT, RIGHT
-}
-
-interface BinaryOperator extends Function {
-	public double operate(double b, double a);
-}
-
-interface UnaryOperator extends Function {
-	public double operate(double a);
-}
-
-interface NaryFunction extends Function {
-	public int get_n_args();
-	public Object operate(Object[] args);
-}
-
-class Operator {
-	public int precedence;
-	public Association assoc;
-	public Function func;
-	public Operator(int p, Association a, Function o)
-	{
-		precedence = p;
-		assoc = a;
-		func = o;
 	}
 }

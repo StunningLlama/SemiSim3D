@@ -224,6 +224,17 @@ public class SemiSim {
 					}
 				}
 			}
+			
+			File scripts = getUserFile("scripts");
+			if (!scripts.exists()) {
+				scripts.mkdir();
+				for (File f : getRootFile("scripts").listFiles()) {
+					File dest = getUserFile("scripts/" + f.getName());
+					if (!dest.exists()) {
+						Files.copy(f.toPath(), dest.toPath());
+					}
+				}
+			}
 
 			File screenshots = getUserFile("screenshots");
 			if (!screenshots.exists()) {

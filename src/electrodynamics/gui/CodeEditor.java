@@ -5,7 +5,9 @@
 package electrodynamics.gui;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.InputEvent;
@@ -21,6 +23,7 @@ import java.util.List;
 import javax.swing.AbstractAction;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
@@ -30,11 +33,20 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JTextPane;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.event.UndoableEditEvent;
+import javax.swing.event.UndoableEditListener;
+import javax.swing.event.DocumentEvent.EventType;
+import javax.swing.text.AbstractDocument.DefaultDocumentEvent;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 import javax.swing.undo.CannotRedoException;
 import javax.swing.undo.CannotUndoException;
 import javax.swing.undo.UndoManager;
@@ -42,14 +54,16 @@ import javax.swing.undo.UndoManager;
 import electrodynamics.Renderer.Text;
 import electrodynamics.SemiSim;
 import electrodynamics.Simulation;
+import electrodynamics.script.Bounds;
 import electrodynamics.script.Function;
+import electrodynamics.script.Highlighter;
 import electrodynamics.script.Interpreter;
 import electrodynamics.script.Interpreter.Instruction;
 import electrodynamics.script.SimulationInterface;
 import electrodynamics.script.State;
 import electrodynamics.util.FileInterface;
 
-public class CodeEditor extends JFrame implements ActionListener {
+public class CodeEditor extends JFrame implements ActionListener, Highlighter {
 
 	private static final long serialVersionUID = 1L;
 	Simulation e;
@@ -65,10 +79,10 @@ public class CodeEditor extends JFrame implements ActionListener {
 	public JTextField recomb_rate_metal;
 	public JTextField T;
 	
-	public CustTextArea list;
+	public CustTextArea outputPane;
 	private JButton btn_cancel;
 	private JButton btn_run;
-	private CustTextArea  textPane;
+	private CustTextArea  codePane;
 	private JPanel panel;
 	private JPanel panel_1;
 	private JPanel panel_2;
@@ -78,11 +92,16 @@ public class CodeEditor extends JFrame implements ActionListener {
 	public JMenuBar menuBar;
 	public JMenu menu_file;
 	public JMenu menu_help2;
+	public JMenu menu_settings;
 	public JMenuItem menu_new;
 	public JMenuItem menu_open;
 	public JMenuItem menu_save;
 	public JMenuItem menu_saveas;
 	public JMenuItem menu_help;
+	public JCheckBoxMenuItem menu_highlight;
+	SimpleAttributeSet attrs = new SimpleAttributeSet();
+	StyledDocument sdoc;
+	StyledDocument sdoc2;
 
 	public CodeEditor(Simulation e) {
 		this.e = e;
@@ -119,6 +138,13 @@ public class CodeEditor extends JFrame implements ActionListener {
 		menu_help = new JMenuItem("Functions");
 		menu_help2.add(menu_help);
 		
+		menu_settings = new JMenu("Settings");
+		menuBar.add(menu_settings);
+
+		menu_highlight = new JCheckBoxMenuItem("Syntax highlighting");
+		menu_highlight.setSelected(true);
+		menu_settings.add(menu_highlight);
+		
 		contentPane = new JPanel();
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 		setContentPane(contentPane);
@@ -132,10 +158,10 @@ public class CodeEditor extends JFrame implements ActionListener {
 		JScrollPane scrollPane = new JScrollPane();
 		panel.add(scrollPane);
 		
-		list = new CustTextArea();
-		scrollPane.setViewportView(list);
-		list.setColumns(35);
-		list.setEditable(false);
+		outputPane = new CustTextArea();
+		scrollPane.setViewportView(outputPane);
+		//list.setColumns(35);
+		outputPane.setEditable(false);
 		
 		panel_1 = new JPanel();
 		panel_1.setBorder(new EmptyBorder(5, 5, 5, 5));
@@ -143,15 +169,15 @@ public class CodeEditor extends JFrame implements ActionListener {
 		panel_1.setLayout(new BorderLayout(0, 0));
 		
 		
-		textPane = new CustTextArea();
-		textPane.setColumns(50);
+		codePane = new CustTextArea();
+		//textPane.setColumns(50);
 		
-		scrollPane_1 = new JScrollPane(textPane);
+		scrollPane_1 = new JScrollPane(codePane);
 		panel_1.add(scrollPane_1);
 		
-		TextLineNumber tln = new TextLineNumber(textPane);
+		TextLineNumber tln = new TextLineNumber(codePane);
 		scrollPane_1.setRowHeaderView( tln );
-		//scrollPane_1.setViewportView(textPane);
+		//scrollPane_1.setViewportView(codePane);
 		
 		panel_3 = new JPanel();
 		contentPane.add(panel_3, BorderLayout.SOUTH);
@@ -178,13 +204,19 @@ public class CodeEditor extends JFrame implements ActionListener {
 		splitPane.setDividerLocation(0.66);
 
 		UndoManager manager = new UndoManager();
-		textPane.getDocument().addUndoableEditListener(manager);
+		
+		codePane.getDocument().addUndoableEditListener(new UndoableEditListener() {
+            public void undoableEditHappened(UndoableEditEvent e) {
+            	if (!(((DefaultDocumentEvent) e.getEdit()).getType() == EventType.CHANGE))
+            		manager.addEdit(e.getEdit());
+            }
+        });
 
 	    KeyStroke undoKeyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_Z, InputEvent.CTRL_DOWN_MASK);
 	    KeyStroke redoKeyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_Y, InputEvent.CTRL_DOWN_MASK);
 	    
-		textPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(undoKeyStroke, "undo");
-		textPane.getActionMap().put("undo", new AbstractAction() {
+		codePane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(undoKeyStroke, "undo");
+		codePane.getActionMap().put("undo", new AbstractAction() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				try {
@@ -193,8 +225,8 @@ public class CodeEditor extends JFrame implements ActionListener {
 			}
 		});
 		
-		textPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(redoKeyStroke, "redo");
-		textPane.getActionMap().put("redo", new AbstractAction() {
+		codePane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(redoKeyStroke, "redo");
+		codePane.getActionMap().put("redo", new AbstractAction() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				try {
@@ -210,6 +242,9 @@ public class CodeEditor extends JFrame implements ActionListener {
 	private JSplitPane splitPane;
 	
 	public void initialize() {
+		sdoc = codePane.getStyledDocument();
+		sdoc2 = outputPane.getStyledDocument();
+		
 		this.btn_cancel.addActionListener(this);
 		this.btn_run.addActionListener(this);
 		setLocationRelativeTo(null);
@@ -226,7 +261,7 @@ public class CodeEditor extends JFrame implements ActionListener {
 		io.startingpath = SemiSim.userdir;
 
 		menu_new.addActionListener((ev) -> {
-			textPane.setText("");
+			codePane.setText("");
 		});
 		menu_open.addActionListener((ev) -> {
 			io.readFile();
@@ -241,6 +276,25 @@ public class CodeEditor extends JFrame implements ActionListener {
 			HtmlBox box = new HtmlBox();
 			box.textPane.setText(helptext);
 			box.setVisible(true);
+		});
+		
+		codePane.getDocument().addDocumentListener(new DocumentListener() {
+			@Override public void insertUpdate(DocumentEvent e) {update();}
+			@Override public void removeUpdate(DocumentEvent e) {update();}
+			@Override public void changedUpdate(DocumentEvent e) {}
+			public void update() {
+				if (!menu_highlight.isSelected()) return;
+				SwingUtilities.invokeLater(() -> {
+					updateHighlight();
+				});
+			}
+		});
+		
+		menu_highlight.addChangeListener((ev) -> {
+			if (!menu_highlight.isSelected())
+				resetHighlight();
+			else
+				updateHighlight();
 		});
 	}
 	
@@ -289,13 +343,14 @@ public class CodeEditor extends JFrame implements ActionListener {
 		simint.reset();
 		state.reset();
 		state.println_force("Running...");
-		String code = textPane.getText();
+		
+		e.rwLock.readLock().lock();
 		try {
-			List<Instruction> program = interpreter.process(code);
-			e.rwLock.readLock().lock();
+			String code = codePane.getDocument().getText(0, codePane.getDocument().getLength());
+			List<Instruction> program = interpreter.process(code, null);
 			interpreter.execute(program, state);
 		} catch (Exception ex) {
-			state.println_force(ex.getMessage());
+			state.println_force("\u200b\u2005" + ex.getMessage() + "\u200b\u2004");
 		} finally {
 			e.rwLock.readLock().unlock();
 		}
@@ -306,10 +361,61 @@ public class CodeEditor extends JFrame implements ActionListener {
 	}
 	
 	public void flush() {
-		list.setText(state.get_output());
+		String output = state.get_output();
+		outputPane.setText(output);
+		Color color = null;
+		int i_start = 0;
+		for (int i = 0; i < output.length(); i++) {
+			char c = output.charAt(i);
+			if (c == '\u200b') {
+				if (i < output.length()-1) {
+					char col = output.charAt(i+1);
+					if (color != null) {
+						StyleConstants.setForeground(attrs, color);
+						StyleConstants.setBackground(attrs, getDefaultBackgroundColor());
+						sdoc2.setCharacterAttributes(i_start, i-i_start+1, attrs, false);
+					} else {
+						if (col == '\u2005') {
+							color = Color.RED;
+						} else {
+							color = null;
+						}
+						i_start = i;
+					}
+				}
+			}
+		}
+	}
+
+	public void updateHighlight() {
+		try {
+			String code = codePane.getDocument().getText(0, codePane.getDocument().getLength());
+			interpreter.process(code, CodeEditor.this);
+		} catch (Exception e) {}
 	}
 	
-	class CustTextArea extends JTextArea {
+	@Override
+	public void resetHighlight() {
+		StyleConstants.setForeground(attrs, getDefaultColor());
+		StyleConstants.setBackground(attrs, getDefaultBackgroundColor());
+		sdoc.setCharacterAttributes(0, sdoc.getLength(), attrs, false);
+	}
+
+	@Override
+	public void markText(Bounds bounds, Color color) {
+		StyleConstants.setForeground(attrs, color);
+		StyleConstants.setBackground(attrs, getDefaultBackgroundColor());
+		sdoc.setCharacterAttributes(bounds.start, bounds.end-bounds.start+1, attrs, false);
+	}
+
+	@Override
+	public void markError(Bounds bounds, Color color, String error_message) {
+		StyleConstants.setForeground(attrs, getDefaultColor());
+		StyleConstants.setBackground(attrs, color);
+		sdoc.setCharacterAttributes(bounds.start, bounds.end-bounds.start+1, attrs, false);
+	}
+	
+	class CustTextArea extends JTextPane {
 		private static final long serialVersionUID = 151978487570095242L;
 		
 		@Override
@@ -327,7 +433,7 @@ public class CodeEditor extends JFrame implements ActionListener {
 				if (infile == null || !infile.exists()) return;
 
 				try {
-					textPane.setText(new String(Files.readAllBytes(infile.toPath())));
+					codePane.setText(new String(Files.readAllBytes(infile.toPath())));
 				} catch (FileNotFoundException ex) {
 					return;
 				} catch (IOException | IllegalArgumentException ex) {
@@ -346,7 +452,7 @@ public class CodeEditor extends JFrame implements ActionListener {
 				try {
 					PrintWriter fstr = new PrintWriter(new FileOutputStream(outfile));
 
-					fstr.write(textPane.getText());
+					fstr.write(codePane.getText());
 
 					fstr.flush();
 					fstr.close();
@@ -359,5 +465,4 @@ public class CodeEditor extends JFrame implements ActionListener {
 			});
 		}
 	};
-	
 }

@@ -1,0 +1,35 @@
+clear
+
+cx = 15.5
+cy = 16
+cz = 16
+
+x_width = 10.5
+y_width = 6
+
+set_material "METAL"
+set_brush_size 1
+
+line(cx-x_width, cy-y_width, cz, cx+x_width, cy-y_width, cz)
+line(cx-x_width, cy+y_width, cz, cx+x_width, cy+y_width, cz)
+line(cx-x_width, cy-y_width, cz, cx-x_width, cy+y_width, cz)
+line(cx+x_width, cy-y_width, cz, cx+x_width, cy+y_width, cz)
+
+diode_width = 2
+diode_length = 6.5
+emf_length = 2.5
+set_overwrite true
+set_material "SEMI_HEAVY_N_TYPE"
+rectangle(cx-diode_length, cy-diode_width-y_width, cz-diode_width, cx-0.5, cy+diode_width-y_width, cz+diode_width)
+set_material "SEMI_HEAVY_P_TYPE"
+rectangle(cx+0.5, cy-diode_width-y_width, cz-diode_width, cx+diode_length, cy+diode_width-y_width, cz+diode_width)
+set_material "METAL_LOW_W"
+rectangle(cx-diode_length-1, cy-diode_width-y_width, cz-diode_width, cx-diode_length-1, cy+diode_width-y_width, cz+diode_width)
+set_material "METAL_HIGH_W"
+rectangle(cx+diode_length+1, cy-diode_width-y_width, cz-diode_width, cx+diode_length+1, cy+diode_width-y_width, cz+diode_width)
+
+set_material "EMF"
+set_emf_direction(1, 0, 0)
+line(cx-emf_length, cy+y_width, cz, cx+emf_length, cy+y_width, cz)
+
+reset

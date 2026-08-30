@@ -7,6 +7,7 @@ package electrodynamics.script;
 import electrodynamics.GeneralMaterialType;
 import electrodynamics.MaterialType;
 import electrodynamics.Simulation;
+import electrodynamics.script.Function.NaryFunction;
 import electrodynamics.Controls.BrushAction;
 import electrodynamics.Controls.BrushShape;
 import electrodynamics.Controls.FloodFillFunc;
@@ -54,6 +55,7 @@ public class SimulationInterface {
 		evaluator.registerFunction("set_option", set_option);
 		evaluator.registerFunction("wait", wait);
 		evaluator.registerFunction("print", print);
+		evaluator.registerFunction("clear", clear);
 		evaluator.registerFunction("reset", reset);
 		evaluator.registerFunction("rectangle", rectangle);
 		evaluator.registerFunction("line", line);
@@ -86,6 +88,7 @@ public class SimulationInterface {
 	//make probe
 	//record probe
 	//make plot
+	//Wait iterations
 
 	NaryFunction write = new NaryFunction() {
 		@Override
@@ -330,9 +333,9 @@ public class SimulationInterface {
 	};
 	
 
-	NaryFunction reset = new NaryFunction() {
+	NaryFunction clear = new NaryFunction() {
 		public String getHelpText() {
-			return "reset(): Clears all materials in the simulation.";
+			return "clear(): Clears all materials in the simulation.";
 		}
 		
 		@Override
@@ -352,6 +355,21 @@ public class SimulationInterface {
 			}
 			
 			state.println("Materials reset.");
+			return 0;
+		}
+	};
+	
+	NaryFunction reset = new NaryFunction() {
+		public String getHelpText() {
+			return "reset(): Resets all fields.";
+		}
+		
+		@Override
+		public int get_n_args() { return 0; }
+
+		@Override
+		public Object operate(Object[] args) {
+			e.controls.clear = true;
 			return 0;
 		}
 	};
@@ -382,7 +400,7 @@ public class SimulationInterface {
 					}
 				}
 			}
-			e.controls.flagChanges(true);
+			e.controls.updatematerials = true;
 			
 			state.println("Rectangle drawn from " + i1 + " " + j1 + " " + k1 + " to " + i2 + " " + j2 + " " + k2);
 			return 0;
@@ -409,7 +427,7 @@ public class SimulationInterface {
 			BrushAction action = getAction();
 
 			e.controls.applyBrush(i1, j1, k1, i2, j2, k2, brush_shape, brush_size, action);
-			e.controls.flagChanges(true);
+			e.controls.updatematerials = true;
 			
 			state.println("Line drawn from " + i1 + " " + j1 + " " + k1 + " to " + i2 + " " + j2 + " " + k2);
 			return 0;
@@ -433,7 +451,7 @@ public class SimulationInterface {
 			BrushAction action = getAction();
 
 			action.perform(i, j, k, true);
-			e.controls.flagChanges(true); // TODO
+			e.controls.updatematerials = true;
 
 			//state.println("Pixel set " + i + " " + j + " " + k);
 			return 0;
@@ -474,7 +492,7 @@ public class SimulationInterface {
 						}
 					}
 				});
-				e.controls.flagChanges(true);
+				e.controls.updatematerials = true;
 			}
 			
 			return 0;

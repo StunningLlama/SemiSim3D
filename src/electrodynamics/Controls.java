@@ -760,7 +760,7 @@ public class Controls implements ActionListener, MouseListener, MouseMotionListe
 		}
 		
 		
-		if (Brush.moveCamera(brush))
+		if (Brush.moveCamera(brush) && e.opts.isFocused())
 			e.renderer.cam.processKey(e.renderer.max_size, e.renderer.targetframerate);
 
 		shift_down = Keyboard.isKeyPressed(KeyEvent.VK_SHIFT);

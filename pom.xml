@@ -89,6 +89,20 @@
 				</includes>
 			</resource>
 			<resource>
+				<directory>${basedir}/materials</directory>
+				<targetPath>${project.build.directory}/materials</targetPath>
+				<includes>
+					<include>**/*.material</include>
+				</includes>
+			</resource>
+			<resource>
+				<directory>${basedir}/scripts</directory>
+				<targetPath>${project.build.directory}/scripts</targetPath>
+				<includes>
+					<include>**/*.ssscript</include>
+				</includes>
+			</resource>
+			<resource>
 				<directory>${basedir}</directory>
 				<targetPath>${project.build.directory}</targetPath>
 				<includes>

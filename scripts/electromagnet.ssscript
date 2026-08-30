@@ -1,0 +1,28 @@
+clear
+
+cx = 15
+cy = 15
+cz = 16
+
+x_width = 5
+y_width = 5
+magnet_length = 6
+
+set_material "METAL"
+set_brush_size 1
+
+line(cx-x_width, cy-y_width, cz, cx+x_width, cy-y_width, cz)
+line(cx-x_width, cy+y_width, cz, cx+x_width, cy+y_width, cz)
+line(cx-x_width, cy-y_width, cz, cx-x_width, cy+y_width, cz)
+line(cx+x_width, cy-y_width, cz, cx+x_width, cy+y_width, cz)
+
+set_material "FERROMAGNET"
+line(cx, cy, cz-magnet_length, cx, cy, cz+magnet_length)
+
+emf_length = 2
+set_material "EMF"
+set_emf_direction(1, 0, 0)
+set_overwrite true
+line(cx-emf_length, cy+y_width, cz, cx+emf_length, cy+y_width, cz)
+
+reset

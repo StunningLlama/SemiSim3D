@@ -8,25 +8,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
 
+import electrodynamics.script.Token.TokenType;
+
 public class Interpreter {
-	
-	/*public static void main(String[] args) {
-		Interpreter i = new Interpreter();
-		String testcode = "n = 7200\r\n"
-				+ "m = 2\r\n"
-				+ "while m < sqrt(n) + 1\r\n"
-				+ "	if n % m eq 0\r\n"
-				+ "		print(m)\r\n"
-				+ "	end\r\n"
-				+ "#print(m)\r\n"
-				+ "	m = m+1\r\n"
-				+ "end";
-		
-		//String testcode = "Potat%  \"pota2 .to\"    23+5";
-		List<Instruction> program = i.process(testcode);
-		State state = new State();
-		i.execute(program, state);
-	}*/
 	
 	public Evaluator evaluator;
 	
@@ -34,23 +18,191 @@ public class Interpreter {
 		evaluator = new Evaluator();
 		evaluator.registerDefaultMathOperators();
 	}
-	
-	public List<Instruction> process(String code) {
-		return process(code.split("\\r?\\n"));
+
+	public List<Instruction> process(String code, Highlighter highlighter) {
+		if (highlighter != null)
+			highlighter.resetHighlight();
+		
+		int DISCARD = 0;
+		int NEW = 1;
+		int CONTINUE = 2;
+
+		int[][] a = 
+			{{DISCARD, NEW},
+			{DISCARD, CONTINUE}};
+
+		List<Line> lines = new ArrayList<Line>();
+		StringBuilder b = new StringBuilder();
+		int i_start = 0;
+		int state = 0;
+		for (int i = 0; i < code.length(); i++) {
+			char c = code.charAt(i);
+
+			int new_state;
+			if (isNewline(c)) new_state = 0;
+			else new_state = 1;
+
+			int action = a[state][new_state];
+
+			if (action == NEW) {
+				if (b.length() > 0)
+					lines.add(new Line(b.toString(), i_start, i-1));
+				b.setLength(0); i_start = i;
+				b.append(c);
+			} else if (action == CONTINUE) {
+				b.append(c);
+			} else if (action == DISCARD) {
+				if (b.length() > 0)
+					lines.add(new Line(b.toString(), i_start, i-1));
+				b.setLength(0); i_start = i;
+			}
+
+			state = new_state;
+		}
+
+		if (b.length() > 0)
+			lines.add(new Line(b.toString(), i_start, code.length()-1));
+		
+		return process(lines, highlighter);
 	}
 	
-	public List<Instruction> process(String[] lines) {
-		if (lines.length > Limits.LINES_LIMIT)
-			throw new CodeException("Too many lines! Limit is " + Limits.LINES_LIMIT);
+	public List<Token> readTokens(Line line, Highlighter highlighter) {
+		int DISCARD = 0;
+		int NEW = 1;
+		int CONTINUE = 2;
+		
+		int[][] a = 
+			{{DISCARD, NEW, NEW, NEW, NEW},
+			{DISCARD, CONTINUE, CONTINUE, NEW, NEW},
+			{DISCARD, CONTINUE, CONTINUE, NEW, NEW},
+			{DISCARD, NEW, NEW, NEW, NEW},
+			{DISCARD, NEW, NEW, NEW, CONTINUE}};
+		
+		List<Token> tokens = new ArrayList<Token>();
+		String s = line.string;
+		StringBuilder b = new StringBuilder();
+		TokenType type = TokenType.UNKNOWN;
+		int i_offset = line.bounds.start;
+		int i_start = 0;
+		int state = 0;
+		boolean insidestring = false;
+		for (int i = 0; i < s.length(); i++) {
+			char c = s.charAt(i);
+			
+			int new_state = -1;
+			if (isNum(c)) new_state = 1;
+			else if (isLetter(c)) new_state = 2;
+			else if (isWhitespace(c)) new_state = 0;
+			else if (isSpecialPunctuation(c)) new_state = 4;
+			else new_state = 3;
+			
+			int action = a[state][new_state];
+			if (isQuote(c)) {
+				if (insidestring) {
+					tokens.add(new Token(b.toString(), TokenType.STRING, i_start+i_offset, i+i_offset));
+					b.setLength(0); i_start = i;
+					insidestring = false;
+				} else {
+					if (b.length() > 0)
+						tokens.add(new Token(b.toString(), type, i_start+i_offset, i-1+i_offset));
+					b.setLength(0); i_start = i;
+					insidestring = true;
+				}
+			} else if (insidestring) {
+				b.append(c);
+			} else if (action == NEW) {
+				if (b.length() > 0)
+					tokens.add(new Token(b.toString(), type, i_start+i_offset, i-1+i_offset));
+				b.setLength(0); i_start = i;
+				b.append(Character.toLowerCase(c));
+				type = TokenType.fromInt(new_state);
+			} else if (action == CONTINUE) {
+				b.append(Character.toLowerCase(c));
+			} else if (action == DISCARD) {
+				if (b.length() > 0)
+					tokens.add(new Token(b.toString(), type, i_start+i_offset, i-1+i_offset));
+				b.setLength(0); i_start = i;
+			}
+
+			state = new_state;
+		}
+
+		if (b.length() > 0)
+			tokens.add(new Token(b.toString(), type, i_start+i_offset, s.length()-1+i_offset));
+
+		/*if (highlighter != null) {
+			for (Token t : tokens) {
+				if (t.type == TokenType.NUMBER)
+					highlighter.setColor(t.bounds, highlighter.getNumberColor());
+				else if (t.type == TokenType.STRING)
+					highlighter.setColor(t.bounds, highlighter.getStringColor());
+			}
+		}*/
+
+		return tokens;
+	}
+	
+	public List<Token> removeComments(List<Token> input, Highlighter highlighter) {
+		List<Token> output = new ArrayList<Token>();
+		boolean comment = false;
+		for (Token t : input) {
+			comment |= t.isComment();
+			if (!comment)
+				output.add(t);
+			else if (highlighter != null)
+				highlighter.markText(t.bounds, highlighter.getCommentColor());
+		}
+		
+		return output;
+	}
+	
+	public Instruction parseLine(Line line, Highlighter highlighter) {
+		List<Token> tokens = removeComments(readTokens(line, highlighter), highlighter);
+		if (tokens.size() > 0) {
+			Token first = tokens.get(0);
+			switch(first.chars) {
+			case "if":
+				if (highlighter != null) highlighter.markText(first.bounds, highlighter.getKeywordColor());
+				return new If(tokens, evaluator, highlighter);
+			case "while":
+				if (highlighter != null) highlighter.markText(first.bounds, highlighter.getKeywordColor());
+				return new While(tokens, evaluator, highlighter);
+			case "else":
+				if (highlighter != null) highlighter.markText(first.bounds, highlighter.getKeywordColor());
+				return new Else();
+			case "end":
+				if (highlighter != null) highlighter.markText(first.bounds, highlighter.getKeywordColor());
+				return new End();
+			default:
+				if (tokens.size() > 1) {
+					if (tokens.get(1).chars.equals("=")) {
+						if (highlighter != null) highlighter.markText(first.bounds, highlighter.getVariableColor());
+						return new Assign(tokens, evaluator, highlighter);
+					} else {
+						return new ExecuteFunction(tokens, evaluator, highlighter);
+					}
+				} else {
+					return new ExecuteFunction(tokens, evaluator, highlighter);
+				}
+			}
+		} else {
+			return null;
+		}
+	}
+	
+	public List<Instruction> process(List<Line> lines, Highlighter highlighter) {
+		if (lines.size() > Limits.LINES_LIMIT)
+			throwError("Too many lines! Limit is " + Limits.LINES_LIMIT, new Bounds(0, 1), highlighter);
 		
 		List<Instruction> instructions = new ArrayList<Instruction>();
 		
-		for (int i = 0; i < lines.length; i++) {
-			if (lines[i].length() > Limits.CHAR_LIMIT)
-				throw new CodeException("Too many characters! Limit is " + Limits.CHAR_LIMIT);
+		for (int i = 0; i < lines.size(); i++) {
+			if (lines.get(i).string.length() > Limits.CHAR_LIMIT)
+				throwError("Too many characters! Limit is " + Limits.CHAR_LIMIT, new Bounds(0, 1), highlighter);
 			
-			Instruction ins = parseLine(lines[i]);
+			Instruction ins = parseLine(lines.get(i), highlighter);
 			if (ins != null) {
+				ins.bounds = lines.get(i).bounds;
 				instructions.add(ins);
 			}
 		}
@@ -82,11 +234,11 @@ public class Interpreter {
 								((If) ins3).end_pos = ins.pos;
 							}
 						} else {
-							throw new CodeException("Too many ends!");
+							throwError("Too many ends!", ins.bounds, highlighter);
 						}
 					}
 				} else {
-					throw new CodeException("Too many ends!");
+					throwError("Too many ends!", ins.bounds, highlighter);
 				}
 			} else if (ins instanceof Else) {
 				if (!stack.isEmpty()) {
@@ -94,17 +246,17 @@ public class Interpreter {
 					if (ins2 instanceof If) {
 						((If) ins2).else_pos = ins.pos;
 					} else {
-						throw new CodeException("Else must match if.");
+						throwError("Else must match if.", ins.bounds, highlighter);
 					}
 					stack.push(ins);
 				} else {
-					throw new CodeException("Too many elses!");
+					throwError("Too many elses!", ins.bounds, highlighter);
 				}
 			}
 		}
 		
 		if (!stack.isEmpty()) {
-			throw new CodeException("Not enough ends!");
+			throwError("Not enough ends!", stack.peek().bounds, highlighter);
 		}
 		
 		return instructions;
@@ -124,115 +276,6 @@ public class Interpreter {
 		}
 	}
 	
-	public Instruction parseLine(String line) {
-		List<Token> tokens = removeComments(readTokens(line));
-		if (tokens.size() > 0) {
-			Token first = tokens.get(0);
-			switch(first.chars) {
-			case "if":
-				return new If(tokens, evaluator);
-			case "while":
-				return new While(tokens, evaluator);
-			case "else":
-				return new Else();
-			case "end":
-				return new End();
-			default:
-				if (tokens.size() > 1) {
-					if (tokens.get(1).chars.equals("=")) {
-						return new Assign(tokens, evaluator);
-					} else {
-						return new ExecuteFunction(tokens, evaluator);
-					}
-				} else {
-					return new ExecuteFunction(tokens, evaluator);
-				}
-			}
-		} else {
-			return null;
-		}
-	}
-	
-	public List<Token> readTokens(String s) {
-		int DISCARD = 0;
-		int NEW = 1;
-		int CONTINUE = 2;
-		
-		int[][] a = 
-			{{DISCARD, NEW, NEW, NEW, NEW},
-			{DISCARD, CONTINUE, CONTINUE, NEW, NEW},
-			{DISCARD, CONTINUE, CONTINUE, NEW, NEW},
-			{DISCARD, NEW, NEW, NEW, NEW},
-			{DISCARD, NEW, NEW, NEW, CONTINUE}};
-		
-		List<Token> tokens = new ArrayList<Token>();
-		StringBuilder b = new StringBuilder();
-		TokenType type = TokenType.UNKNOWN;
-		int state = 0;
-		boolean insidestring = false;
-		for (int i = 0; i < s.length(); i++) {
-			char c = s.charAt(i);
-			
-			int new_state = -1;
-			if (isNum(c)) new_state = 1;
-			else if (isLetter(c)) new_state = 2;
-			else if (isWhitespace(c)) new_state = 0;
-			else if (isSpecialPunctuation(c)) new_state = 4;
-			else new_state = 3;
-			
-			int action = a[state][new_state];
-			if (isQuote(c)) {
-				if (insidestring) {
-					tokens.add(new Token(b.toString(), TokenType.STRING));
-					b.setLength(0);
-					insidestring = false;
-				} else {
-					if (b.length() > 0)
-						tokens.add(new Token(b.toString(), type));
-					b.setLength(0);
-					insidestring = true;
-				}
-			} else if (insidestring) {
-				b.append(c);
-			} else if (action == NEW) {
-				if (b.length() > 0)
-					tokens.add(new Token(b.toString(), type));
-				b.setLength(0);
-				b.append(Character.toLowerCase(c));
-				type = TokenType.fromInt(new_state);
-			} else if (action == CONTINUE) {
-				b.append(Character.toLowerCase(c));
-			} else if (action == DISCARD) {
-				if (b.length() > 0)
-					tokens.add(new Token(b.toString(), type));
-				b.setLength(0);
-			}
-
-			state = new_state;
-		}
-
-		if (b.length() > 0)
-			tokens.add(new Token(b.toString(), type));
-		
-		/*for (Token t : tokens) {
-			System.out.println(t.toString());
-		}*/
-
-		return tokens;
-	}
-	
-	public List<Token> removeComments(List<Token> input) {
-		List<Token> output = new ArrayList<Token>();
-		for (Token t : input) {
-			if (!t.isComment())
-				output.add(t);
-			else
-				break;
-		}
-		
-		return output;
-	}
-	
 	public boolean isNum(char c) {
 		return Character.isDigit(c) || c == '.';
 	}
@@ -246,16 +289,28 @@ public class Interpreter {
 	}
 	
 	public boolean isSpecialPunctuation(char c) {
-		return c == '!' || c == '=';
+		return c == '!' || c == '=' || c == '<' || c == '>';
 	}
 	
 	public boolean isQuote(char c) {
 		return c == '\"';
 	}
 	
+	public boolean isNewline(char c) {
+		return c == '\r' || c == '\n';
+	}
+	
+	public void throwError(String message, Bounds bounds, Highlighter highlighter) {
+		if (bounds != null && highlighter != null)
+			highlighter.markError(bounds, highlighter.getErrorColor(), message);
+		
+		throw new CodeException(message);
+	}
+	
 	public abstract class Instruction {
 		int pos;
 		boolean suppress_output = false;
+		Bounds bounds = null;
 		abstract int execute(State state, Evaluator evaluator);
 	};
 
@@ -264,7 +319,7 @@ public class Interpreter {
 		int end_pos = -2;
 		int else_pos = -2;
 		
-		public If(List<Token> tokens, Evaluator evaluator) {
+		public If(List<Token> tokens, Evaluator evaluator, Highlighter highlighter) {
 			List<Token> sub_tokens = new ArrayList<Token>();
 			for (int i = 1; i < tokens.size(); i++) {
 				if (tokens.get(i).chars.equals(";"))
@@ -273,7 +328,7 @@ public class Interpreter {
 					sub_tokens.add(tokens.get(i));
 			}
 			
-			condition = evaluator.parse(sub_tokens);
+			condition = evaluator.parse(sub_tokens, highlighter);
 		}
 		
 		@Override
@@ -298,7 +353,7 @@ public class Interpreter {
 		List<Unit> condition;
 		int end_pos = -2;
 
-		public While(List<Token> tokens, Evaluator evaluator) {
+		public While(List<Token> tokens, Evaluator evaluator, Highlighter highlighter) {
 			List<Token> sub_tokens = new ArrayList<Token>();
 			for (int i = 1; i < tokens.size(); i++) {
 				if (tokens.get(i).chars.equals(";"))
@@ -307,7 +362,7 @@ public class Interpreter {
 					sub_tokens.add(tokens.get(i));
 			}
 			
-			condition = evaluator.parse(sub_tokens);
+			condition = evaluator.parse(sub_tokens, highlighter);
 			Debugger.print(condition);
 		}
 		
@@ -352,11 +407,11 @@ public class Interpreter {
 		String var;
 		List<Unit> expression;
 
-		public Assign(List<Token> tokens, Evaluator evaluator) {
+		public Assign(List<Token> tokens, Evaluator evaluator, Highlighter highlighter) {
 			var = tokens.get(0).chars;
 			
 			if (evaluator.isReserved(var)) {
-				throw new CodeException("Error: Reserved variable name: " + var);
+				throwError("Error: Reserved variable name: " + var, tokens.get(0).bounds, highlighter);
 			}
 			
 			List<Token> sub_tokens = new ArrayList<Token>();
@@ -367,7 +422,7 @@ public class Interpreter {
 					sub_tokens.add(tokens.get(i));
 			}
 			
-			expression = evaluator.parse(sub_tokens);
+			expression = evaluator.parse(sub_tokens, highlighter);
 			//Debugger.print(expression);
 		}
 		
@@ -384,7 +439,7 @@ public class Interpreter {
 	public class ExecuteFunction extends Instruction {
 		List<Unit> function;
 
-		public ExecuteFunction(List<Token> tokens, Evaluator evaluator) {
+		public ExecuteFunction(List<Token> tokens, Evaluator evaluator, Highlighter highlighter) {
 			List<Token> sub_tokens = new ArrayList<Token>();
 			for (int i = 0; i < tokens.size(); i++) {
 				if (tokens.get(i).chars.equals(";"))
@@ -393,7 +448,7 @@ public class Interpreter {
 					sub_tokens.add(tokens.get(i));
 			}
 			
-			function = evaluator.parse(sub_tokens);
+			function = evaluator.parse(sub_tokens, highlighter);
 		}
 		
 		@Override
@@ -411,6 +466,16 @@ public class Interpreter {
 		{
 			super(msg);
 		}
+	}
+}
+
+class Line {
+	String string;
+	Bounds bounds;
+	
+	public Line(String string, int start, int end) {
+		this.string = string;
+		this.bounds = new Bounds(start, end);
 	}
 }
 

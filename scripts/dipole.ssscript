@@ -1,0 +1,17 @@
+clear
+
+cx = 15.5
+cy = 15.5
+cz = 16
+
+dist = 3.5
+
+set_brush_size 1
+
+set_material "POS_CHARGE"
+line(cx-dist, cy, cz, cx-dist, cy, cz)
+
+set_material "NEG_CHARGE"
+line(cx+dist, cy, cz, cx+dist, cy, cz)
+
+reset

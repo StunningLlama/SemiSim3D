@@ -317,7 +317,7 @@ public class MainWindow extends JFrame implements ComponentListener {
 		menu_view_materials = new JMenuItem("Material property viewer");
 		menu_edit.add(menu_view_materials);
 
-		menu_editor = new JMenuItem("Run commands");
+		menu_editor = new JMenuItem("Run script");
 		menu_edit.add(menu_editor);
 		
 		menu_edit.add(new JSeparator());
