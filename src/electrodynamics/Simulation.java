@@ -59,7 +59,6 @@ public class Simulation extends PeriodicTask {
 
 	//Constrain to layer
 
-	//Graphics settings
 	//Update manual
 	//Add heat and entropy
 	//java.util.ConcurrentModificationException
@@ -549,6 +548,7 @@ public class Simulation extends PeriodicTask {
 			default_names.put(type, type.name);
 		}
 		
+		//TODO think about order
 		controls = new Controls(this);
 		prefs = new Preferences(this);
 		renderer = new Renderer(this);
@@ -561,6 +561,7 @@ public class Simulation extends PeriodicTask {
 		materialviewer = new MaterialViewer(this);
 		codeeditor = new CodeEditor(this);
 		datafile = SemiSim.getUserFile(datafilename);
+		prefs.loadPrefs();
 
 		bandplot = new BandPlot(); plots.add(bandplot);
 		scalarplot = new ScalarPlot(); plots.add(scalarplot);
@@ -573,13 +574,14 @@ public class Simulation extends PeriodicTask {
 		
 		for (Plot p : plots)
 			p.initialize();
-		
+
+		prefs.applyPrefs();
 		renderer.create3dCanvas();
 
 		SemiSim.detect64Bit();
 		
 		reset(true, Preset.DEFAULT);
-
+		
 		opts.initialize();
 		adv_opts.initialize();
 		prefs.initialize();

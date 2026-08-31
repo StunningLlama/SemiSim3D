@@ -23,6 +23,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
+import javax.swing.JTabbedPane;
 import javax.swing.SwingConstants;
 import javax.swing.UIManager;
 import javax.swing.UIManager.LookAndFeelInfo;
@@ -46,11 +47,14 @@ public class Preferences extends JFrame implements ActionListener {
 
 	private static final long serialVersionUID = 1L;
 	private JPanel contentPane;
+	private JPanel contentPane2;
+	public JPanel panel;
 	private JButton btn_apply;
 	private JButton btn_reset;
 	private JSpinner spinner_imgx;
 	private JCheckBox chkbox_potential;
 	public JComboBox<Units> gui_units;
+	public JTabbedPane tabbedPane;
 	
 	Simulation e;
 	public int current_pref_saveversion = 1;
@@ -66,6 +70,9 @@ public class Preferences extends JFrame implements ActionListener {
 	private JComboBox<Theme> gui_lookfeel;
 	private JCheckBox chkbox_voltage;
 	private JSpinner spinner_fps_sim;
+	private JSpinner spinner_linewidth;
+	private JSpinner spinner_arrowdensity;
+	private JCheckBox chkbox_antialias;
 
 	public Preferences(Simulation e) {
 		setResizable(false);
@@ -75,30 +82,49 @@ public class Preferences extends JFrame implements ActionListener {
 		setTitle("Preferences");
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		setBounds(100, 100, 581, 307);
-		contentPane = new JPanel();
-		contentPane.setPreferredSize(new Dimension(581, 250));
-		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
+		
 
-		setContentPane(contentPane);
+		tabbedPane = new JTabbedPane(JTabbedPane.TOP);
+		tabbedPane.setBounds(0, 0, 699, 210);
+
+		panel = new JPanel();
+		panel.setPreferredSize(new Dimension(581, 240));
+		panel.setLayout(null);
+		
+		contentPane = new JPanel();
+		//contentPane.setPreferredSize(new Dimension(581, 250));
+		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
+		
+		contentPane2 = new JPanel();
+		//contentPane2.setPreferredSize(new Dimension(581, 250));
+		contentPane2.setBorder(new EmptyBorder(5, 5, 5, 5));
+
+		tabbedPane.addTab("Interface", null, contentPane, null);
 		contentPane.setLayout(null);
+		
+		tabbedPane.addTab("Graphics", null, contentPane2, null);
+		contentPane2.setLayout(null);
+
+		panel.add(tabbedPane);
+		setContentPane(panel);
 		
 		JLabel lblNewLabel = new JLabel("Display width [px]");
 		lblNewLabel.setHorizontalAlignment(SwingConstants.TRAILING);
 		lblNewLabel.setBounds(17, 18, 138, 16);
-		contentPane.add(lblNewLabel);
+		contentPane2.add(lblNewLabel);
 		
 		btn_apply = new JButton("Apply");
 		btn_apply.setBounds(317, 215, 128, 23);
-		contentPane.add(btn_apply);
+		panel.add(btn_apply);
 		
 		btn_reset = new JButton("Reset to defaults");
 		btn_reset.setBounds(10, 215, 136, 23);
-		contentPane.add(btn_reset);
+		panel.add(btn_reset);
 		
 		spinner_imgx = new JSpinner();
 		spinner_imgx.setModel(new SpinnerNumberModel(768, 1, 10000, 1));
 		spinner_imgx.setBounds(167, 15, 109, 23);
-		contentPane.add(spinner_imgx);
+		contentPane2.add(spinner_imgx);
 		
 		chkbox_potential = new JCheckBox("Display potential relative to ground");
 		chkbox_potential.setHorizontalAlignment(SwingConstants.TRAILING);
@@ -120,47 +146,74 @@ public class Preferences extends JFrame implements ActionListener {
 		JLabel lblDisplayHeightpx = new JLabel("Display height [px]");
 		lblDisplayHeightpx.setHorizontalAlignment(SwingConstants.TRAILING);
 		lblDisplayHeightpx.setBounds(17, 46, 138, 16);
-		contentPane.add(lblDisplayHeightpx);
+		contentPane2.add(lblDisplayHeightpx);
 		
 		spinner_imgy = new JSpinner();
 		spinner_imgy.setModel(new SpinnerNumberModel(768, 1, 10000, 1));
 		spinner_imgy.setBounds(167, 43, 109, 23);
-		contentPane.add(spinner_imgy);
+		contentPane2.add(spinner_imgy);
 		
 		JLabel lblUndoHistorySize = new JLabel("Target graphics FPS");
 		lblUndoHistorySize.setHorizontalAlignment(SwingConstants.TRAILING);
 		lblUndoHistorySize.setBounds(17, 104, 138, 16);
-		contentPane.add(lblUndoHistorySize);
+		contentPane2.add(lblUndoHistorySize);
 		
 		spinner_fps = new JSpinner();
 		spinner_fps.setModel(new SpinnerNumberModel(60, 1, 1000, 1));
 		spinner_fps.setBounds(167, 101, 109, 23);
-		contentPane.add(spinner_fps);
+		contentPane2.add(spinner_fps);
 		
 		lblUndoHistorySize_2 = new JLabel("Undo history size");
 		lblUndoHistorySize_2.setToolTipText("Warning: uses memory");
 		lblUndoHistorySize_2.setHorizontalAlignment(SwingConstants.TRAILING);
-		lblUndoHistorySize_2.setBounds(17, 162, 138, 16);
+		lblUndoHistorySize_2.setBounds(18, 50, 138, 16);
 		contentPane.add(lblUndoHistorySize_2);
 		
 		spinner_undosize = new JSpinner();
 		spinner_undosize.setModel(new SpinnerNumberModel(4, 2, 100, 1));
-		spinner_undosize.setBounds(167, 159, 109, 23);
+		spinner_undosize.setBounds(168, 47, 109, 23);
 		contentPane.add(spinner_undosize);
 		
 		lblFontSize = new JLabel("Font size [px]");
 		lblFontSize.setHorizontalAlignment(SwingConstants.TRAILING);
 		lblFontSize.setBounds(17, 75, 138, 16);
-		contentPane.add(lblFontSize);
+		contentPane2.add(lblFontSize);
 		
 		spinner_font = new JSpinner();
 		spinner_font.setModel(new SpinnerNumberModel(12, 1, 100, 1));
 		spinner_font.setBounds(167, 72, 109, 23);
-		contentPane.add(spinner_font);
+		contentPane2.add(spinner_font);
+		
+		chkbox_antialias = new JCheckBox("Antialiasing");
+		chkbox_antialias.setSelected(true);
+		chkbox_antialias.setHorizontalTextPosition(SwingConstants.LEADING);
+		chkbox_antialias.setHorizontalAlignment(SwingConstants.TRAILING);
+		chkbox_antialias.setBounds(316, 75, 255, 23);
+		contentPane2.add(chkbox_antialias);
+		
+		JLabel lblLineWidth = new JLabel("Arrow/Line width");
+		lblLineWidth.setHorizontalAlignment(SwingConstants.TRAILING);
+		lblLineWidth.setBounds(311, 19, 138, 16);
+		contentPane2.add(lblLineWidth);
+		
+		spinner_linewidth = new JSpinner();
+		spinner_linewidth.setModel(new SpinnerNumberModel(3, 0, 100, 1));
+		spinner_linewidth.setBounds(461, 16, 109, 23);
+		contentPane2.add(spinner_linewidth);
+		
+		JLabel lblUndoHistorySize_1_1 = new JLabel("Arrow/Line density");
+		lblUndoHistorySize_1_1.setHorizontalAlignment(SwingConstants.TRAILING);
+		lblUndoHistorySize_1_1.setBounds(311, 48, 138, 16);
+		contentPane2.add(lblUndoHistorySize_1_1);
+		
+		spinner_arrowdensity = new JSpinner();
+		spinner_arrowdensity.setModel(new SpinnerNumberModel(10, 0, 100, 1));
+		spinner_arrowdensity.setBounds(461, 45, 109, 23);
+		contentPane2.add(spinner_arrowdensity);
 		
 		btn_cancel = new JButton("Cancel");
 		btn_cancel.setBounds(445, 215, 128, 23);
-		contentPane.add(btn_cancel);
+		panel.add(btn_cancel);
 		
 		chkbox_matname = new JCheckBox("Show material name next to cursor");
 		chkbox_matname.setHorizontalTextPosition(SwingConstants.LEADING);
@@ -189,17 +242,25 @@ public class Preferences extends JFrame implements ActionListener {
 		
 		JLabel lblTargetSimulationFps = new JLabel("Target simulation FPS");
 		lblTargetSimulationFps.setHorizontalAlignment(SwingConstants.TRAILING);
-		lblTargetSimulationFps.setBounds(17, 133, 138, 16);
+		lblTargetSimulationFps.setBounds(18, 21, 138, 16);
 		contentPane.add(lblTargetSimulationFps);
 		
 		spinner_fps_sim = new JSpinner();
 		spinner_fps_sim.setModel(new SpinnerNumberModel(60, 1, 1000, 1));
-		spinner_fps_sim.setBounds(167, 130, 109, 23);
+		spinner_fps_sim.setBounds(168, 18, 109, 23);
 		contentPane.add(spinner_fps_sim);
 		
 		pack();
 		
 		resetPrefs();
+	}
+	
+	public void loadPrefs() {
+		readfile(preferences_file);
+		
+		if (!preferences_file.exists()) {
+			writeFile(preferences_file);
+		}
 	}
 	
 	public void initialize() {
@@ -210,13 +271,7 @@ public class Preferences extends JFrame implements ActionListener {
 		setLocationRelativeTo(null);
 		setVisible(false);
 		
-		readfile(preferences_file);
-		
-		if (!preferences_file.exists()) {
-			writeFile(preferences_file);
-		}
-		
-		applyPrefs();
+		applyWindowPrefs();
 	}
 	
 	public void getPrefs() {
@@ -231,6 +286,9 @@ public class Preferences extends JFrame implements ActionListener {
 		chkbox_matname.setSelected(e.renderer.disp_mat_name);
 		chkbox_voltage.setSelected(e.controls.setvoltage);
 		gui_lookfeel.setSelectedItem(new Theme(UIManager.getLookAndFeel().getClass().getName()));
+		this.chkbox_antialias.setSelected(e.renderer.antialias_3d);
+		this.spinner_linewidth.setValue((int)e.renderer.arrow_thickness_3d);
+		this.spinner_arrowdensity.setValue((int)Math.round(e.renderer.arrow_density_3d*10));
 	}
 
 	public void applyPrefs() {
@@ -251,8 +309,14 @@ public class Preferences extends JFrame implements ActionListener {
 		
 		e.controls.setvoltage = chkbox_voltage.isSelected();
 		
+		e.renderer.antialias_3d = this.chkbox_antialias.isSelected();
+		e.renderer.arrow_thickness_3d = (int) this.spinner_linewidth.getValue();
+		e.renderer.arrow_density_3d = ((int) this.spinner_arrowdensity.getValue())/10f;
+	}
+	
+
+	public void applyWindowPrefs() {
 		SemiSim.changeLookAndFeel(e, ((Theme)gui_lookfeel.getSelectedItem()).info);
-		
 		int x = (int)(spinner_imgx.getValue());
 		int y = (int)(spinner_imgy.getValue());
 		e.renderer.imgpanel.setPreferredSize(new Dimension(x, y));
@@ -271,6 +335,9 @@ public class Preferences extends JFrame implements ActionListener {
 		spinner_fps_sim.setValue(60);
 		spinner_font.setValue(12);
 		gui_lookfeel.setSelectedItem(Theme.default_theme);
+		this.chkbox_antialias.setSelected(true);
+		this.spinner_linewidth.setValue(3);
+		this.spinner_arrowdensity.setValue(10);
 	}
 
 	public void readfile(File infile) {
@@ -315,6 +382,9 @@ public class Preferences extends JFrame implements ActionListener {
 						case "voltage": this.chkbox_voltage.setSelected(fstr.nextBoolean()); break;
 						case "theme": gui_lookfeel.setSelectedItem(new Theme(fstr.nextString())); break;
 						case "windowstate": e.opts.setExtendedState(fstr.nextInt()); break;
+						case "antialias": this.chkbox_antialias.setSelected(fstr.nextBoolean()); break;
+						case "linewidth": this.spinner_linewidth.setValue(fstr.nextInt()); break;
+						case "arrowdensity": this.spinner_arrowdensity.setValue(fstr.nextInt()); break;
 						default: fstr.skipValue();
 						}
 					}
@@ -354,6 +424,9 @@ public class Preferences extends JFrame implements ActionListener {
 				header.addProperty("voltage", chkbox_voltage.isSelected());
 				header.addProperty("theme", ((Theme) gui_lookfeel.getSelectedItem()).info.getClassName());
 				header.addProperty("windowstate", e.opts.getExtendedState());
+				header.addProperty("antialias", chkbox_antialias.isSelected());
+				header.addProperty("linewidth", (int)spinner_linewidth.getValue());
+				header.addProperty("arrowdensity", (int)spinner_arrowdensity.getValue());
 
 				// Version should always be first
 				JsonObject save = new JsonObject();
@@ -389,6 +462,7 @@ public class Preferences extends JFrame implements ActionListener {
 	public void actionPerformed(ActionEvent ev) {
 		if (ev.getSource() == btn_apply) {
 			applyPrefs();
+			applyWindowPrefs();
 			writeFile(preferences_file);
 		} else if (ev.getSource() == btn_reset) {
 			resetPrefs();

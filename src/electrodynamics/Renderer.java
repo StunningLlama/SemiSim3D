@@ -121,20 +121,24 @@ public class Renderer extends PeriodicTask {
 	public JPanel imgpanel;
 	public Renderer3D renderer_left_eye;
 	public Renderer3D renderer_right_eye;
-	boolean[][][] opaque;
-	boolean[][][] translucent;
+	public boolean[][][] opaque;
+	public boolean[][][] translucent;
 	//boolean[][][] solid;
-	boolean slice_x = false;
-	boolean slice_y = false;
-	boolean slice_z = true;
-	int cut_max = 0;
-    float max_size;
+	public boolean slice_x = false;
+	public boolean slice_y = false;
+	public boolean slice_z = true;
+	public int cut_max = 0;
+	public float max_size;
+	public float arrow_thickness_3d;
+	public float arrow_density_3d;
+	public boolean antialias_3d;
     
-    Camera ortho_cam = new Camera(Perspective.ORTHO);
-    Camera pers_cam = new Camera(Perspective.PERSPECTIVE);
-    Camera cam = ortho_cam;
     
-	boolean threeD_mode = true;
+	public Camera ortho_cam = new Camera(Perspective.ORTHO);
+	public Camera pers_cam = new Camera(Perspective.PERSPECTIVE);
+	public Camera cam = ortho_cam;
+    
+	public boolean threeD_mode = true;
 	
 
 	/* Multithreading */

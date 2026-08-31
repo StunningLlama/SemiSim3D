@@ -88,8 +88,11 @@ public class Renderer3D implements GLEventListener {
 		GLProfile profile = GLProfile.get(GLProfile.GL2);
 		GLCapabilities capabilities = new GLCapabilities(profile);
 		
-		capabilities.setSampleBuffers(true);
-		capabilities.setNumSamples(4);
+		if (e.renderer.antialias_3d) {
+			capabilities.setSampleBuffers(true);
+			capabilities.setNumSamples(4);
+		}
+		
 		capabilities.setDepthBits(24);
 		
 		// Create canvas
@@ -520,7 +523,7 @@ public class Renderer3D implements GLEventListener {
 
 			rand.setSeed(4);
 
-			int density = 10;
+			int density = (int)(10*e.renderer.arrow_density_3d);
 
 			double randomness = 0;
 
@@ -545,7 +548,7 @@ public class Renderer3D implements GLEventListener {
 
 				gl.glDepthMask(false);
 				gl.glBlendFuncSeparate(GL2.GL_SRC_ALPHA, GL2.GL_ONE, GL2.GL_ZERO, GL2.GL_ONE);
-				gl.glLineWidth(3f);
+				gl.glLineWidth(e.renderer.arrow_thickness_3d);
 				gl.glBegin(GL2.GL_LINES);
 
 				for (int i = 0; i <= density; i++) {
@@ -614,7 +617,7 @@ public class Renderer3D implements GLEventListener {
 
 				gl.glDepthMask(false);
 				gl.glBlendFuncSeparate(GL2.GL_SRC_ALPHA, GL2.GL_ONE, GL2.GL_ZERO, GL2.GL_ONE);
-				gl.glLineWidth(3f);
+				gl.glLineWidth(e.renderer.arrow_thickness_3d);
 				gl.glBegin(GL2.GL_LINES);
 
 				for (int i = 0; i <= density; i++) {
@@ -634,6 +637,7 @@ public class Renderer3D implements GLEventListener {
 
 							double arrowlength_varying = (vector_display_mode == VectorMode.ARROWS_LEN)? vectorscalingconstant*Math.sqrt(arrow.dot(arrow)) : arrowlength;
 							double fieldmagnitude = (vector_display_mode == VectorMode.ARROWS_LEN)? Math.max(0.1, arrowlength_varying) : Math.max(0.1, 10*vectorscalingconstant*Math.sqrt(arrow.dot(arrow)));
+							arrowlength_varying /= e.renderer.arrow_density_3d;
 							
 							arrow.normalize();
 
@@ -720,7 +724,7 @@ public class Renderer3D implements GLEventListener {
 
 		gl.glDepthMask(false);
 		gl.glBlendFuncSeparate(GL2.GL_ONE, GL2.GL_ZERO, GL2.GL_ONE, GL2.GL_ZERO);
-		gl.glLineWidth(3f);
+		gl.glLineWidth(e.renderer.arrow_thickness_3d);
 		gl.glBegin(GL2.GL_LINES);
 
 		if (e.opts.menu_axes.isSelected()) {
