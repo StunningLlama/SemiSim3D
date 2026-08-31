@@ -54,10 +54,11 @@ import electrodynamics.Renderer.Text;
 import electrodynamics.SemiSim;
 import electrodynamics.Simulation;
 import electrodynamics.script.Bounds;
+import electrodynamics.script.CodeException;
 import electrodynamics.script.Function;
 import electrodynamics.script.Highlighter;
+import electrodynamics.script.Instruction;
 import electrodynamics.script.Interpreter;
-import electrodynamics.script.Interpreter.Instruction;
 import electrodynamics.script.SimulationInterface;
 import electrodynamics.script.State;
 import electrodynamics.util.FileInterface;
@@ -101,6 +102,8 @@ public class CodeEditor extends JFrame implements ActionListener, Highlighter {
 	SimpleAttributeSet attrs = new SimpleAttributeSet();
 	StyledDocument sdoc;
 	StyledDocument sdoc2;
+	
+	boolean darkmode = false;
 
 	public CodeEditor(Simulation e) {
 		this.e = e;
@@ -343,13 +346,19 @@ public class CodeEditor extends JFrame implements ActionListener, Highlighter {
 		state.reset();
 		state.println_force("Running...");
 		
+		List<Instruction> program = null;
 		e.rwLock.readLock().lock();
 		try {
 			String code = codePane.getDocument().getText(0, codePane.getDocument().getLength());
-			List<Instruction> program = interpreter.process(code, null);
+			program = interpreter.process(code, null);
 			interpreter.execute(program, state);
 		} catch (Exception ex) {
 			state.println_force("\u200b\u2005" + ex.getMessage() + "\u200b\u2004");
+			if (ex instanceof CodeException) {
+				markError(((CodeException) ex).bounds, getErrorColor(), ex.getMessage());
+			} else if (program != null) {
+				markError(program.get(state.instruction_pointer).bounds, getErrorColor(), ex.getMessage());
+			}
 		} finally {
 			e.rwLock.readLock().unlock();
 		}
@@ -387,7 +396,9 @@ public class CodeEditor extends JFrame implements ActionListener, Highlighter {
 	}
 
 	public void updateHighlight() {
+		if (!menu_highlight.isSelected()) return;
 		try {
+			darkmode = codePane.getBackground().getRed() + codePane.getBackground().getGreen() + codePane.getBackground().getBlue() < 127*3;
 			String code = codePane.getDocument().getText(0, codePane.getDocument().getLength());
 			interpreter.process(code, CodeEditor.this);
 		} catch (Exception e) {}
@@ -433,6 +444,7 @@ public class CodeEditor extends JFrame implements ActionListener, Highlighter {
 
 				try {
 					codePane.setText(new String(Files.readAllBytes(infile.toPath())));
+					currentfile = infile;
 				} catch (FileNotFoundException ex) {
 					return;
 				} catch (IOException | IllegalArgumentException ex) {
@@ -464,4 +476,24 @@ public class CodeEditor extends JFrame implements ActionListener, Highlighter {
 			});
 		}
 	};
+	
+	public Color getTextCol(ThemedColor col) {
+		if (darkmode) {
+			 return col.dark_color;
+		} else {
+			return col.light_color;
+		}
+	}
+	
+	public Color getKeywordColor() { return getTextCol(COL_KEYWORD); }
+	public Color getNumberColor() { return getTextCol(COL_NUMBER); }
+	public Color getStringColor() { return getTextCol(COL_STRING); }
+	public Color getFunctionColor() { return getTextCol(COL_FUNCTION); }
+	public Color getVariableColor() { return getTextCol(COL_VARIABLE); }
+	public Color getOperatorColor() { return getTextCol(COL_OPERATOR); }
+	public Color getCommentColor() { return getTextCol(COL_COMMENT); }
+	public Color getDefaultColor() { return getTextCol(COL_DEFAULT); }
+
+	public Color getDefaultBackgroundColor() { return COL_BG_DEFAULT.light_color; }
+	public Color getErrorColor() { return COL_ERROR.light_color; }
 }

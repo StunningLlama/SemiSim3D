@@ -436,7 +436,7 @@ public class SimulationInterface {
 	
 	NaryFunction point = new NaryFunction() {
 		public String getHelpText() {
-			return "line({x} [number], {y} [number], {z} [number]): Draws pixel at ({x}, {y}, {z}).";
+			return "point({x} [number], {y} [number], {z} [number]): Draws pixel at ({x}, {y}, {z}).";
 		}
 		
 		@Override

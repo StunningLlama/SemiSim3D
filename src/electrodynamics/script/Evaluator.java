@@ -11,10 +11,13 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.Random;
 import java.util.Stack;
 
 import electrodynamics.script.Function.BinaryOperator;
 import electrodynamics.script.Function.NaryFunction;
+import electrodynamics.script.Function.NullaryOperator;
+import electrodynamics.script.Function.TernaryOperator;
 import electrodynamics.script.Function.UnaryOperator;
 import electrodynamics.script.Operator.Association;
 import electrodynamics.script.Token.TokenType;
@@ -26,6 +29,7 @@ public class Evaluator {
 	public HashMap<String, Double> constants;
 	public HashSet<String> reserved_names;
 	boolean DEBUG = false;
+	public static Random rand = new Random(System.nanoTime());
 	
 	public Evaluator()
 	{
@@ -87,14 +91,26 @@ public class Evaluator {
 		operators.put(str, new Operator(precedence, assoc, func));
 		reserved_names.add(str);
 	}
+
+	public void registerFunction(String str, NullaryOperator func)
+	{
+		functions.put(str, func);
+		reserved_names.add(str);
+	}
+	
+	public void registerFunction(String str, UnaryOperator func)
+	{
+		functions.put(str, func);
+		reserved_names.add(str);
+	}
 	
 	public void registerFunction(String str, BinaryOperator func)
 	{
 		functions.put(str, func);
 		reserved_names.add(str);
 	}
-
-	public void registerFunction(String str, UnaryOperator func)
+	
+	public void registerFunction(String str, TernaryOperator func)
 	{
 		functions.put(str, func);
 		reserved_names.add(str);
@@ -105,12 +121,17 @@ public class Evaluator {
 		functions.put(str, func);
 		reserved_names.add(str);
 	}
-	
+
 	public List<Unit> processTokens(List<Token> tokens, Highlighter highlighter) {
 		for (int i = tokens.size() - 1; i >= 0 ; i--) 
-			if (tokens.get(i).chars.equals("-") && (i == 0 || (i > 0 && followingTokenUnary(tokens.get(i-1))))) {
-				tokens.get(i).chars = "_unary_sub";
-				tokens.get(i).type = TokenType.NAME;
+			if (i == 0 || (i > 0 && followingTokenUnary(tokens.get(i-1)))) {
+				if (tokens.get(i).chars.equals("-")) {
+					tokens.get(i).chars = "_unary_sub";
+					tokens.get(i).type = TokenType.NAME;
+				} else if (tokens.get(i).chars.equals("+")) {
+					tokens.get(i).chars = "_unary_add";
+					tokens.get(i).type = TokenType.NAME;
+				}
 			}
 		
 		List<Unit> units = new ArrayList<Unit>(tokens.size());
@@ -243,6 +264,11 @@ public class Evaluator {
 						double b = (double)stack.pop();
 						double a = (double)stack.pop();
 						stack.push(((BinaryOperator) unit.func).operate(a, b));
+					} else if (unit.func instanceof TernaryOperator) {
+						double c = (double)stack.pop();
+						double b = (double)stack.pop();
+						double a = (double)stack.pop();
+						stack.push(((TernaryOperator) unit.func).operate(a, b, c));
 					} else if (unit.func instanceof NaryFunction) {
 						int n_args = ((NaryFunction) unit.func).get_n_args();
 						for (int i = n_args-1; i >= 0; i--) {
@@ -257,15 +283,15 @@ public class Evaluator {
 						if (variables.containsKey(unit.chars)) {
 							stack.push(variables.get(unit.chars));
 						} else {
-							throw new EvalException("Variable " + unit.chars + " not found!");
+							throw new CodeException("Variable " + unit.chars + " not found!", unit.bounds);
 						}
 					}
 				}
 			}
 		} catch (EmptyStackException ex) {
-			throw new EvalException("Function " + currentunit.toString() + " has not enough args.");
+			throw new CodeException("Function " + currentunit.toString() + " has not enough args.", currentunit.bounds);
 		} catch (ClassCastException ex) {
-			throw new EvalException("Type mismatch during execution of " + currentunit.toString() + ": " + ex.getMessage());
+			throw new CodeException("Type mismatch during execution of " + currentunit.toString() + ": " + ex.getMessage(), currentunit.bounds);
 		}
 		
 		if (!stack.isEmpty())
@@ -275,19 +301,26 @@ public class Evaluator {
 	}
 
 	public void registerDefaultMathOperators() {
-		registerOperator("+", 1, Association.LEFT, (a, b) -> a+b);
-		registerOperator("-", 1, Association.LEFT, (a, b) -> a-b);
-		registerOperator("*", 2, Association.LEFT, (a, b) -> a*b);
-		registerOperator("/", 2, Association.LEFT, (a, b) -> a/b);
-		registerOperator("^", 3, Association.LEFT, (a, b) -> Math.pow(a, b));
-		registerOperator("%", 2, Association.LEFT, (a, b) -> a%b);
-		registerOperator("<", 0, Association.LEFT, (a, b) -> (a<b)? 1: 0);
-		registerOperator(">", 0, Association.LEFT, (a, b) -> (a>b)? 1: 0);
-		registerOperator("<=", 0, Association.LEFT, (a, b) -> (a<=b)? 1: 0);
-		registerOperator(">=", 0, Association.LEFT, (a, b) -> (a>=b)? 1: 0);
-		registerOperator("==", 2, Association.LEFT, (a, b) -> (a==b)? 1: 0);
-		registerOperator("!=", 2, Association.LEFT, (a, b) -> (a!=b)? 1: 0);
-		registerOperator("_unary_sub", 4, Association.RIGHT, a -> -a);
+		registerOperator("+", 301, Association.LEFT, (a, b) -> a+b);
+		registerOperator("-", 301, Association.LEFT, (a, b) -> a-b);
+		registerOperator("*", 302, Association.LEFT, (a, b) -> a*b);
+		registerOperator("/", 302, Association.LEFT, (a, b) -> a/b);
+		registerOperator("^", 303, Association.LEFT, (a, b) -> Math.pow(a, b));
+		registerOperator("%", 302, Association.LEFT, (a, b) -> a%b);
+		registerOperator("_unary_sub", 402, Association.RIGHT, a -> -a);
+		registerOperator("_unary_add", 402, Association.RIGHT, a -> a);
+		
+		registerOperator("<", 202, Association.LEFT, (a, b) -> (a<b)? 1: 0);
+		registerOperator(">", 202, Association.LEFT, (a, b) -> (a>b)? 1: 0);
+		registerOperator("<=", 202, Association.LEFT, (a, b) -> (a<=b)? 1: 0);
+		registerOperator(">=", 202, Association.LEFT, (a, b) -> (a>=b)? 1: 0);
+		registerOperator("==", 201, Association.LEFT, (a, b) -> (a==b)? 1: 0);
+		registerOperator("!=", 201, Association.LEFT, (a, b) -> (a!=b)? 1: 0);
+		
+		registerOperator("not", 401, Association.RIGHT, a -> (!(a>0.5))? 1: 0);
+		registerOperator("and", 103, Association.LEFT, (a, b) -> (a>0.5 && b > 0.5)? 1: 0);
+		registerOperator("xor", 102, Association.LEFT, (a, b) -> (a>0.5 ^ b > 0.5)? 1: 0);
+		registerOperator("or", 101, Association.LEFT, (a, b) -> (a>0.5 || b > 0.5)? 1: 0);
 		
 		registerFunction("sqrt", a -> Math.sqrt(a));
 		registerFunction("ln", a -> Math.log(a));
@@ -295,18 +328,32 @@ public class Evaluator {
 		registerFunction("sin", a -> Math.sin(a));
 		registerFunction("cos", a -> Math.cos(a));
 		registerFunction("tan", a -> Math.tan(a));
+		registerFunction("csc", a -> 1/Math.sin(a));
+		registerFunction("sec", a -> 1/Math.cos(a));
+		registerFunction("cot", a -> 1/Math.tan(a));
 		registerFunction("asin", a -> Math.asin(a));
 		registerFunction("acos", a -> Math.acos(a));
 		registerFunction("atan", a -> Math.atan(a));
 		registerFunction("sinh", a -> Math.sinh(a));
 		registerFunction("cosh", a -> Math.cosh(a));
 		registerFunction("tanh", a -> Math.tanh(a));
+		registerFunction("csch", a -> 1/Math.sinh(a));
+		registerFunction("sech", a -> 1/Math.cosh(a));
+		registerFunction("coth", a -> 1/Math.tanh(a));
 		registerFunction("abs", a -> Math.abs(a));
+		registerFunction("sign", a -> Math.signum(a));
 		registerFunction("min", (a, b) -> Math.min(a, b));
 		registerFunction("max", (a, b) -> Math.max(a, b));
 		registerFunction("ceil", a -> Math.ceil(a));
 		registerFunction("floor", a -> Math.floor(a));
 		registerFunction("round", a -> Math.round(a));
+		registerFunction("clamp", (a, b, c) -> ((a > c)? c : ((a < b)? b : a)));
+		registerFunction("tern", (a, b, c) -> (a > 0.5)? b : c);
+		registerFunction("factorial", a -> Math.sqrt(2*Math.PI*a)*Math.pow(a/Math.E, a)*(1+1/(12*a)+1/(288*a*a)));
+
+		registerFunction("random", () -> rand.nextDouble());
+		registerFunction("randomgaussian", () -> rand.nextGaussian());
+		registerFunction("randomint", () -> rand.nextInt());
 
 		registerFunction("stdout", a -> {System.out.println(a); return 0;});
 
@@ -314,6 +361,9 @@ public class Evaluator {
 		setConstant("e", Math.E);
 		setConstant("true", 1);
 		setConstant("false", 0);
+		setConstant("inf", Double.POSITIVE_INFINITY);
+		setConstant("nan", Double.NaN);
+		setConstant("eulergamma", 0.57721566490153286060651209008240243104215933593992);
 	}
 	
 
@@ -321,14 +371,6 @@ public class Evaluator {
 		if (bounds != null && highlighter != null)
 			highlighter.markError(bounds, highlighter.getErrorColor(), message);
 		
-		throw new EvalException(message);
-	}
-
-	public class EvalException extends RuntimeException {
-		private static final long serialVersionUID = 2662454885274139289L;
-		public EvalException(String msg)
-		{
-			super(msg);
-		}
+		throw new CodeException(message, bounds);
 	}
 }

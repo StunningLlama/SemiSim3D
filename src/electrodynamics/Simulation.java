@@ -57,6 +57,7 @@ import electrodynamics.util.Utils;
 
 public class Simulation extends PeriodicTask {
 
+	//Fix ctrl-z crash
 	//Constrain to layer
 
 	//Update manual
@@ -291,12 +292,12 @@ public class Simulation extends PeriodicTask {
 		
 
 		
-		n_default_doping_concentration = 5e19;
-		p_default_doping_concentration = 5e19;
-		n_light_doping_concentration = 1e19;
-		p_light_doping_concentration = 1e19;
-		n_heavy_doping_concentration = 2.5e20;
-		p_heavy_doping_concentration = 2.5e20;
+		n_default_doping_concentration = 2.5e20;
+		p_default_doping_concentration = 2.5e20;
+		n_light_doping_concentration = 5e19;
+		p_light_doping_concentration = 5e19;
+		n_heavy_doping_concentration = 1e21;
+		p_heavy_doping_concentration = 1e21;
 
 		dielectric_eps_r = 25.0;
 		ferromagnet_mu_r = 250.0;
@@ -548,7 +549,6 @@ public class Simulation extends PeriodicTask {
 			default_names.put(type, type.name);
 		}
 		
-		//TODO think about order
 		controls = new Controls(this);
 		prefs = new Preferences(this);
 		renderer = new Renderer(this);

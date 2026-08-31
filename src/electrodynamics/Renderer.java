@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 
 import electrodynamics.Controls.Brush;
 import electrodynamics.plot.Plot;
@@ -407,6 +408,12 @@ public class Renderer extends PeriodicTask {
 		renderer_left_eye = new Renderer3D(e);
 		renderer_left_eye.isMainCanvas = true;
 		renderer_right_eye = new Renderer3D(e);
+		renderer_left_eye.animator.setFPS((int)targetframerate);
+		renderer_right_eye.animator.setFPS((int)targetframerate);
+		renderer_left_eye.animator.start();
+		renderer_right_eye.animator.start();
+		renderer_left_eye.animator.pause();
+		renderer_right_eye.animator.pause();
 	}
 	
 	public void resetChargeDots() {
@@ -422,12 +429,11 @@ public class Renderer extends PeriodicTask {
 	}
 	
 	public void set3Dmode() {
+		System.out.println(SwingUtilities.isEventDispatchThread());
 		e.rwLock.writeLock().lock();
 		try {
-			renderer_left_eye.animator.stop();
-			renderer_right_eye.animator.stop();
-			renderer_left_eye.animator.setFPS((int)targetframerate);
-			renderer_right_eye.animator.setFPS((int)targetframerate);
+			renderer_left_eye.animator.pause();
+			renderer_right_eye.animator.pause();
 			
 			imgpanel.remove(e.canvas);
 			imgpanel.remove(renderer_left_eye.canvas);
@@ -465,12 +471,12 @@ public class Renderer extends PeriodicTask {
 
 			if (threeD_mode) {
 				imgpanel.add(renderer_left_eye.canvas);
-				renderer_left_eye.animator.start();
+				renderer_left_eye.animator.resume();
 
 				if (e.controls.stereo.getOption().isStereo()) {
 					e.opts.gui_parallax.setVisible(true);
 					e.opts.gui_parallaxlabel.setVisible(true);
-					renderer_right_eye.animator.start();
+					renderer_right_eye.animator.resume();
 					imgpanel.add(renderer_right_eye.canvas);
 				} else {
 					e.opts.gui_parallax.setVisible(false);

@@ -13,6 +13,7 @@ public class State {
 	public StringBuilder stdout = new StringBuilder();
 	public static int stdout_max_length = 10000;
 	public static int array_length = 10000;
+	public int instruction_pointer = -1;
 	
 	public State() {
 		variables = new HashMap<String, Object>();
@@ -23,6 +24,7 @@ public class State {
 		variables.clear();
 		stdout.delete(0, stdout.length());
 		tape = new Object[array_length];
+		instruction_pointer = -1;
 	}
 	
 	public void println(String str) {

@@ -263,16 +263,16 @@ public class Interpreter {
 	}
 	
 	public void execute(List<Instruction> instructions, State state) {
-		int i = 0;
+		state.instruction_pointer = 0;
 		int cycles = 0;
-		while (i >= 0 && i < instructions.size() && cycles < Limits.INSTRUCTION_LIMIT) {
-			Instruction ins = instructions.get(i);
-			i = ins.execute(state, evaluator);
+		while (state.instruction_pointer >= 0 && state.instruction_pointer < instructions.size() && cycles < Limits.INSTRUCTION_LIMIT) {
+			Instruction ins = instructions.get(state.instruction_pointer);
+			state.instruction_pointer = ins.execute(state, evaluator);
 			cycles++;
 		}
 		
 		if (cycles >= Limits.INSTRUCTION_LIMIT) {
-			throw new CodeException("Instruction limit reached (limit = " + Limits.INSTRUCTION_LIMIT + ")");
+			throw new CodeException("Instruction limit reached (limit = " + Limits.INSTRUCTION_LIMIT + ")", null);
 		}
 	}
 	
@@ -304,169 +304,10 @@ public class Interpreter {
 		if (bounds != null && highlighter != null)
 			highlighter.markError(bounds, highlighter.getErrorColor(), message);
 		
-		throw new CodeException(message);
+		throw new CodeException(message, bounds);
 	}
 	
-	public abstract class Instruction {
-		int pos;
-		boolean suppress_output = false;
-		Bounds bounds = null;
-		abstract int execute(State state, Evaluator evaluator);
-	};
-
-	public class If extends Instruction {
-		List<Unit> condition;
-		int end_pos = -2;
-		int else_pos = -2;
-		
-		public If(List<Token> tokens, Evaluator evaluator, Highlighter highlighter) {
-			List<Token> sub_tokens = new ArrayList<Token>();
-			for (int i = 1; i < tokens.size(); i++) {
-				if (tokens.get(i).chars.equals(";"))
-					suppress_output = true;
-				else
-					sub_tokens.add(tokens.get(i));
-			}
-			
-			condition = evaluator.parse(sub_tokens, highlighter);
-		}
-		
-		@Override
-		int execute(State state, Evaluator evaluator) {
-			state.suppress_output = suppress_output;
-			Object result = evaluator.eval(condition, state.variables);
-			if (!(result instanceof Double))
-				throw new CodeException("If: Number expected, got " + result.toString() + " instead.");
-			
-			if ((double) result > 0.5) {
-				return pos+1;
-			} else {
-				if (else_pos >= 0)
-					return else_pos+1;
-				else
-					return end_pos+1;
-			}
-		}
-	}
-
-	public class While extends Instruction {
-		List<Unit> condition;
-		int end_pos = -2;
-
-		public While(List<Token> tokens, Evaluator evaluator, Highlighter highlighter) {
-			List<Token> sub_tokens = new ArrayList<Token>();
-			for (int i = 1; i < tokens.size(); i++) {
-				if (tokens.get(i).chars.equals(";"))
-					suppress_output = true;
-				else
-					sub_tokens.add(tokens.get(i));
-			}
-			
-			condition = evaluator.parse(sub_tokens, highlighter);
-			Debugger.print(condition);
-		}
-		
-		@Override
-		int execute(State state, Evaluator evaluator) {
-			state.suppress_output = suppress_output;
-			Object result = evaluator.eval(condition, state.variables);
-			if (!(result instanceof Double))
-				throw new CodeException("While: Number expected, got " + result.toString() + " instead.");
-			
-			if ((double) result > 0.5)
-				return pos+1;
-			else
-				return end_pos+1;
-		}
-	}
 	
-	public class Else extends Instruction {
-		int end_pos = -2;
-		
-		@Override
-		int execute(State state, Evaluator evaluator) {
-			return end_pos+1;
-		}
-	}
-	
-	public class End extends Instruction {
-		int start_pos = -2;
-		boolean end_while = false;
-
-		@Override
-		int execute(State state, Evaluator evaluator) {
-			if (end_while) {
-				return start_pos;
-			} else {
-				return pos+1;
-			}
-		}
-	}
-
-	public class Assign extends Instruction {
-		String var;
-		List<Unit> expression;
-
-		public Assign(List<Token> tokens, Evaluator evaluator, Highlighter highlighter) {
-			var = tokens.get(0).chars;
-			
-			if (evaluator.isReserved(var)) {
-				throwError("Error: Reserved variable name: " + var, tokens.get(0).bounds, highlighter);
-			}
-			
-			List<Token> sub_tokens = new ArrayList<Token>();
-			for (int i = 2; i < tokens.size(); i++) {
-				if (tokens.get(i).chars.equals(";"))
-					suppress_output = true;
-				else
-					sub_tokens.add(tokens.get(i));
-			}
-			
-			expression = evaluator.parse(sub_tokens, highlighter);
-			//Debugger.print(expression);
-		}
-		
-		@Override
-		int execute(State state, Evaluator evaluator) {
-			state.suppress_output = suppress_output;
-			state.variables.put(var, evaluator.eval(expression, state.variables));
-			if (state.variables.size() > Limits.MEM_LIMIT)
-				throw new RuntimeException("Memory limit reached");
-			return pos+1;
-		}
-	}
-
-	public class ExecuteFunction extends Instruction {
-		List<Unit> function;
-
-		public ExecuteFunction(List<Token> tokens, Evaluator evaluator, Highlighter highlighter) {
-			List<Token> sub_tokens = new ArrayList<Token>();
-			for (int i = 0; i < tokens.size(); i++) {
-				if (tokens.get(i).chars.equals(";"))
-					suppress_output = true;
-				else
-					sub_tokens.add(tokens.get(i));
-			}
-			
-			function = evaluator.parse(sub_tokens, highlighter);
-		}
-		
-		@Override
-		int execute(State state, Evaluator evaluator) {
-			state.suppress_output = suppress_output;
-			evaluator.eval(function, state.variables);
-			return pos+1;
-		}
-	}
-
-
-	public class CodeException extends RuntimeException {
-		private static final long serialVersionUID = 2662454885274139289L;
-		public CodeException(String msg)
-		{
-			super(msg);
-		}
-	}
 }
 
 class Line {

@@ -153,7 +153,7 @@ public class Preferences extends JFrame implements ActionListener {
 		spinner_imgy.setBounds(167, 43, 109, 23);
 		contentPane2.add(spinner_imgy);
 		
-		JLabel lblUndoHistorySize = new JLabel("Target graphics FPS");
+		JLabel lblUndoHistorySize = new JLabel("Target graphics FPS†");
 		lblUndoHistorySize.setHorizontalAlignment(SwingConstants.TRAILING);
 		lblUndoHistorySize.setBounds(17, 104, 138, 16);
 		contentPane2.add(lblUndoHistorySize);
@@ -184,7 +184,7 @@ public class Preferences extends JFrame implements ActionListener {
 		spinner_font.setBounds(167, 72, 109, 23);
 		contentPane2.add(spinner_font);
 		
-		chkbox_antialias = new JCheckBox("Antialiasing");
+		chkbox_antialias = new JCheckBox("Antialiasing†");
 		chkbox_antialias.setSelected(true);
 		chkbox_antialias.setHorizontalTextPosition(SwingConstants.LEADING);
 		chkbox_antialias.setHorizontalAlignment(SwingConstants.TRAILING);
@@ -210,6 +210,12 @@ public class Preferences extends JFrame implements ActionListener {
 		spinner_arrowdensity.setModel(new SpinnerNumberModel(10, 0, 100, 1));
 		spinner_arrowdensity.setBounds(461, 45, 109, 23);
 		contentPane2.add(spinner_arrowdensity);
+		
+		JLabel lblNewLabel_1 = new JLabel("† Must restart to change setting");
+		lblNewLabel_1.setEnabled(false);
+		lblNewLabel_1.setHorizontalAlignment(SwingConstants.TRAILING);
+		lblNewLabel_1.setBounds(397, 157, 174, 14);
+		contentPane2.add(lblNewLabel_1);
 		
 		btn_cancel = new JButton("Cancel");
 		btn_cancel.setBounds(445, 215, 128, 23);

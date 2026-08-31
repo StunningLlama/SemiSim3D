@@ -285,7 +285,7 @@ public class SemiSim {
 			SwingUtilities.updateComponentTreeUI(sim.materialmanager);
 			SwingUtilities.updateComponentTreeUI(sim.materialviewer);
 			SwingUtilities.updateComponentTreeUI(sim.prefs);
-			SwingUtilities.updateComponentTreeUI(sim.codeeditor);
+			SwingUtilities.updateComponentTreeUI(sim.codeeditor); sim.codeeditor.updateHighlight();
 			if (sim.controls.browser != null) SwingUtilities.updateComponentTreeUI(sim.controls.browser);
 
 			for (Plot p : sim.plots) SwingUtilities.updateComponentTreeUI(p.frame);

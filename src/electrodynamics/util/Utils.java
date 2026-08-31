@@ -296,17 +296,77 @@ public class Utils {
 
 	public static double bilinearinterp_extrap(double[][][] array, double x, double y, double z) {
 		return bilinearinterp(array, x, y, z);
-		//TODO
 	}
 	
 	public static double bilinearinterp_extrap(double[][][] array, double[][][] ref, double x, double y, double z) {
 		return bilinearinterp(array, x, y, z);
-		//TODO
 	}
 	
 	public static double bilinearinterp_charge(double[][][] array, double x, double y, double z) {
-		return bilinearinterp(array, x, y, z);
-		//TODO
+
+		int i0 = (int)Math.floor(x);
+		int j0 = (int)Math.floor(y);
+		int k0 = (int)Math.floor(z);
+		int i1 = i0+1;
+		int j1 = j0+1;
+		int k1 = k0+1;
+
+		if (i0 < 0) i0 = 0;
+		if (j0 < 0) j0 = 0;
+		if (k0 < 0) k0 = 0;
+
+		if (i0 >= nx) i0 = nx-1;
+		if (j0 >= ny) j0 = ny-1;
+		if (k0 >= nz) k0 = nz-1;
+
+		if (i1 < 0) i1 = 0;
+		if (j1 < 0) j1 = 0;
+		if (k1 < 0) k1 = 0;
+
+		if (i1 >= nx) i1 = nx-1;
+		if (j1 >= ny) j1 = ny-1;
+		if (k1 >= nz) k1 = nz-1;
+
+		double fx = x-i0;
+		double fy = y-j0;
+		double fz = z-k0;
+		
+		double a0 = Math.log(Math.abs(array[i0][j0][k0]));
+		double a1 = Math.log(Math.abs(array[i1][j0][k0]));
+		double a2 = Math.log(Math.abs(array[i0][j1][k0]));
+		double a3 = Math.log(Math.abs(array[i1][j1][k0]));
+		double a4 = Math.log(Math.abs(array[i0][j0][k1]));
+		double a5 = Math.log(Math.abs(array[i1][j0][k1]));
+		double a6 = Math.log(Math.abs(array[i0][j1][k1]));
+		double a7 = Math.log(Math.abs(array[i1][j1][k1]));
+
+		double denom;
+		{
+			double x0y0 = (1-fz)*(Double.isFinite(a0)?1:0) + fz*(Double.isFinite(a4)?1:0);
+			double x1y0 = (1-fz)*(Double.isFinite(a1)?1:0) + fz*(Double.isFinite(a5)?1:0);
+			double x0y1 = (1-fz)*(Double.isFinite(a2)?1:0) + fz*(Double.isFinite(a6)?1:0);
+			double x1y1 = (1-fz)*(Double.isFinite(a3)?1:0) + fz*(Double.isFinite(a7)?1:0);
+
+			double x0 = (1-fy)*x0y0 + fy*x0y1;
+			double x1 = (1-fy)*x1y0 + fy*x1y1;
+
+			denom = x0*(1-fx)+x1*fx;
+		}
+
+		double num;
+		{
+			double x0y0 = (1-fz)*(Double.isFinite(a0)?a0:0) + fz*(Double.isFinite(a4)?a4:0);
+			double x1y0 = (1-fz)*(Double.isFinite(a1)?a1:0) + fz*(Double.isFinite(a5)?a5:0);
+			double x0y1 = (1-fz)*(Double.isFinite(a2)?a2:0) + fz*(Double.isFinite(a6)?a6:0);
+			double x1y1 = (1-fz)*(Double.isFinite(a3)?a3:0) + fz*(Double.isFinite(a7)?a7:0);
+
+			double x0 = (1-fy)*x0y0 + fy*x0y1;
+			double x1 = (1-fy)*x1y0 + fy*x1y1;
+
+			num = x0*(1-fx)+x1*fx;
+		}
+		
+		return Math.exp(num/denom);
 	}
 
 	// Misc
